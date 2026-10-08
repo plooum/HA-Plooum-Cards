@@ -1,6 +1,12 @@
 import { LitElement, html, css } from 'lit';
 
-const CARD_VERSION = '1.0.1';
+const CARD_VERSION = '1.1.0';
+
+// States treated as "unavailable" (on top of an entity that doesn't exist).
+const UNAVAILABLE_STATES = ['unavailable', 'unknown'];
+const DEFAULT_COLOR_ON = '#66bb6a';
+const DEFAULT_COLOR_OFF = '#757575';
+const DEFAULT_COLOR_UNAVAILABLE = '#ef5350';
 
 class HaPlooumMultiStatusCard extends LitElement {
   static get properties() {
@@ -83,8 +89,15 @@ class HaPlooumMultiStatusCard extends LitElement {
         <div class="status">
           ${statusItems.map(item => {
             const entState = this.hass.states ? this.hass.states[item.entity] : null;
-            const isOn = entState && entState.state === 'on';
-            const color = isOn ? (item.color_on || '#66bb6a') : (item.color_off || '#757575');
+            const isUnavailable = !entState || UNAVAILABLE_STATES.includes(entState.state);
+            const isOn = !isUnavailable && entState.state === 'on';
+            let color;
+            if (isUnavailable) {
+              color = item.color_unavailable || DEFAULT_COLOR_UNAVAILABLE;
+            } else {
+              color = isOn ? (item.color_on || DEFAULT_COLOR_ON) : (item.color_off || DEFAULT_COLOR_OFF);
+            }
+            const tooltip = this._itemTooltip(item, entState);
             
             if (item.type === 'svg') {
               let evaluatedSvg = '';
@@ -101,12 +114,13 @@ class HaPlooumMultiStatusCard extends LitElement {
                 `;
               }
               
-              return html`<div style="display: flex; align-items: center;" .innerHTML="${evaluatedSvg}"></div>`;
+              return html`<div style="display: flex; align-items: center;" title="${tooltip}" .innerHTML="${evaluatedSvg}"></div>`;
             } else {
               const icon = isOn ? (item.icon_on || 'mdi:power') : (item.icon_off || 'mdi:power-off');
               return html`
                 <ha-icon 
                   icon="${icon}" 
+                  title="${tooltip}"
                   style="color: ${color}; --mdc-icon-size: ${item.size || '20px'};">
                 </ha-icon>
               `;
@@ -115,6 +129,16 @@ class HaPlooumMultiStatusCard extends LitElement {
         </div>
       </div>
     `;
+  }
+
+  _itemTooltip(item, entState) {
+    if (!entState) {
+      return `${item.entity || '?'}: entity not found`;
+    }
+    const name = entState.attributes.friendly_name || item.entity;
+    // formatEntityState translates the state into the user's language (e.g. "Unavailable").
+    const state = this.hass.formatEntityState ? this.hass.formatEntityState(entState) : entState.state;
+    return `${name}: ${state}`;
   }
 
   _handleAction() {
@@ -332,7 +356,7 @@ class HaPlooumMultiStatusCardEditor extends LitElement {
 
                 <div class="color-pickers-row">
                   <div class="color-field">
-                    <label>Couleur (Allumé)</label>
+                    <label>Color (On)</label>
                     <div class="color-picker-wrapper">
                       <input 
                         type="color" 
@@ -344,7 +368,7 @@ class HaPlooumMultiStatusCardEditor extends LitElement {
                   </div>
 
                   <div class="color-field">
-                    <label>Couleur (Éteint)</label>
+                    <label>Color (Off)</label>
                     <div class="color-picker-wrapper">
                       <input 
                         type="color" 
@@ -352,6 +376,18 @@ class HaPlooumMultiStatusCardEditor extends LitElement {
                         @input="${e => this._updateColor(index, 'color_off', e.target.value)}"
                       />
                       <span>${item.color_off || '#757575'}</span>
+                    </div>
+                  </div>
+
+                  <div class="color-field">
+                    <label>Color (Unavailable)</label>
+                    <div class="color-picker-wrapper">
+                      <input 
+                        type="color" 
+                        .value="${item.color_unavailable || DEFAULT_COLOR_UNAVAILABLE}" 
+                        @input="${e => this._updateColor(index, 'color_unavailable', e.target.value)}"
+                      />
+                      <span>${item.color_unavailable || DEFAULT_COLOR_UNAVAILABLE}</span>
                     </div>
                   </div>
                 </div>
@@ -414,7 +450,8 @@ class HaPlooumMultiStatusCardEditor extends LitElement {
       icon_off: 'mdi:power-off',
       svg_content: '',
       color_on: '#66bb6a',
-      color_off: '#757575'
+      color_off: '#757575',
+      color_unavailable: DEFAULT_COLOR_UNAVAILABLE
     });
     const newConfig = {
       ...this.config,

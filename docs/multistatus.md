@@ -9,6 +9,8 @@ An elegant and compact Home Assistant card designed to track multiple entities (
 - Display the state of a main entity (e.g., temperature).
 - Track multiple boolean entities via changing icon colors (lights, switches, CO2, UV).
 - Support for custom SVG icons or standard MDI icons with independent colors for **On** and **Off** states.
+- Unavailable devices stand out: an entity that is `unavailable`, `unknown` or missing is drawn with a dedicated **Unavailable** color (red by default) instead of looking "Off".
+- Hovering an indicator shows a tooltip with the entity name and its translated state (e.g. `TV Plug: Unavailable`).
 - Configurable click actions (e.g., redirect to a dashboard, toggle an entity state, or execute a script).
 - Built-in visual configuration editor (no need to manually edit YAML unless you want to).
 - Clean, translucent modern styling that seamlessly adapts to all themes.
@@ -39,6 +41,7 @@ You can configure this card either through the Visual Editor or manually via YAM
 | `type` | string | **Required** | Type of indicator to use. Accepts `icon` or `svg`. |
 | `color_on` | string | Optional | Hex/RGB color code when the entity is in the 'On' state. |
 | `color_off` | string | Optional | Hex/RGB color code when the entity is in the 'Off' state. |
+| `color_unavailable` | string | Optional | Hex/RGB color code when the entity is `unavailable`, `unknown` or does not exist. Defaults to `#ef5350`. Set it to the same value as `color_off` to keep the previous behavior. |
 | `icon_on` | string | Optional* | The MDI icon for the 'On' state. *(Required if `type: icon`)* |
 | `icon_off` | string | Optional* | The MDI icon for the 'Off' state. *(Required if `type: icon`)* |
 | `svg_content` | string | Optional* | JS template string returning an SVG. Use `${color}` to inject the state color dynamically. *(Required if `type: svg`)* |
