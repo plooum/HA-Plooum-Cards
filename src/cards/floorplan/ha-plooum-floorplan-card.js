@@ -573,10 +573,13 @@ function hipRoof(rect, z) {
   ];
   return sides.map(({ p, q, d }) => {
     const u = [q[0] - p[0], q[1] - p[1], 0];
+    const v = [d[0] * run, d[1] * run, run * ROOF_PITCH];
     const k = round2((run / len3(u)) * 100);
     return {
-      ...face([p[0], p[1], eave], u, [d[0] * run, d[1] * run, run * ROOF_PITCH]),
+      ...face([p[0], p[1], eave], u, v),
       clip: `polygon(0 0, 100% 0, ${100 - k}% 100%, ${k}% 100%)`,
+      // Plane of the slope, for projected pictures: top-left corner, unit edges, upward normal.
+      plane: { o: [p[0], p[1], eave], a: norm3(u), b: norm3(v), up: norm3(cross3(u, v)) },
     };
   });
 }
@@ -1631,7 +1634,7 @@ class HaPlooumFloorplanCard extends LitElement {
       }
     }
     // A projected picture goes onto the floor and walls of the camera's room, or outdoors onto the
-    // ground and the outdoor rooms of its floor.
+    // ground, the outdoor rooms of its floor, and the outer walls and roof slopes facing it.
     const indoorProjectors = (k, room = null) => projectors.filter((pr) => pr.indoor && pr.room && pr.k === k && (!room || pr.room === room));
     const outdoorProjectors = (k) => projectors.filter((pr) => !pr.indoor && (k === null || pr.k === k));
 
@@ -1706,6 +1709,14 @@ class HaPlooumFloorplanCard extends LitElement {
           if (roomSide * ((seg.o === 'h' ? eye[1] : eye[0]) - seg.at) <= 0) return nothing;
           return this._projections([pr], [...ends[0], top], seg.o === 'h' ? X : Y, [0, 0, -1], [(a - seg.a) * U3, 0, (b - a) * U3, (top - p.z0) * U3]);
         });
+        // Outer walls facing an outdoor camera, seen from outside.
+        if (outer) {
+          const k = seg.o === 'h' ? 1 : 0;
+          for (const pr of outdoorProjectors(null)) {
+            if ((pr.pose.C[k] - seg.at) * seg.normal[k] <= 0.05 || (eye[k] - seg.at) * seg.normal[k] <= 0) continue;
+            pictures.push(this._projections([pr], [...ends[0], top], seg.o === 'h' ? X : Y, [0, 0, -1], [0, 0, f.w, f.h]));
+          }
+        }
         faces.push({ f, cls: outer ? 'wall' : 'wall inner', style: wallColor(f.n), content: pictures.length ? pictures : nothing });
         const capOrigin = seg.o === 'h' ? [seg.a, seg.at - WALL_CAP / 2, top] : [seg.at - WALL_CAP / 2, seg.a, top];
         faces.push({ f: face(capOrigin, u, seg.o === 'h' ? [0, WALL_CAP, 0] : [WALL_CAP, 0, 0]), cls: 'cap' });
@@ -1740,7 +1751,16 @@ class HaPlooumFloorplanCard extends LitElement {
       const above = s.shown.filter((q) => q.k > p.k).flatMap((q) => q.indoor);
       for (const rect of roofRects(p.indoor, above)) {
         for (const r of hipRoof(rect, p.z0 + H)) {
-          faces.push({ f: r, cls: 'roof', clip: r.clip, style: `background-color: color-mix(in srgb, var(--fp3-roof) ${shade(r.n, 45)}%, #000);` });
+          // Slopes facing an outdoor camera get its picture.
+          const { o, a, b, up } = r.plane;
+          const seenBy = outdoorProjectors(null).filter((pr) => dot3(sub3(pr.pose.C, o), up) > 0.05 && dot3(sub3(eye, o), up) > 0);
+          faces.push({
+            f: r,
+            cls: 'roof',
+            clip: r.clip,
+            style: `background-color: color-mix(in srgb, var(--fp3-roof) ${shade(r.n, 45)}%, #000);`,
+            content: this._projections(seenBy, o, a, b, [0, 0, r.w, r.h]),
+          });
         }
       }
     }

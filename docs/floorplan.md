@@ -31,7 +31,7 @@ Switch it to **3D** and the same plan becomes a model of your home and garden, w
   - `none`: no screens; the camera bar still flies to each camera.
 - **Tap a camera's screen** to fly right behind the camera, facing its picture, which switches to the live stream; tap it again to open the camera's details. While zoomed on a camera, the `←` / `→` keys go to the previous / next one.
 - **Camera bar**: the chips at the bottom of the view list every camera of the home. A tap flies to that camera, opening its floor first if needed (an indoor camera only shows when its floor is open).
-- **Projection** (`projection: true` on a camera): the camera's picture is cast onto the floor and walls of its room, or outdoors onto the ground and the outdoor rooms of its floor, the way a projector standing where the camera is would light them. You see what the camera films right where it is in the home. The camera's setting must be right for the picture to fall in place: check it with the editor's camera view (below). Lens distortion isn't modeled (wide-angle pictures only match near their center), anything standing in the room is flattened onto the floor, and outdoors the house doesn't hide the ground behind it.
+- **Projection** (`projection: true` on a camera): the camera's picture is cast onto the floor and walls of its room, or outdoors onto the ground, the outdoor rooms of its floor and the outer walls and roof slopes facing it, the way a projector standing where the camera is would light them. You see what the camera films right where it is in the home. The camera's setting must be right for the picture to fall in place: check it with the editor's camera view (below). Lens distortion isn't modeled (wide-angle pictures only match near their center), anything standing in the room is flattened onto the floor, and outdoors the house doesn't hide what is behind it from the camera (the ground behind it, or a wall behind another wing).
 - Screens show a snapshot refreshed every 3 s (`refresh_interval`), or the live stream with `camera_view: live`. Projected pictures are always snapshots.
 - Room names on the floor turn by quarter turns to read upright from where you look.
 - Grid units are taken as meters: walls are 2.5 high (`wall_height`). The roof is a best effort: the plan says nothing about it, so a hip roof is generated over each part of the home that no floor covers.
@@ -108,7 +108,7 @@ Walls shared by two rooms are drawn thin; outer walls are drawn thick.
 | `height` | number | Cameras only: height above the floor, default `2.2`. |
 | `screen_size` | number | Cameras only: max width of its screen in 3D, default `2.4`. |
 | `screen_distance` | number | Cameras only: max distance from the camera to its screen in 3D, default `2.5` (the screen always stops before the first wall). |
-| `projection` | boolean | Cameras only: in 3D, project the picture onto the floor and walls the camera sees. Default `false`. |
+| `projection` | boolean | Cameras only: in 3D, project the picture onto what the camera sees: the floor and walls of its room, or outdoors the ground, the outer walls and the roof. Default `false`. |
 
 How each entity is shown:
 

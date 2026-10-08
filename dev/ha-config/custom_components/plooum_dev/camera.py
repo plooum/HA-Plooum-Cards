@@ -4,10 +4,10 @@ Each camera draws a simple scene (sky and lawn outdoors, wall and floor indoors)
 name and the current time, so that image refreshes are visible. Availability can follow an
 input_boolean, for the `unavailable` case.
 
-The living room camera films its room for real: the room of the test dashboard's plan, seen from
-where the camera is placed on it (ROOM_VIEW). Its picture, projected onto the room in the card's 3D
-view, must fall exactly on the floor and walls, and its checkerboard corners are known points for
-the editor's point matching.
+The living room camera films its room for real, and the garden camera the house: as seen from where
+they are placed on the test dashboard's plan (ROOM_VIEW, HOUSE_VIEW). Their pictures, projected in
+the card's 3D view, must fall exactly on the floor, walls and ground, and their checkerboard corners
+are known points for the editor's point matching.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
 # name, scene, colors (top, bottom), availability entity
 CAMERAS = [
-    ("Garden Camera", "outdoor", ((120, 170, 230), (70, 140, 70)), None),
+    ("Garden Camera", "house", ((120, 170, 230), (70, 140, 70)), None),
     ("Driveway Camera", "outdoor", ((150, 180, 220), (110, 110, 115)), None),
     ("Living Room Camera", "room", ((205, 190, 170), (140, 100, 70)), None),
     ("Kitchen Camera", "indoor", ((225, 225, 215), (170, 160, 150)), None),
@@ -34,9 +34,11 @@ CAMERAS = [
 ]
 WIDTH, HEIGHT = 640, 360
 
-# The Living Room of plooum-test.yaml (x, y, w, h; 2.5 high) and its camera: position, height,
-# direction (clockwise from the top of the plan), tilt (down) and horizontal field of view.
-# Keep them in sync with the dashboard.
+# Scenes filmed for real, as the cameras placed on the test dashboard's floorplan view see them:
+# camera position (x, y, height), direction (clockwise from the top of the plan), tilt (down) and
+# horizontal field of view. Keep them in sync with plooum-test.yaml.
+#
+# The Living Room (x, y, w, h; 2.5 high), filmed from inside.
 ROOM_VIEW = {
     "room": (0, 0, 7, 5, 2.5),
     "camera": (0.25, 0.25, 2.2),
@@ -44,51 +46,93 @@ ROOM_VIEW = {
     "tilt": 15,
     "fov": 100,
 }
-WALL_COLORS = [(222, 120, 110), (110, 170, 222), (130, 200, 130), (230, 200, 110)]  # top, right, bottom, left
+# The house filmed from the garden: the ground floor (11 x 5, 2.5 high) and the upstairs floor
+# (8 x 4, from the slab at 2.5 up to 5.25), as boxes (x0, y0, z0, x1, y1, z1), on a grey
+# checkerboard. Roofs aren't drawn.
+HOUSE_VIEW = {
+    "boxes": [(0, 0, 0, 11, 5, 2.5), (0, 0, 2.5, 8, 4, 5.25)],
+    "lawn": (-4, -4, 18, 13),
+    "camera": (14, 10, 2.2),
+    "direction": 310,
+    "tilt": 12,
+    "fov": 90,
+}
+# Wall colors by the side they face: north (-y), east (+x), south (+y), west (-x).
+WALL_COLORS = [(222, 120, 110), (110, 170, 222), (130, 200, 130), (230, 200, 110)]
+
+Polygon = tuple[list[tuple[float, float, float]], tuple[int, int, int], tuple[float, float, float] | None]
 
 
-def _room_polygons() -> list[tuple[list[tuple[float, float, float]], tuple[int, int, int]]]:
-    """Faces of the room seen from inside: a checkerboard floor and striped walls (1-unit tiles)."""
-    x0, y0, w, h, wall = ROOM_VIEW["room"]
-    faces = []
-    for i in range(int(w)):
-        for j in range(int(h)):
-            dark = (i + j) % 2 == 0
-            color = (95, 80, 70) if dark else (215, 205, 190)
-            x, y = x0 + i, y0 + j
-            faces.append(([(x, y, 0), (x + 1, y, 0), (x + 1, y + 1, 0), (x, y + 1, 0)], color))
-    # Walls: top (y = y0), right (x = x0 + w), bottom (y = y0 + h), left (x = x0).
-    walls = [
-        ([(x0 + t, y0) for t in range(int(w) + 1)]),
-        ([(x0 + w, y0 + t) for t in range(int(h) + 1)]),
-        ([(x0 + w - t, y0 + h) for t in range(int(w) + 1)]),
-        ([(x0, y0 + h - t) for t in range(int(h) + 1)]),
+def _striped_wall(a: tuple[float, float], b: tuple[float, float], z0: float, z1: float, side: int, normal) -> list[Polygon]:
+    """A wall from a to b in 1-unit stripes of alternating shades."""
+    length = math.dist(a, b)
+    steps = max(1, round(length))
+    out = []
+    for k in range(steps):
+        t0, t1 = k / steps, (k + 1) / steps
+        p = (a[0] + (b[0] - a[0]) * t0, a[1] + (b[1] - a[1]) * t0)
+        q = (a[0] + (b[0] - a[0]) * t1, a[1] + (b[1] - a[1]) * t1)
+        color = tuple(int(c * (1.0 if k % 2 == 0 else 0.82)) for c in WALL_COLORS[side])
+        out.append(([(p[0], p[1], z0), (q[0], q[1], z0), (q[0], q[1], z1), (p[0], p[1], z1)], color, normal))
+    return out
+
+
+def _checkerboard(x0: int, y0: int, x1: int, y1: int, dark, light) -> list[Polygon]:
+    return [
+        ([(x, y, 0), (x + 1, y, 0), (x + 1, y + 1, 0), (x, y + 1, 0)], dark if (x + y) % 2 == 0 else light, None)
+        for x in range(x0, x1)
+        for y in range(y0, y1)
     ]
-    for side, points in enumerate(walls):
-        base = WALL_COLORS[side]
-        for k in range(len(points) - 1):
-            (ax, ay), (bx, by) = points[k], points[k + 1]
-            shade = 1.0 if k % 2 == 0 else 0.82
-            color = tuple(int(c * shade) for c in base)
-            faces.append(([(ax, ay, 0), (bx, by, 0), (bx, by, wall), (ax, ay, wall)], color))
-    faces.append(([(x0, y0, wall), (x0 + w, y0, wall), (x0 + w, y0 + h, wall), (x0, y0 + h, wall)], (240, 240, 236)))
+
+
+def _room_polygons() -> list[Polygon]:
+    """The room seen from inside: a checkerboard floor, striped walls and the ceiling."""
+    x0, y0, w, h, wall = ROOM_VIEW["room"]
+    x1, y1 = x0 + w, y0 + h
+    faces = _checkerboard(x0, y0, x1, y1, (95, 80, 70), (215, 205, 190))
+    faces += _striped_wall((x0, y0), (x1, y0), 0, wall, 0, None)
+    faces += _striped_wall((x1, y0), (x1, y1), 0, wall, 1, None)
+    faces += _striped_wall((x1, y1), (x0, y1), 0, wall, 2, None)
+    faces += _striped_wall((x0, y1), (x0, y0), 0, wall, 3, None)
+    faces.append(([(x0, y0, wall), (x1, y0, wall), (x1, y1, wall), (x0, y1, wall)], (240, 240, 236), None))
     return faces
 
 
-def draw_room(draw: ImageDraw.ImageDraw) -> None:
-    """Pinhole view of the room, with the same camera model as the floorplan card."""
-    cx, cy, cz = ROOM_VIEW["camera"]
-    d = math.radians(ROOM_VIEW["direction"])
-    t = math.radians(ROOM_VIEW["tilt"])
+def _house_polygons() -> list[Polygon]:
+    """The house seen from outside: its boxes' striped walls and flat tops, on a grey checkerboard."""
+    faces = _checkerboard(*HOUSE_VIEW["lawn"], (85, 85, 90), (195, 195, 200))
+    for x0, y0, z0, x1, y1, z1 in HOUSE_VIEW["boxes"]:
+        faces += _striped_wall((x0, y0), (x1, y0), z0, z1, 0, (0, -1, 0))
+        faces += _striped_wall((x1, y0), (x1, y1), z0, z1, 1, (1, 0, 0))
+        faces += _striped_wall((x1, y1), (x0, y1), z0, z1, 2, (0, 1, 0))
+        faces += _striped_wall((x0, y1), (x0, y0), z0, z1, 3, (-1, 0, 0))
+        faces.append(([(x0, y0, z1), (x1, y0, z1), (x1, y1, z1), (x0, y1, z1)], (200, 200, 196), (0, 0, 1)))
+    return faces
+
+
+def draw_view(draw: ImageDraw.ImageDraw, view: dict, polygons: list[Polygon]) -> None:
+    """Pinhole view of polygons, with the same camera model as the floorplan card. Polygons with a
+    normal are culled when facing away and drawn far to near, after those without (the ground)."""
+    cx, cy, cz = view["camera"]
+    d = math.radians(view["direction"])
+    t = math.radians(view["tilt"])
     dx, dy = math.sin(d), -math.cos(d)
     fwd = (dx * math.cos(t), dy * math.cos(t), -math.sin(t))
     right = (-dy, dx, 0.0)
     up = (fwd[1] * right[2] - fwd[2] * right[1], fwd[2] * right[0] - fwd[0] * right[2], fwd[0] * right[1] - fwd[1] * right[0])
-    focal = (WIDTH / 2) / math.tan(math.radians(ROOM_VIEW["fov"]) / 2)
+    focal = (WIDTH / 2) / math.tan(math.radians(view["fov"]) / 2)
     dot = lambda a, b: a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
     near = 0.05
-    for poly, color in _room_polygons():
-        cam = [tuple(p[i] - c for i, c in enumerate((cx, cy, cz))) for p in poly]
+    cam_pos = (cx, cy, cz)
+
+    def distance(poly):
+        n = len(poly[0])
+        return math.dist(cam_pos, tuple(sum(p[i] for p in poly[0]) / n for i in range(3)))
+
+    flat = [pg for pg in polygons if pg[2] is None]
+    solid = [pg for pg in polygons if pg[2] is not None and dot(tuple(c - v for c, v in zip(cam_pos, pg[0][0])), pg[2]) > 0]
+    for poly, color, _ in flat + sorted(solid, key=distance, reverse=True):
+        cam = [tuple(p[i] - c for i, c in enumerate(cam_pos)) for p in poly]
         # Clip against the near plane (depth along fwd >= near).
         clipped = []
         for k, a in enumerate(cam):
@@ -119,7 +163,9 @@ def draw_frame(name: str, scene: str, colors: tuple, width: int, height: int) ->
     draw.rectangle([0, horizon, WIDTH, HEIGHT], fill=bottom)
     now = time.time()
     if scene == "room":
-        draw_room(draw)
+        draw_view(draw, ROOM_VIEW, _room_polygons())
+    elif scene == "house":
+        draw_view(draw, HOUSE_VIEW, _house_polygons())
     elif scene == "outdoor":
         # A sun that crosses the sky once a minute.
         x = (now % 60) / 60 * WIDTH
@@ -137,7 +183,7 @@ def draw_frame(name: str, scene: str, colors: tuple, width: int, height: int) ->
         draw.ellipse([x - 20, 100, x + 20, 140], fill=(255, 210, 120))
     font = ImageFont.load_default(size=30)
     small = ImageFont.load_default(size=22)
-    if scene == "room":
+    if scene in ("room", "house"):
         # A small label, to keep most of the room visible.
         draw.rectangle([0, HEIGHT - 30, 330, HEIGHT], fill=(0, 0, 0))
         draw.text((8, HEIGHT - 27), f"{name} {time.strftime('%H:%M:%S')}", fill=(255, 255, 255), font=small)

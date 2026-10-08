@@ -180,9 +180,11 @@ views:
                   - { entity: switch.does_not_exist, x: 1, y: 4 }
                   # Outside any room: shown as a badge.
                   - { entity: counter.ptz_presses, x: 12, y: 2 }
-                  # Cameras on an outer wall looking out (outdoors), and indoors.
-                  # Projected onto the ground and the terrace.
-                  - { entity: camera.garden_camera, x: 3.5, y: 5, direction: 180, projection: true }
+                  # Cameras outdoors (on an outer wall looking out, in the garden) and indoors.
+                  # In the garden, looking at the house; films it for real (HOUSE_VIEW in
+                  # plooum_dev/camera.py: keep in sync): projected, its picture must fall exactly
+                  # on the ground, the outer walls and the roof slopes facing it.
+                  - { entity: camera.garden_camera, x: 14, y: 10, direction: 310, tilt: 12, projection: true }
                   - { entity: camera.driveway_camera, x: 11, y: 1.5, direction: 90, fov: 70 }
                   # Films the Living Room for real (ROOM_VIEW in plooum_dev/camera.py: keep in sync):
                   # projected, its picture must fall exactly on the floor and walls.
