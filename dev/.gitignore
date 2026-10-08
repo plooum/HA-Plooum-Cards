@@ -1,0 +1,12 @@
+.venv/
+.ha.pid
+.ha-token
+ha.log*
+shots/
+__pycache__/
+
+# ha-config: only the hand-written config is versioned, not HA's runtime state.
+ha-config/*
+!ha-config/configuration.yaml
+!ha-config/dashboards/
+!ha-config/custom_components/

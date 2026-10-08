@@ -1,0 +1,242 @@
+# Development Home Assistant for HA-Plooum-Cards.
+# Started by dev/ha.sh — see CLAUDE.md, "Testing" section.
+#
+# Every test entity can be driven: through its own services (toggle,
+# set_cover_position...) or through the input_* helpers backing it.
+
+homeassistant:
+  name: Plooum Dev
+  unit_system: metric
+  time_zone: Europe/Paris
+  country: FR
+  language: en
+  currency: EUR
+  latitude: 48.8566
+  longitude: 2.3522
+  elevation: 35
+  auth_providers:
+    # First, so the local browser (Claude Code pane, Chrome) logs in
+    # automatically, without a login screen.
+    - type: trusted_networks
+      trusted_networks:
+        - 127.0.0.1/32
+        - ::1/128
+      allow_bypass_login: true
+    # Needed for the scripted onboarding and tokens (dev/bootstrap.py).
+    - type: homeassistant
+
+# No `http:` block here: since HA 2026.x it is migrated into a "pending" config that
+# must be confirmed in the UI. dev/ha.sh seeds .storage/http (listens on 127.0.0.1:8123).
+
+frontend:
+config:
+# The frontend calls recorder/info: without recorder, every page load logs an
+# "unknown_command" rejection (console noise). history is used by more-info dialogs.
+recorder:
+  purge_keep_days: 1
+history:
+logger:
+  default: warning
+  logs:
+    custom_components.plooum_dev: info
+
+# Serves ../../ha-plooum-cards.js (and its sourcemap) without caching under /plooum_dev/:
+# `npm run build` + a page reload is enough to test.
+plooum_dev:
+
+lovelace:
+  resource_mode: yaml
+  # Loaded as a Lovelace resource, exactly like a HACS install in production.
+  # (frontend: extra_module_url loads too early, before the frontend's custom
+  # element registry polyfill: the cards would never be found.)
+  resources:
+    - url: /plooum_dev/ha-plooum-cards.js
+      type: module
+  dashboards:
+    plooum-test:
+      mode: yaml
+      title: Plooum Test
+      icon: mdi:test-tube
+      show_in_sidebar: true
+      filename: dashboards/plooum-test.yaml
+
+# ---------------------------------------------------------------------------
+# Test entities
+# ---------------------------------------------------------------------------
+
+input_boolean:
+  living_room_light:
+    name: Living room light (backing)
+  tv_plug:
+    name: TV plug (backing)
+  tv_plug_available:
+    name: TV plug available
+    initial: true
+  aquarium_pump:
+    name: Aquarium pump
+    icon: mdi:pump
+  aquarium_co2:
+    name: Aquarium CO2
+    icon: mdi:molecule-co2
+  aquarium_uv:
+    name: Aquarium UV
+  mower:
+    name: Mower
+    icon: mdi:robot-mower
+
+input_number:
+  living_room_temperature:
+    name: Living room temperature (backing)
+    min: -10
+    max: 40
+    step: 0.1
+    initial: 21.4
+  living_room_humidity:
+    name: Living room humidity (backing)
+    min: 0
+    max: 100
+    step: 1
+    initial: 48
+  living_room_cover_position:
+    name: Living room cover position (backing)
+    min: 0
+    max: 100
+    step: 1
+    initial: 100
+  bedroom_cover_position:
+    name: Bedroom cover position (backing)
+    min: 0
+    max: 100
+    step: 1
+    initial: 30
+
+counter:
+  ptz_presses:
+    name: PTZ presses
+  script_runs:
+    name: Script runs
+
+script:
+  test_script:
+    alias: Test script
+    sequence:
+      - action: counter.increment
+        target:
+          entity_id: counter.script_runs
+
+template:
+  - sensor:
+      - name: Living Room Temperature
+        unique_id: plooum_dev_living_room_temperature
+        state: "{{ states('input_number.living_room_temperature') }}"
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+      - name: Living Room Humidity
+        unique_id: plooum_dev_living_room_humidity
+        state: "{{ states('input_number.living_room_humidity') }}"
+        unit_of_measurement: "%"
+        device_class: humidity
+        state_class: measurement
+
+    light:
+      - name: Living Room Light
+        unique_id: plooum_dev_living_room_light
+        state: "{{ is_state('input_boolean.living_room_light', 'on') }}"
+        turn_on:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.living_room_light
+        turn_off:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.living_room_light
+
+    switch:
+      # Becomes "unavailable" when input_boolean.tv_plug_available is off.
+      - name: TV Plug
+        unique_id: plooum_dev_tv_plug
+        state: "{{ is_state('input_boolean.tv_plug', 'on') }}"
+        availability: "{{ is_state('input_boolean.tv_plug_available', 'on') }}"
+        turn_on:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.tv_plug
+        turn_off:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.tv_plug
+
+    cover:
+      - name: Living Room Cover
+        unique_id: plooum_dev_living_room_cover
+        device_class: shutter
+        position: "{{ states('input_number.living_room_cover_position') | int }}"
+        open_cover:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.living_room_cover_position
+            data:
+              value: 100
+        close_cover:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.living_room_cover_position
+            data:
+              value: 0
+        stop_cover: []
+        set_cover_position:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.living_room_cover_position
+            data:
+              value: "{{ position }}"
+      - name: Bedroom Cover
+        unique_id: plooum_dev_bedroom_cover
+        device_class: shutter
+        position: "{{ states('input_number.bedroom_cover_position') | int }}"
+        open_cover:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.bedroom_cover_position
+            data:
+              value: 100
+        close_cover:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.bedroom_cover_position
+            data:
+              value: 0
+        stop_cover: []
+        set_cover_position:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.bedroom_cover_position
+            data:
+              value: "{{ position }}"
+
+    button:
+      - name: PTZ Up
+        unique_id: plooum_dev_ptz_up
+        press:
+          - action: counter.increment
+            target:
+              entity_id: counter.ptz_presses
+      - name: PTZ Down
+        unique_id: plooum_dev_ptz_down
+        press:
+          - action: counter.increment
+            target:
+              entity_id: counter.ptz_presses
+      - name: PTZ Left
+        unique_id: plooum_dev_ptz_left
+        press:
+          - action: counter.increment
+            target:
+              entity_id: counter.ptz_presses
+      - name: PTZ Right
+        unique_id: plooum_dev_ptz_right
+        press:
+          - action: counter.increment
+            target:
+              entity_id: counter.ptz_presses

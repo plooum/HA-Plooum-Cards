@@ -1,0 +1,145 @@
+# Test dashboard — http://127.0.0.1:8123/plooum-test/<view path>
+# One view per card (path = slug of the src/cards/<name> folder), plus "all".
+# Re-read on every page reload (yaml mode): no HA restart needed.
+# dev/bootstrap.py also seeds the UI-editable /plooum-edit dashboard from this file.
+
+title: Plooum Test
+views:
+  - title: All
+    path: all
+    cards:
+      - type: custom:ha-plooum-multi-status-card
+        title: Aquarium
+        tap_action_type: none
+        temp_entity: sensor.living_room_temperature
+        status_items:
+          - entity: input_boolean.aquarium_pump
+            type: icon
+            icon_on: mdi:pump
+            icon_off: mdi:pump-off
+          - entity: input_boolean.aquarium_co2
+            type: icon
+            icon_on: mdi:molecule-co2
+            icon_off: mdi:molecule-co2
+          - entity: switch.tv_plug
+            type: icon
+            icon_on: mdi:television
+            icon_off: mdi:television-off
+      - type: custom:ha-plooum-temp-humidity-card
+        title: Living Room
+        temp_entity: sensor.living_room_temperature
+        humidity_entity: sensor.living_room_humidity
+      - type: custom:ha-plooum-buttonbadge-card
+        entity: light.living_room_light
+        name: Living Room
+        icon: mdi:ceiling-light
+        tap_action_type: toggle
+        badge_entity: switch.tv_plug
+        badge_icon: mdi:television
+        badge_tap_action_type: toggle
+      - type: custom:ha-plooum-gridicons-card
+        icons:
+          - entity: light.living_room_light
+            icon: mdi:ceiling-light
+            tap_action: { action: toggle }
+          - entity: input_boolean.mower
+            icon: mdi:robot-mower
+            tap_action: { action: toggle }
+          - entity: switch.tv_plug
+            icon: mdi:television
+            tap_action: { action: toggle }
+      - type: custom:ha-plooum-cover-card
+        lock_enabled: false
+        covers:
+          - entity: cover.living_room_cover
+            name: Living Room
+          - entity: cover.bedroom_cover
+            name: Bedroom
+      - type: custom:ha-plooum-dpad-card
+        up_action_type: press
+        up_entity: button.ptz_up
+        down_action_type: press
+        down_entity: button.ptz_down
+        left_action_type: press
+        left_entity: button.ptz_left
+        right_action_type: press
+        right_entity: button.ptz_right
+        center_action_type: execute_script
+        center_script: script.test_script
+      - type: custom:ha-plooum-tabs-card
+        tabs:
+          - name: LIVING ROOM
+            cards:
+              - type: entities
+                entities: [light.living_room_light, switch.tv_plug]
+          - name: AQUARIUM
+            cards:
+              - type: entities
+                entities: [input_boolean.aquarium_pump, input_boolean.aquarium_co2]
+      # Controls to vary states during manual tests.
+      - type: entities
+        title: Test controls
+        entities:
+          - input_number.living_room_temperature
+          - input_number.living_room_humidity
+          - input_boolean.tv_plug_available
+          - input_boolean.aquarium_uv
+          - counter.ptz_presses
+          - counter.script_runs
+
+  - title: Multi Status
+    path: multistatus
+    cards:
+      - type: custom:ha-plooum-multi-status-card
+        title: Aquarium
+        tap_action_type: toggle
+        tap_action_entity: input_boolean.aquarium_pump
+        temp_entity: sensor.living_room_temperature
+        status_items:
+          - entity: input_boolean.aquarium_pump
+            type: icon
+            icon_on: mdi:pump
+            icon_off: mdi:pump-off
+          - entity: input_boolean.aquarium_co2
+            type: icon
+            icon_on: mdi:molecule-co2
+            icon_off: mdi:molecule-co2
+            color_on: "#29b6f6"
+          - entity: input_boolean.aquarium_uv
+            type: svg
+            color_on: "#ab47bc"
+            svg_content: |
+              (color) => `
+                <svg viewBox="0 0 24 24" style="width: 22px; height: 22px; fill: ${color};">
+                  <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4Z" opacity="0.3" />
+                  <text x="12" y="15.5" font-size="10" font-weight="900" font-family="Roboto, sans-serif" text-anchor="middle" fill="${color}">UV</text>
+                </svg>
+              `
+          - entity: switch.tv_plug
+            type: icon
+            icon_on: mdi:television
+            icon_off: mdi:television-off
+          # Missing entity: must stay readable without breaking the card.
+          - entity: switch.does_not_exist
+            type: icon
+            icon_on: mdi:help-circle
+            icon_off: mdi:help-circle-outline
+      - type: custom:ha-plooum-multi-status-card
+        title: No main value
+        tap_action_type: none
+        show_temp: false
+        status_items:
+          - entity: light.living_room_light
+            type: icon
+            icon_on: mdi:lightbulb
+            icon_off: mdi:lightbulb-off
+            color_on: "#fdd835"
+      - type: entities
+        title: Test controls
+        entities:
+          - input_boolean.aquarium_pump
+          - input_boolean.aquarium_co2
+          - input_boolean.aquarium_uv
+          - input_boolean.tv_plug
+          - input_boolean.tv_plug_available
+          - input_number.living_room_temperature

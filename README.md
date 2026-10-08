@@ -106,6 +106,16 @@ npm run build
 
 Cela régénère `ha-plooum-cards.js` (et sa sourcemap) à la racine du dépôt.
 
+### Tester localement
+
+Le dossier [dev/](dev/) contient un Home Assistant de développement (sans Docker), avec des entités de test et un dashboard qui affiche toutes les cartes :
+
+```bash
+dev/ha.sh start   # puis ouvrir http://127.0.0.1:8123/plooum-test/all
+```
+
+Après un `npm run build`, il suffit de recharger la page. Le détail (entités, dashboards, commandes) est dans [CLAUDE.md](CLAUDE.md#testing).
+
 ### Ajouter une nouvelle carte
 
 1. Crée un dossier `src/cards/<nom-carte>/` contenant le fichier source de la carte (avec son propre `customElements.define(...)` et son `window.customCards.push(...)`, en gardant les gardes d'existence `if (!customElements.get(...))` pour éviter les doublons).
