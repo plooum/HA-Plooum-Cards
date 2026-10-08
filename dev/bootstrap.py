@@ -1,8 +1,9 @@
 """Onboard the dev Home Assistant (first run), store a long-lived token, wait for RUNNING,
-and create the UI-editable dashboard /plooum-edit.
+assign the test entities to floors and areas, and create the UI-editable dashboard /plooum-edit.
 
-Idempotent: skips onboarding if dev/.ha-token already holds a valid token, and only
-creates /plooum-edit if it does not exist (seeded from dashboards/plooum-test.yaml).
+Idempotent: skips onboarding if dev/.ha-token already holds a valid token, only creates
+missing floors/areas, and only creates /plooum-edit if it does not exist (seeded from
+dashboards/plooum-test.yaml).
 Run with the dev venv: dev/.venv/bin/python dev/bootstrap.py (dev/ha.sh start does it).
 """
 
@@ -21,6 +22,27 @@ PASSWORD = "plooum-dev"
 TOKEN_FILE = Path(__file__).parent / ".ha-token"
 SEED_DASHBOARD = Path(__file__).parent / "ha-config" / "dashboards" / "plooum-test.yaml"
 EDIT_DASHBOARD = "plooum-edit"
+
+# Floors, areas and their entities, used by the floorplan card's auto-discovery.
+# Area ids are derived from names by HA (e.g. "Living Room" -> living_room);
+# Living Room, Kitchen and Bedroom already exist after onboarding.
+FLOORS = {"Ground Floor": 0, "Upstairs": 1}
+AREAS = {
+    "Living Room": (
+        "Ground Floor",
+        [
+            "light.living_room_light",
+            "switch.tv_plug",
+            "sensor.living_room_temperature",
+            "sensor.living_room_humidity",
+            "cover.living_room_cover",
+        ],
+    ),
+    "Kitchen": ("Ground Floor", ["light.kitchen_light", "sensor.kitchen_temperature"]),
+    "Hallway": ("Ground Floor", ["binary_sensor.front_door", "binary_sensor.hallway_motion"]),
+    "Bedroom": ("Upstairs", ["light.bedroom_light", "sensor.bedroom_temperature", "cover.bedroom_cover"]),
+    "Bathroom": ("Upstairs", []),  # empty room on purpose
+}
 
 
 def auth_headers(token: str) -> dict[str, str]:
@@ -120,6 +142,53 @@ async def wait_running(session: aiohttp.ClientSession) -> None:
     raise RuntimeError("Home Assistant did not reach RUNNING within 120 s")
 
 
+class WsClient:
+    """Minimal authenticated websocket client (one command at a time)."""
+
+    def __init__(self, ws: aiohttp.ClientWebSocketResponse) -> None:
+        self.ws = ws
+        self.msg_id = 0
+
+    @classmethod
+    async def connect(cls, session: aiohttp.ClientSession) -> "WsClient":
+        ws = await session.ws_connect(f"{URL}/api/websocket")
+        await ws.receive_json()  # auth_required
+        await ws.send_json({"type": "auth", "access_token": TOKEN_FILE.read_text().strip()})
+        await ws.receive_json()  # auth_ok
+        return cls(ws)
+
+    async def call(self, **msg) -> dict:
+        self.msg_id += 1
+        await self.ws.send_json({"id": self.msg_id, **msg})
+        result = await self.ws.receive_json()
+        if not result.get("success"):
+            raise RuntimeError(f"{msg['type']} failed: {result}")
+        return result["result"]
+
+
+async def ensure_areas(session: aiohttp.ClientSession) -> None:
+    """Create the test floors/areas if missing and (re)assign their entities."""
+    client = await WsClient.connect(session)
+    try:
+        floors = {f["name"]: f["floor_id"] for f in await client.call(type="config/floor_registry/list")}
+        for name, level in FLOORS.items():
+            if name not in floors:
+                floor = await client.call(type="config/floor_registry/create", name=name, level=level)
+                floors[name] = floor["floor_id"]
+
+        areas = {a["name"]: a for a in await client.call(type="config/area_registry/list")}
+        for name, (floor_name, entity_ids) in AREAS.items():
+            area = areas.get(name)
+            if area is None:
+                area = await client.call(type="config/area_registry/create", name=name, floor_id=floors[floor_name])
+            elif area["floor_id"] != floors[floor_name]:
+                await client.call(type="config/area_registry/update", area_id=area["area_id"], floor_id=floors[floor_name])
+            for entity_id in entity_ids:
+                await client.call(type="config/entity_registry/update", entity_id=entity_id, area_id=area["area_id"])
+    finally:
+        await client.ws.close()
+
+
 async def ensure_edit_dashboard(session: aiohttp.ClientSession) -> None:
     """Storage-mode dashboard: the only kind whose cards can be edited in the UI (card editors)."""
     async with session.ws_connect(f"{URL}/api/websocket") as ws:
@@ -156,6 +225,7 @@ async def main() -> None:
         if not await token_is_valid(session):
             await onboard(session)
         await wait_running(session)
+        await ensure_areas(session)
         await ensure_edit_dashboard(session)
 
 

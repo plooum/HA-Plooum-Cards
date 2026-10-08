@@ -9,6 +9,7 @@
 import './cards/button-badge/ha-plooum-buttonbadge-card.js';
 import './cards/cover/ha-plooum-cover-card.js';
 import './cards/dpad/ha-plooum-dpad-card.js';
+import './cards/floorplan/ha-plooum-floorplan-card.js';
 import './cards/gridicons/ha-plooum-gridicons-card.js';
 import './cards/multistatus/ha-plooum-multi-status-card.js';
 import './cards/tabbed/ha-plooum-tabbed-card.js';

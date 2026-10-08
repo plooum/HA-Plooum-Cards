@@ -76,6 +76,9 @@ views:
             cards:
               - type: entities
                 entities: [input_boolean.aquarium_pump, input_boolean.aquarium_co2]
+      # No floors: generated from the areas seeded by dev/bootstrap.py.
+      - type: custom:ha-plooum-floorplan-card
+        title: Home (generated)
       # Controls to vary states during manual tests.
       - type: entities
         title: Test controls
@@ -143,3 +146,61 @@ views:
           - input_boolean.tv_plug
           - input_boolean.tv_plug_available
           - input_number.living_room_temperature
+
+  - title: Floorplan
+    path: floorplan
+    # Panel view: the plan gets the full width.
+    type: panel
+    cards:
+      - type: vertical-stack
+        cards:
+          - type: custom:ha-plooum-floorplan-card
+            title: Home
+            floors:
+              - name: Ground floor
+                rooms:
+                  - { name: Living Room, icon: "mdi:sofa", x: 0, y: 0, w: 7, h: 5 }
+                  - { name: Kitchen, icon: "mdi:stove", x: 7, y: 0, w: 4, h: 3 }
+                  - { name: Hallway, icon: "mdi:door", x: 7, y: 3, w: 4, h: 2 }
+                entities:
+                  - { entity: light.living_room_light, x: 3, y: 2.5 }
+                  - { entity: switch.tv_plug, x: 5.5, y: 4 }
+                  - { entity: sensor.living_room_temperature, x: 6, y: 1 }
+                  - { entity: sensor.living_room_humidity, x: 6.5, y: 1 }
+                  # Top wall: horizontal window.
+                  - { entity: cover.living_room_cover, x: 3.5, y: 0, length: 2.5 }
+                  - { entity: light.kitchen_light, x: 9, y: 1.5 }
+                  - { entity: sensor.kitchen_temperature, x: 10.5, y: 0.5 }
+                  - { entity: binary_sensor.front_door, x: 10.25, y: 4.25 }
+                  - { entity: binary_sensor.hallway_motion, x: 8, y: 4 }
+                  # Missing entity: must stay readable without breaking the card.
+                  - { entity: switch.does_not_exist, x: 1, y: 4 }
+                  # Outside any room: shown as a badge.
+                  - { entity: counter.ptz_presses, x: 12, y: 2 }
+              - name: Upstairs
+                rooms:
+                  - { name: Bedroom, icon: "mdi:bed", x: 0, y: 0, w: 5, h: 4 }
+                  - { name: Bathroom, x: 5, y: 0, w: 3, h: 4 }
+                entities:
+                  - { entity: light.bedroom_light, x: 2.5, y: 2 }
+                  - { entity: sensor.bedroom_temperature, x: 4.5, y: 0.5 }
+                  # Left wall: vertical window.
+                  - { entity: cover.bedroom_cover, x: 0, y: 2 }
+          - type: horizontal-stack
+            cards:
+              - type: custom:ha-plooum-floorplan-card
+                title: Generated from areas
+              - type: entities
+                title: Test controls
+                entities:
+                  - input_boolean.living_room_light
+                  - input_boolean.kitchen_light
+                  - input_boolean.bedroom_light
+                  - input_boolean.tv_plug_available
+                  - input_boolean.front_door_open
+                  - input_boolean.hallway_motion
+                  - input_number.living_room_temperature
+                  - input_number.kitchen_temperature
+                  - input_number.bedroom_temperature
+                  - input_number.living_room_cover_position
+                  - input_number.bedroom_cover_position

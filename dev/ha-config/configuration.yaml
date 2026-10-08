@@ -83,6 +83,15 @@ input_boolean:
   mower:
     name: Mower
     icon: mdi:robot-mower
+  # Floorplan card: extra rooms (areas are assigned by dev/bootstrap.py).
+  bedroom_light:
+    name: Bedroom light (backing)
+  kitchen_light:
+    name: Kitchen light (backing)
+  front_door_open:
+    name: Front door open (backing)
+  hallway_motion:
+    name: Hallway motion (backing)
 
 input_number:
   living_room_temperature:
@@ -109,6 +118,18 @@ input_number:
     max: 100
     step: 1
     initial: 30
+  bedroom_temperature:
+    name: Bedroom temperature (backing)
+    min: -10
+    max: 40
+    step: 0.1
+    initial: 18.2
+  kitchen_temperature:
+    name: Kitchen temperature (backing)
+    min: -10
+    max: 40
+    step: 0.1
+    initial: 25.6
 
 counter:
   ptz_presses:
@@ -138,6 +159,28 @@ template:
         unit_of_measurement: "%"
         device_class: humidity
         state_class: measurement
+      - name: Bedroom Temperature
+        unique_id: plooum_dev_bedroom_temperature
+        state: "{{ states('input_number.bedroom_temperature') }}"
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+      - name: Kitchen Temperature
+        unique_id: plooum_dev_kitchen_temperature
+        state: "{{ states('input_number.kitchen_temperature') }}"
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+
+    binary_sensor:
+      - name: Front Door
+        unique_id: plooum_dev_front_door
+        device_class: door
+        state: "{{ is_state('input_boolean.front_door_open', 'on') }}"
+      - name: Hallway Motion
+        unique_id: plooum_dev_hallway_motion
+        device_class: motion
+        state: "{{ is_state('input_boolean.hallway_motion', 'on') }}"
 
     light:
       - name: Living Room Light
@@ -151,6 +194,28 @@ template:
           - action: input_boolean.turn_off
             target:
               entity_id: input_boolean.living_room_light
+      - name: Bedroom Light
+        unique_id: plooum_dev_bedroom_light
+        state: "{{ is_state('input_boolean.bedroom_light', 'on') }}"
+        turn_on:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.bedroom_light
+        turn_off:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.bedroom_light
+      - name: Kitchen Light
+        unique_id: plooum_dev_kitchen_light
+        state: "{{ is_state('input_boolean.kitchen_light', 'on') }}"
+        turn_on:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.kitchen_light
+        turn_off:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.kitchen_light
 
     switch:
       # Becomes "unavailable" when input_boolean.tv_plug_available is off.

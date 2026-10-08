@@ -12,6 +12,7 @@ Une collection de cartes Lovelace personnalisées pour Home Assistant, packagée
 | Ha Plooum Button Badge Card | `custom:ha-plooum-buttonbadge-card` | [docs/button-badge.md](docs/button-badge.md) |
 | Ha Plooum Cover Card | `custom:ha-plooum-cover-card` | [docs/cover.md](docs/cover.md) |
 | Ha Plooum D-Pad Card | `custom:ha-plooum-dpad-card` | [docs/dpad.md](docs/dpad.md) |
+| Ha Plooum Floorplan Card | `custom:ha-plooum-floorplan-card` | [docs/floorplan.md](docs/floorplan.md) |
 | HA Plooum GridIcons Card | `custom:ha-plooum-gridicons-card` | [docs/gridicons.md](docs/gridicons.md) |
 | HA Plooum Multi Status Card | `custom:ha-plooum-multi-status-card` | [docs/multistatus.md](docs/multistatus.md) |
 | Ha Plooum Tabs Card | `custom:ha-plooum-tabs-card` | [docs/tabbed.md](docs/tabbed.md) |
@@ -33,6 +34,11 @@ Contrôle de plusieurs volets roulants côte à côte avec sliders verticaux, ic
 Pavé directionnel façon télécommande, idéal pour le contrôle PTZ de caméras.
 
 ![D-Pad preview](docs/previews/dpad.png)
+
+### Ha Plooum Floorplan Card
+Plan vivant de la maison : les pièces éclairées rayonnent autour de leurs lampes, le sol prend la couleur de la température, les volets se ferment sur les fenêtres. Sans configuration, le plan est généré depuis tes pièces Home Assistant ; l'éditeur permet ensuite de dessiner tes pièces et d'y glisser-déposer tes entités, même si elles sont mal rangées dans Home Assistant.
+
+![Floorplan preview](docs/previews/floorplan.png)
 
 ### HA Plooum GridIcons Card
 Rangée compacte d'icônes d'entités dans un pill container, avec couleurs d'état et actions tap/hold.
@@ -91,6 +97,7 @@ src/
     ├── button-badge/
     ├── cover/
     ├── dpad/
+    ├── floorplan/
     ├── gridicons/
     ├── multistatus/
     ├── tabbed/
