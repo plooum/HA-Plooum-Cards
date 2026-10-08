@@ -1,7 +1,7 @@
 // ha-plooum-cover-card.js
 
 // ==========================================
-// 1. CHARGEMENT SÉCURISÉ DE LITELEMENT
+// 1. SAFE LOADING OF LITELEMENT
 // ==========================================
 const getLit = () => {
   if (window.LitElement) {
@@ -30,7 +30,7 @@ if (LitElement) {
 }
 
 // ==========================================
-// 2. INTERFACE DE CONFIGURATION (ÉDITEUR)
+// 2. CONFIGURATION UI (EDITOR)
 // ==========================================
 class PlooumCoverCardEditor extends LitElement {
   static get properties() {
@@ -158,7 +158,7 @@ class PlooumCoverCardEditor extends LitElement {
     if (!this.hass) return html``;
     if (!this._config) return html``;
 
-    // Le verrou est actif par défaut
+    // The lock is enabled by default
     const lockEnabled = this._config.lock_enabled !== false;
 
     let lockDuration = Number(this._config.lock_duration);
@@ -361,11 +361,11 @@ class PlooumCoverCardEditor extends LitElement {
 }
 
 // ==========================================
-// 3. CARTE PRINCIPALE
+// 3. MAIN CARD
 // ==========================================
-const SLIDER_LENGTH = 220;   // longueur (hauteur) du slider en px
-const THUMB_SIZE = 6;        // épaisseur de la poignée en px
-const PENDING_TIMEOUT = 5000; // durée max d'attente d'une confirmation d'état (ms)
+const SLIDER_LENGTH = 220;   // slider length (height) in px
+const THUMB_SIZE = 6;        // thumb thickness in px
+const PENDING_TIMEOUT = 5000; // max time to wait for a state confirmation (ms)
 
 class PlooumCoverCard extends LitElement {
   static get properties() {
@@ -378,10 +378,10 @@ class PlooumCoverCard extends LitElement {
 
   constructor() {
     super();
-    this._unlockedUntil = 0;  // timestamp de fin de déverrouillage
-    this._drag = null;        // { entity, pointerId, value } pendant un glissement
-    this._ignorePointerUntil = 0; // ignore les événements parasites juste après une boîte de dialogue
-    this._pending = {};       // { [entity]: { value, from, timer } } commande envoyée, état pas encore reçu
+    this._unlockedUntil = 0;  // timestamp at which the unlock expires
+    this._drag = null;        // { entity, pointerId, value } while dragging
+    this._ignorePointerUntil = 0; // ignore stray events right after a dialog
+    this._pending = {};       // { [entity]: { value, from, timer } } command sent, state not received yet
   }
 
   disconnectedCallback() {
@@ -420,15 +420,15 @@ class PlooumCoverCard extends LitElement {
         name_color: "#ffffff"
       }, cover))
     });
-    // Un changement de config réinitialise l'état de déverrouillage
+    // A config change resets the unlock state
     this._unlockedUntil = 0;
   }
 
   // ------------------------------------------
-  // Verrou
+  // Lock
   // ------------------------------------------
   _lockEnabled() {
-    // Actif par défaut
+    // Enabled by default
     return this.config.lock_enabled !== false;
   }
 
@@ -438,7 +438,7 @@ class PlooumCoverCard extends LitElement {
     return seconds * 1000;
   }
 
-  // Retourne true si l'action peut être exécutée
+  // Returns true if the action can be executed
   _checkLock() {
     if (!this._lockEnabled()) return true;
 
@@ -451,7 +451,7 @@ class PlooumCoverCard extends LitElement {
     }
     if (!window.confirm(msg)) return false;
 
-    // Durée 0 : on ne mémorise rien, il faudra confirmer à la prochaine action
+    // Duration 0: nothing is remembered, the next action will require confirmation again
     if (duration > 0) {
       this._unlockedUntil = Date.now() + duration;
     }
@@ -468,14 +468,14 @@ class PlooumCoverCard extends LitElement {
   }
 
   // ------------------------------------------
-  // Synchronisation du slider
+  // Slider synchronisation
   // ------------------------------------------
   _positionOf(stateObj) {
     const p = stateObj.attributes.current_position;
     if (typeof p === "number" && isFinite(p)) {
       return Math.min(100, Math.max(0, Math.round(p)));
     }
-    // Volet sans gestion de position
+    // Cover without position support
     if (stateObj.state === "open") return 100;
     return 0;
   }
@@ -497,9 +497,8 @@ class PlooumCoverCard extends LitElement {
     this._pending[entityId] = { value: value, from: from, timer: timer };
   }
 
-  // Valeur à afficher : glissement en cours > commande en attente > état réel.
-  // L'affichage est toujours dérivé, il ne peut donc pas rester bloqué sur une
-  // valeur obsolète.
+  // Value to display: drag in progress > pending command > actual state.
+  // The display is always derived, so it cannot get stuck on a stale value.
   _displayPosition(entityId, realPosition) {
     if (this._drag && this._drag.entity === entityId) {
       return this._drag.value;
@@ -507,9 +506,9 @@ class PlooumCoverCard extends LitElement {
     const pending = this._pending[entityId];
     if (pending) {
       if (pending.from === realPosition) {
-        return pending.value; // HA n'a pas encore répondu
+        return pending.value; // HA has not answered yet
       }
-      this._clearPending(entityId); // l'état a changé : on suit à nouveau l'état réel
+      this._clearPending(entityId); // the state changed: follow the actual state again
     }
     return realPosition;
   }
@@ -525,11 +524,11 @@ class PlooumCoverCard extends LitElement {
 
   _onSliderDown(e, entityId) {
     if (e.pointerType === "mouse" && e.button !== 0) return;
-    if (Date.now() < this._ignorePointerUntil) return; // clic parasite après la boîte de confirmation
-    if (this._drag) return; // un seul glissement à la fois
+    if (Date.now() < this._ignorePointerUntil) return; // stray click after the confirmation dialog
+    if (this._drag) return; // only one drag at a time
     e.preventDefault();
-    // Un nouveau geste annule toute valeur "en attente" d'une action précédente :
-    // si ce geste est annulé, on doit revenir à l'état réel, pas à l'ancienne consigne.
+    // A new gesture cancels any "pending" value from a previous action:
+    // if this gesture is cancelled, we must go back to the actual state, not to the old setpoint.
     this._clearPending(entityId);
     const el = e.currentTarget;
     try { el.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
@@ -543,7 +542,7 @@ class PlooumCoverCard extends LitElement {
   _onSliderMove(e) {
     if (!this._drag || this._drag.pointerId !== e.pointerId) return;
     if (e.pointerType === "mouse" && e.buttons === 0) {
-      this._drag = null; // bouton relâché sans pointerup : on abandonne le glissement
+      this._drag = null; // button released without pointerup: abandon the drag
       return;
     }
     const value = this._valueFromPointer(e, e.currentTarget);
@@ -562,7 +561,7 @@ class PlooumCoverCard extends LitElement {
 
   _onSliderCancel(e) {
     if (!this._drag || this._drag.pointerId !== e.pointerId) return;
-    this._drag = null; // retour à l'état réel
+    this._drag = null; // back to the actual state
   }
 
   _onSliderKey(e, entityId, current) {
@@ -584,26 +583,26 @@ class PlooumCoverCard extends LitElement {
     const real = this._positionOf(stateObj);
     if (value === real) return;
 
-    // On garde la valeur affichée pendant la confirmation
+    // Keep the displayed value during the confirmation
     this._setPending(entityId, value, real);
     this.requestUpdate();
 
-    // La confirmation est ouverte APRÈS la fin de l'événement pointeur,
-    // pour éviter que la boîte de dialogue ne perturbe le geste en cours.
+    // The confirmation is opened AFTER the pointer event has ended,
+    // so that the dialog does not disturb the gesture in progress.
     setTimeout(() => {
       const allowed = this._checkLock();
-      // Ignore les événements parasites qui suivent la fermeture de la boîte
+      // Ignore stray events that follow the dialog closing
       this._ignorePointerUntil = Date.now() + 500;
       this._drag = null;
 
       if (!allowed) {
-        // Refusé : aucune commande, retour explicite à l'état réel
+        // Declined: no command, explicit return to the actual state
         this._clearPending(entityId);
         this.requestUpdate();
         return;
       }
 
-      this._setPending(entityId, value, real); // relance le délai d'attente
+      this._setPending(entityId, value, real); // restart the wait timeout
       let result;
       try {
         result = this.hass.callService("cover", "set_cover_position", {
@@ -616,7 +615,7 @@ class PlooumCoverCard extends LitElement {
         return;
       }
       Promise.resolve(result).catch(() => {
-        // Échec du service : retour immédiat à l'état réel
+        // Service call failed: immediately go back to the actual state
         this._clearPending(entityId);
         this.requestUpdate();
       });
@@ -624,7 +623,7 @@ class PlooumCoverCard extends LitElement {
   }
 
   // ------------------------------------------
-  // Rendu
+  // Rendering
   // ------------------------------------------
   render() {
     if (!this.config) return html``;
@@ -699,17 +698,17 @@ class PlooumCoverCard extends LitElement {
     return html`
       <div class="cover-column">
 
-        <!-- Position en % -->
+        <!-- Position in % -->
         <div class="percentage" style="font-size: ${percentageFontSize}px;">${position}%</div>
 
-        <!-- Bouton Monter -->
+        <!-- Up button -->
         <ha-icon
           class="control-icon"
           .icon=${iconUp}
           @click=${() => this._callService('cover', 'open_cover', cover.entity)}>
         </ha-icon>
 
-        <!-- Slider (pointer events, touch-action: none => ne fait jamais défiler la page) -->
+        <!-- Slider (pointer events, touch-action: none => never scrolls the page) -->
         <div class="slider-wrapper" style="--slider-width: ${sliderWidth}px; --slider-bg: ${sliderBgColor}; --slider-prog: ${sliderProgColor}; --slider-thumb: ${sliderThumbColor};">
           <div
             class="slider ${unavailable ? "disabled" : ""}"
@@ -731,21 +730,21 @@ class PlooumCoverCard extends LitElement {
           </div>
         </div>
 
-        <!-- Bouton Descendre -->
+        <!-- Down button -->
         <ha-icon
           class="control-icon"
           .icon=${iconDown}
           @click=${() => this._callService('cover', 'close_cover', cover.entity)}>
         </ha-icon>
 
-        <!-- Bouton Stop -->
+        <!-- Stop button -->
         <ha-icon
           class="control-icon stop-icon"
           .icon=${iconStop}
           @click=${() => this._callService('cover', 'stop_cover', cover.entity)}>
         </ha-icon>
 
-        <!-- Nom du volet -->
+        <!-- Cover name -->
         ${showName ? html`
           <div class="cover-name" style="color: ${textColor}; font-size:${nameFontSize}px;">
             ${displayName}
@@ -803,7 +802,7 @@ class PlooumCoverCard extends LitElement {
         overflow: hidden;
         cursor: pointer;
         outline: none;
-        /* Empêche tout scroll / zoom / sélection pendant le geste */
+        /* Prevent any scroll / zoom / selection during the gesture */
         touch-action: none;
         user-select: none;
         -webkit-user-select: none;
@@ -845,7 +844,7 @@ class PlooumCoverCard extends LitElement {
 }
 
 // ==========================================
-// 4. DÉCLARATION SÉCURISÉE
+// 4. SAFE REGISTRATION
 // ==========================================
 if (LitElement) {
   if (!customElements.get("ha-plooum-cover-card-editor")) {
@@ -856,7 +855,7 @@ if (LitElement) {
   }
 }
 
-// Déclaration Lovelace
+// Lovelace registration
 if (!window.customCards) {
   window.customCards = [];
 }

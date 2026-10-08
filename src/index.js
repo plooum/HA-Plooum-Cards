@@ -1,10 +1,10 @@
-// Point d'entrée unique : importe toutes les cartes pour qu'elles s'enregistrent
-// auprès de Home Assistant (customElements.define + window.customCards).
+// Single entry point: imports every card so that they register themselves
+// with Home Assistant (customElements.define + window.customCards).
 //
-// Pour ajouter une nouvelle carte :
-// 1. Crée un dossier src/cards/<nom-carte>/ avec le fichier source de la carte.
-// 2. Ajoute une ligne d'import ci-dessous.
-// C'est tout : le build (npm run build) regénère ha-plooum-cards.js avec la carte en plus.
+// To add a new card:
+// 1. Create a src/cards/<card-name>/ folder with the card's source file.
+// 2. Add an import line below.
+// That's it: the build (npm run build) regenerates ha-plooum-cards.js including the new card.
 
 import './cards/button-badge/ha-plooum-buttonbadge-card.js';
 import './cards/cover/ha-plooum-cover-card.js';

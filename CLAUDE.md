@@ -27,7 +27,7 @@ This is a single HACS (Home Assistant Community Store) Lovelace plugin that bund
 
 ### Conventions
 
-- **English everywhere in cards and code**: UI strings shown by cards and editors (labels, tooltips, messages), comments, identifiers, and the dev environment. Some existing cards still contain French; it is tracked in [TODO.md](TODO.md). Don't add more, and translate what you touch.
+- **English everywhere in cards and code**: UI strings shown by cards and editors (labels, tooltips, messages), comments, identifiers, and the dev environment. README.md is the exception: it is intentionally in French.
 - Out-of-scope issues noticed while working go into [TODO.md](TODO.md), not into spawned background tasks or worktrees.
 
 ### Adding a new card

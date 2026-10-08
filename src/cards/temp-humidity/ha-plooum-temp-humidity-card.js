@@ -99,7 +99,7 @@ class HaPlooumTempHumidityCard extends LitElement {
     return str;
   }
 
-  /* --- Gestion des Actions (Tap & Hold par cible) --- */
+  /* --- Action handling (Tap & Hold per target) --- */
   _handlePointerDown(e, targetKey) {
     e.stopPropagation();
     this._activeTarget = targetKey;
@@ -253,7 +253,7 @@ class HaPlooumTempHumidityCard extends LitElement {
       center_values = true,
     } = this.config;
 
-    // Température
+    // Temperature
     const tempStateObj = temp_entity ? this.hass.states[temp_entity] : null;
     const tempRawVal = tempStateObj ? tempStateObj.state : undefined;
     const tempFormattedVal = this._formatValue(tempRawVal, temp_decimals);
@@ -262,7 +262,7 @@ class HaPlooumTempHumidityCard extends LitElement {
         ? temp_unit
         : tempStateObj?.attributes?.unit_of_measurement || "°C";
 
-    // Humidité
+    // Humidity
     const humStateObj = humidity_entity ? this.hass.states[humidity_entity] : null;
     const humRawVal = humStateObj ? humStateObj.state : undefined;
     const humFormattedVal = this._formatValue(humRawVal, humidity_decimals);
@@ -316,7 +316,7 @@ class HaPlooumTempHumidityCard extends LitElement {
             : ""}
 
           <div class="values-container" style="gap: ${formattedValuesGap};">
-            <!-- Ligne Température -->
+            <!-- Temperature row -->
             <div
               class="value-row clickable"
               style="color: ${temp_color}; font-size:${this._formatCssUnit(temp_font_size, "13px")}; gap: ${formattedIconTextGap};"
@@ -337,7 +337,7 @@ class HaPlooumTempHumidityCard extends LitElement {
               >
             </div>
 
-            <!-- Ligne Humidité -->
+            <!-- Humidity row -->
             <div
               class="value-row clickable"
               style="color: ${humidity_color}; font-size:${this._formatCssUnit(humidity_font_size, "13px")}; gap: ${formattedIconTextGap};"
@@ -537,18 +537,18 @@ class HaPlooumTempHumidityCardEditor extends LitElement {
             .value=${selectedAction}
             @change=${(e) => this._actionChanged(e, actionKey, "action")}
           >
-            <option value="none">Aucune action</option>
-            <option value="more-info">Afficher plus d'informations (more-info)</option>
-            <option value="toggle">Toggle l'entité</option>
-            <option value="navigate">Naviguer</option>
-            <option value="call-service">Exécuter un script / service</option>
+            <option value="none">No action</option>
+            <option value="more-info">Show more info (more-info)</option>
+            <option value="toggle">Toggle the entity</option>
+            <option value="navigate">Navigate</option>
+            <option value="call-service">Run a script / service</option>
           </select>
         </div>
 
         ${!hideEntityPicker && (selectedAction === "more-info" || selectedAction === "toggle")
           ? html`
               <ha-entity-picker
-                .label=${defaultEntityLabel || "Entité cible (laisser vide pour l'entité par défaut)"}
+                .label=${defaultEntityLabel || "Target entity (leave empty for the default entity)"}
                 .hass=${this.hass}
                 .value=${actionObj.entity || ""}
                 @value-changed=${(e) => this._actionChanged(e, actionKey, "entity")}
@@ -559,7 +559,7 @@ class HaPlooumTempHumidityCardEditor extends LitElement {
         ${selectedAction === "navigate"
           ? html`
               <div class="input-field">
-                <label>Chemin de navigation (ex: /lovelace/salon)</label>
+                <label>Navigation path (e.g. /lovelace/living-room)</label>
                 <input
                   type="text"
                   placeholder="/lovelace/1"
@@ -572,10 +572,10 @@ class HaPlooumTempHumidityCardEditor extends LitElement {
         ${selectedAction === "call-service"
           ? html`
               <div class="input-field">
-                <label>Script / Service (ex: script.mon_script ou light.turn_on)</label>
+                <label>Script / Service (e.g. script.my_script or light.turn_on)</label>
                 <input
                   type="text"
-                  placeholder="script.nom_du_script"
+                  placeholder="script.script_name"
                   .value=${actionObj.service || ""}
                   @input=${(e) => this._actionChanged(e, actionKey, "service")}
                 />
@@ -591,11 +591,11 @@ class HaPlooumTempHumidityCardEditor extends LitElement {
 
     return html`
       <div class="card-config">
-        <!-- Configuration Générale -->
-        <h3>Configuration Générale</h3>
+        <!-- General Settings -->
+        <h3>General Settings</h3>
         <div style="display: flex; gap: 8px;">
           <div class="input-field" style="flex: 2;">
-            <label>Titre (Laisser vide pour masquer)</label>
+            <label>Title (leave empty to hide)</label>
             <input
               type="text"
               placeholder="Title"
@@ -604,7 +604,7 @@ class HaPlooumTempHumidityCardEditor extends LitElement {
             />
           </div>
           <div class="input-field" style="flex: 1;">
-            <label>Taille titre</label>
+            <label>Title size</label>
             <input
               type="text"
               placeholder="15px"
@@ -616,7 +616,7 @@ class HaPlooumTempHumidityCardEditor extends LitElement {
 
         <div style="display: flex; gap: 8px;">
           <div class="input-field" style="flex: 1;">
-            <label>Marge basse titre</label>
+            <label>Title bottom margin</label>
             <input
               type="text"
               placeholder="3px"
@@ -625,7 +625,7 @@ class HaPlooumTempHumidityCardEditor extends LitElement {
             />
           </div>
           <div class="input-field" style="flex: 1;">
-            <label>Padding carte</label>
+            <label>Card padding</label>
             <input
               type="text"
               placeholder="4px"
@@ -634,7 +634,7 @@ class HaPlooumTempHumidityCardEditor extends LitElement {
             />
           </div>
           <div class="input-field" style="flex: 1;">
-            <label>Espace valeurs (gap)</label>
+            <label>Values spacing (gap)</label>
             <input
               type="text"
               placeholder="0px"
@@ -643,7 +643,7 @@ class HaPlooumTempHumidityCardEditor extends LitElement {
             />
           </div>
           <div class="input-field" style="flex: 1;">
-            <label>Espace icône/texte (gap)</label>
+            <label>Icon/text spacing (gap)</label>
             <input
               type="text"
               placeholder="0px"
@@ -660,32 +660,32 @@ class HaPlooumTempHumidityCardEditor extends LitElement {
               .checked=${this._config.center_values !== undefined ? Boolean(this._config.center_values) : true}
               @change=${(e) => this._checkboxChanged(e, "center_values")}
             />
-            Centrer les valeurs horizontalement
+            Center values horizontally
           </label>
         </div>
 
         <hr />
 
         <!-- Card Fallback Actions -->
-        <h3>Actions globales carte (Fond / Titre)</h3>
-        ${this._renderActionBlock("Tap Action (Appui court carte)", "tap_action", "Entité cible par défaut", false)}
-        ${this._renderActionBlock("Hold Action (Appui long carte)", "hold_action", "Entité cible par défaut", false)}
+        <h3>Global card actions (Background / Title)</h3>
+        ${this._renderActionBlock("Tap Action (Card short press)", "tap_action", "Default target entity", false)}
+        ${this._renderActionBlock("Hold Action (Card long press)", "hold_action", "Default target entity", false)}
 
         <hr />
 
         <!-- Main Icon (Left) -->
-        <h3>Icône Principale (Gauche)</h3>
+        <h3>Main Icon (Left)</h3>
         <ha-icon-picker
-          .label=${"Icône principale (Laisser vide pour masquer)"}
+          .label=${"Main icon (leave empty to hide)"}
           .hass=${this.hass}
           .value=${this._config.main_icon !== undefined ? this._config.main_icon : "mdi:sofa"}
           @value-changed=${(e) => this._valueChanged(e, "main_icon")}
         ></ha-icon-picker>
 
         <div style="display: flex; gap: 8px;">
-          ${this._renderColorPicker("Couleur icône", "main_icon_color", "#FFFFFF")}
+          ${this._renderColorPicker("Icon color", "main_icon_color", "#FFFFFF")}
           <div class="input-field" style="flex: 1;">
-            <label>Taille icône</label>
+            <label>Icon size</label>
             <input
               type="text"
               placeholder="32px"
@@ -697,7 +697,7 @@ class HaPlooumTempHumidityCardEditor extends LitElement {
 
         <div style="display: flex; gap: 8px;">
           <div class="input-field" style="flex: 1;">
-            <label>Décalage X (ex: 5px, -10px)</label>
+            <label>X offset (e.g. 5px, -10px)</label>
             <input
               type="text"
               placeholder="3px"
@@ -706,7 +706,7 @@ class HaPlooumTempHumidityCardEditor extends LitElement {
             />
           </div>
           <div class="input-field" style="flex: 1;">
-            <label>Décalage Y (ex: 5px, -10px)</label>
+            <label>Y offset (e.g. 5px, -10px)</label>
             <input
               type="text"
               placeholder="0px"
@@ -719,9 +719,9 @@ class HaPlooumTempHumidityCardEditor extends LitElement {
         <hr />
 
         <!-- Temperature Section -->
-        <h3>Configuration Température</h3>
+        <h3>Temperature Settings</h3>
         <ha-entity-picker
-          .label=${"Entité Température"}
+          .label=${"Temperature entity"}
           .hass=${this.hass}
           .value=${this._config.temp_entity || ""}
           @value-changed=${(e) => this._valueChanged(e, "temp_entity")}
@@ -735,14 +735,14 @@ class HaPlooumTempHumidityCardEditor extends LitElement {
               .checked=${this._config.show_temp_icon !== false}
               @change=${(e) => this._checkboxChanged(e, "show_temp_icon")}
             />
-            Afficher l'icône de température
+            Show temperature icon
           </label>
         </div>
 
         ${this._config.show_temp_icon !== false
           ? html`
               <ha-icon-picker
-                .label=${"Icône Température"}
+                .label=${"Temperature icon"}
                 .hass=${this.hass}
                 .value=${this._config.temp_icon || "mdi:thermometer"}
                 @value-changed=${(e) => this._valueChanged(e, "temp_icon")}
@@ -751,9 +751,9 @@ class HaPlooumTempHumidityCardEditor extends LitElement {
           : ""}
 
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          ${this._renderColorPicker("Couleur", "temp_color", "#E57373")}
+          ${this._renderColorPicker("Color", "temp_color", "#E57373")}
           <div class="input-field" style="flex: 1; min-width: 80px;">
-            <label>Taille texte</label>
+            <label>Text size</label>
             <input
               type="text"
               placeholder="13px"
@@ -762,7 +762,7 @@ class HaPlooumTempHumidityCardEditor extends LitElement {
             />
           </div>
           <div class="input-field" style="flex: 1; min-width: 80px;">
-            <label>Taille icône</label>
+            <label>Icon size</label>
             <input
               type="text"
               placeholder="1.2em"
@@ -771,7 +771,7 @@ class HaPlooumTempHumidityCardEditor extends LitElement {
             />
           </div>
           <div class="input-field" style="flex: 1; min-width: 70px;">
-            <label>Décimales</label>
+            <label>Decimals</label>
             <input
               type="number"
               min="0"
@@ -782,7 +782,7 @@ class HaPlooumTempHumidityCardEditor extends LitElement {
             />
           </div>
           <div class="input-field" style="flex: 1; min-width: 70px;">
-            <label>Unité (ex: °C, °F)</label>
+            <label>Unit (e.g. °C, °F)</label>
             <input
               type="text"
               placeholder="Auto (°C)"
@@ -792,15 +792,15 @@ class HaPlooumTempHumidityCardEditor extends LitElement {
           </div>
         </div>
 
-        ${this._renderActionBlock("Tap Action (Température)", "temp_tap_action", "", true)}
-        ${this._renderActionBlock("Hold Action (Température)", "temp_hold_action", "", true)}
+        ${this._renderActionBlock("Tap Action (Temperature)", "temp_tap_action", "", true)}
+        ${this._renderActionBlock("Hold Action (Temperature)", "temp_hold_action", "", true)}
 
         <hr />
 
         <!-- Humidity Section -->
-        <h3>Configuration Humidité</h3>
+        <h3>Humidity Settings</h3>
         <ha-entity-picker
-          .label=${"Entité Humidité"}
+          .label=${"Humidity entity"}
           .hass=${this.hass}
           .value=${this._config.humidity_entity || ""}
           @value-changed=${(e) => this._valueChanged(e, "humidity_entity")}
@@ -814,14 +814,14 @@ class HaPlooumTempHumidityCardEditor extends LitElement {
               .checked=${this._config.show_humidity_icon !== false}
               @change=${(e) => this._checkboxChanged(e, "show_humidity_icon")}
             />
-            Afficher l'icône d'humidité
+            Show humidity icon
           </label>
         </div>
 
         ${this._config.show_humidity_icon !== false
           ? html`
               <ha-icon-picker
-                .label=${"Icône Humidité"}
+                .label=${"Humidity icon"}
                 .hass=${this.hass}
                 .value=${this._config.humidity_icon || "mdi:water"}
                 @value-changed=${(e) => this._valueChanged(e, "humidity_icon")}
@@ -830,9 +830,9 @@ class HaPlooumTempHumidityCardEditor extends LitElement {
           : ""}
 
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          ${this._renderColorPicker("Couleur", "humidity_color", "#4FC3F7")}
+          ${this._renderColorPicker("Color", "humidity_color", "#4FC3F7")}
           <div class="input-field" style="flex: 1; min-width: 80px;">
-            <label>Taille texte</label>
+            <label>Text size</label>
             <input
               type="text"
               placeholder="13px"
@@ -841,7 +841,7 @@ class HaPlooumTempHumidityCardEditor extends LitElement {
             />
           </div>
           <div class="input-field" style="flex: 1; min-width: 80px;">
-            <label>Taille icône</label>
+            <label>Icon size</label>
             <input
               type="text"
               placeholder="1.2em"
@@ -850,7 +850,7 @@ class HaPlooumTempHumidityCardEditor extends LitElement {
             />
           </div>
           <div class="input-field" style="flex: 1; min-width: 70px;">
-            <label>Décimales</label>
+            <label>Decimals</label>
             <input
               type="number"
               min="0"
@@ -861,7 +861,7 @@ class HaPlooumTempHumidityCardEditor extends LitElement {
             />
           </div>
           <div class="input-field" style="flex: 1; min-width: 70px;">
-            <label>Unité (ex: %)</label>
+            <label>Unit (e.g. %)</label>
             <input
               type="text"
               placeholder="Auto (%)"
@@ -871,8 +871,8 @@ class HaPlooumTempHumidityCardEditor extends LitElement {
           </div>
         </div>
 
-        ${this._renderActionBlock("Tap Action (Humidité)", "humidity_tap_action", "", true)}
-        ${this._renderActionBlock("Hold Action (Humidité)", "humidity_hold_action", "", true)}
+        ${this._renderActionBlock("Tap Action (Humidity)", "humidity_tap_action", "", true)}
+        ${this._renderActionBlock("Hold Action (Humidity)", "humidity_hold_action", "", true)}
       </div>
     `;
   }

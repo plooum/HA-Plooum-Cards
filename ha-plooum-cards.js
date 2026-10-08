@@ -629,100 +629,107 @@
     });
   }
 
-  // ha-plooum-cover-card.js
+  var haPlooumCoverCard = {};
 
-  // ==========================================
-  // 1. CHARGEMENT SÉCURISÉ DE LITELEMENT
-  // ==========================================
-  const getLit = () => {
-    if (window.LitElement) {
-      return window.LitElement;
-    }
-    const elements = ["hui-masonry-view", "ha-panel-lovelace", "hui-view"];
-    for (let i = 0; i < elements.length; i++) {
-      const ce = customElements.get(elements[i]);
-      if (ce) {
-        return Object.getPrototypeOf(ce);
-      }
-    }
-    return null;
-  };
+  var hasRequiredHaPlooumCoverCard;
 
-  const LitElement = getLit();
-  let html = window.html;
-  let css = window.css;
-  if (LitElement) {
-    if (LitElement.prototype.html) {
-      html = LitElement.prototype.html;
-    }
-    if (LitElement.prototype.css) {
-      css = LitElement.prototype.css;
-    }
-  }
+  function requireHaPlooumCoverCard () {
+  	if (hasRequiredHaPlooumCoverCard) return haPlooumCoverCard;
+  	hasRequiredHaPlooumCoverCard = 1;
+  	// ha-plooum-cover-card.js
 
-  // ==========================================
-  // 2. INTERFACE DE CONFIGURATION (ÉDITEUR)
-  // ==========================================
-  class PlooumCoverCardEditor extends LitElement {
-    static get properties() {
-      return { hass: {}, _config: {} };
-    }
+  	// ==========================================
+  	// 1. SAFE LOADING OF LITELEMENT
+  	// ==========================================
+  	const getLit = () => {
+  	  if (window.LitElement) {
+  	    return window.LitElement;
+  	  }
+  	  const elements = ["hui-masonry-view", "ha-panel-lovelace", "hui-view"];
+  	  for (let i = 0; i < elements.length; i++) {
+  	    const ce = customElements.get(elements[i]);
+  	    if (ce) {
+  	      return Object.getPrototypeOf(ce);
+  	    }
+  	  }
+  	  return null;
+  	};
 
-    setConfig(config) {
-      this._config = Object.assign({}, config);
-      if (!this._config.covers) {
-        this._config.covers = [];
-      } else {
-        this._config.covers = this._config.covers.map(cover => {
-          return Object.assign({
-            slider_bg_color: "#222222",
-            slider_progress_color: "#888888",
-            slider_thumb_color: "#ffffff",
-            name_color: "#ffffff"
-          }, cover);
-        });
-      }
-    }
+  	const LitElement = getLit();
+  	let html = window.html;
+  	let css = window.css;
+  	if (LitElement) {
+  	  if (LitElement.prototype.html) {
+  	    html = LitElement.prototype.html;
+  	  }
+  	  if (LitElement.prototype.css) {
+  	    css = LitElement.prototype.css;
+  	  }
+  	}
 
-    _valueChanged(ev, key) {
-      if (!this._config) return;
-      if (!this.hass) return;
-      const value = ev.detail !== undefined && ev.detail.value !== undefined ? ev.detail.value : ev.target.value;
-      if (this._config[key] === value) return;
+  	// ==========================================
+  	// 2. CONFIGURATION UI (EDITOR)
+  	// ==========================================
+  	class PlooumCoverCardEditor extends LitElement {
+  	  static get properties() {
+  	    return { hass: {}, _config: {} };
+  	  }
 
-      const newConfig = Object.assign({}, this._config);
-      newConfig[key] = value;
-      this._config = newConfig;
-      this._fireConfigChanged();
-    }
+  	  setConfig(config) {
+  	    this._config = Object.assign({}, config);
+  	    if (!this._config.covers) {
+  	      this._config.covers = [];
+  	    } else {
+  	      this._config.covers = this._config.covers.map(cover => {
+  	        return Object.assign({
+  	          slider_bg_color: "#222222",
+  	          slider_progress_color: "#888888",
+  	          slider_thumb_color: "#ffffff",
+  	          name_color: "#ffffff"
+  	        }, cover);
+  	      });
+  	    }
+  	  }
 
-    _coverValueChanged(ev, index, key) {
-      if (!this._config) return;
-      if (!this.hass) return;
-      const value = ev.detail !== undefined && ev.detail.value !== undefined ? ev.detail.value : ev.target.value;
-      const covers = Array.from(this._config.covers);
-      const updatedCover = Object.assign({}, covers[index]);
-      updatedCover[key] = value;
-      covers[index] = updatedCover;
+  	  _valueChanged(ev, key) {
+  	    if (!this._config) return;
+  	    if (!this.hass) return;
+  	    const value = ev.detail !== undefined && ev.detail.value !== undefined ? ev.detail.value : ev.target.value;
+  	    if (this._config[key] === value) return;
 
-      const newConfig = Object.assign({}, this._config);
-      newConfig.covers = covers;
-      this._config = newConfig;
-      this._fireConfigChanged();
-    }
+  	    const newConfig = Object.assign({}, this._config);
+  	    newConfig[key] = value;
+  	    this._config = newConfig;
+  	    this._fireConfigChanged();
+  	  }
 
-    _renderColorPicker(index, labelTitle, key, defaultColor) {
-      const cover = this._config.covers[index] || {};
-      const val = cover[key] !== undefined ? cover[key] : defaultColor;
+  	  _coverValueChanged(ev, index, key) {
+  	    if (!this._config) return;
+  	    if (!this.hass) return;
+  	    const value = ev.detail !== undefined && ev.detail.value !== undefined ? ev.detail.value : ev.target.value;
+  	    const covers = Array.from(this._config.covers);
+  	    const updatedCover = Object.assign({}, covers[index]);
+  	    updatedCover[key] = value;
+  	    covers[index] = updatedCover;
 
-      let hexColor = "#000000";
-      if (val && val.match(/^#[0-9A-Fa-f]{6}$/)) {
-        hexColor = val;
-      } else if (val && val.match(/^#[0-9A-Fa-f]{3}$/)) {
-        hexColor = "#" + val[1] + val[1] + val[2] + val[2] + val[3] + val[3];
-      }
+  	    const newConfig = Object.assign({}, this._config);
+  	    newConfig.covers = covers;
+  	    this._config = newConfig;
+  	    this._fireConfigChanged();
+  	  }
 
-      return html`
+  	  _renderColorPicker(index, labelTitle, key, defaultColor) {
+  	    const cover = this._config.covers[index] || {};
+  	    const val = cover[key] !== undefined ? cover[key] : defaultColor;
+
+  	    let hexColor = "#000000";
+  	    if (val && val.match(/^#[0-9A-Fa-f]{6}$/)) {
+  	      hexColor = val;
+  	    } else if (val && val.match(/^#[0-9A-Fa-f]{3}$/)) {
+  	      hexColor = "#" + val[1] + val[1] + val[2] + val[2] + val[3] + val[3];
+  	    }
+
+  	    return html`
       <div class="input-field">
         <label>${labelTitle}</label>
         <div class="color-input-group">
@@ -740,79 +747,79 @@
         </div>
       </div>
     `;
-    }
+  	  }
 
-    _addCover() {
-      let baseCovers = this._config.covers;
-      if (!baseCovers) {
-        baseCovers = [];
-      }
-      const covers = Array.from(baseCovers);
-      covers.push({
-        entity: "",
-        show_name: true,
-        name_color: "#ffffff",
-        name_font_size: 14,
-        percentage_font_size: 16,
-        slider_width: 54,
-        slider_bg_color: "#222222",
-        slider_progress_color: "#888888",
-        slider_thumb_color: "#ffffff",
-        icon_up: "mdi:arrow-up",
-        icon_down: "mdi:arrow-down",
-        icon_stop: "mdi:square"
-      });
+  	  _addCover() {
+  	    let baseCovers = this._config.covers;
+  	    if (!baseCovers) {
+  	      baseCovers = [];
+  	    }
+  	    const covers = Array.from(baseCovers);
+  	    covers.push({
+  	      entity: "",
+  	      show_name: true,
+  	      name_color: "#ffffff",
+  	      name_font_size: 14,
+  	      percentage_font_size: 16,
+  	      slider_width: 54,
+  	      slider_bg_color: "#222222",
+  	      slider_progress_color: "#888888",
+  	      slider_thumb_color: "#ffffff",
+  	      icon_up: "mdi:arrow-up",
+  	      icon_down: "mdi:arrow-down",
+  	      icon_stop: "mdi:square"
+  	    });
 
-      const newConfig = Object.assign({}, this._config);
-      newConfig.covers = covers;
-      this._config = newConfig;
-      this._fireConfigChanged();
-    }
+  	    const newConfig = Object.assign({}, this._config);
+  	    newConfig.covers = covers;
+  	    this._config = newConfig;
+  	    this._fireConfigChanged();
+  	  }
 
-    _removeCover(index) {
-      const covers = Array.from(this._config.covers);
-      covers.splice(index, 1);
+  	  _removeCover(index) {
+  	    const covers = Array.from(this._config.covers);
+  	    covers.splice(index, 1);
 
-      const newConfig = Object.assign({}, this._config);
-      newConfig.covers = covers;
-      this._config = newConfig;
-      this._fireConfigChanged();
-    }
+  	    const newConfig = Object.assign({}, this._config);
+  	    newConfig.covers = covers;
+  	    this._config = newConfig;
+  	    this._fireConfigChanged();
+  	  }
 
-    _fireConfigChanged() {
-      const event = new Event("config-changed", { bubbles: true, composed: true });
-      event.detail = { config: this._config };
-      this.dispatchEvent(event);
-    }
+  	  _fireConfigChanged() {
+  	    const event = new Event("config-changed", { bubbles: true, composed: true });
+  	    event.detail = { config: this._config };
+  	    this.dispatchEvent(event);
+  	  }
 
-    render() {
-      if (!this.hass) return html``;
-      if (!this._config) return html``;
+  	  render() {
+  	    if (!this.hass) return html``;
+  	    if (!this._config) return html``;
 
-      // Le verrou est actif par défaut
-      const lockEnabled = this._config.lock_enabled !== false;
+  	    // The lock is enabled by default
+  	    const lockEnabled = this._config.lock_enabled !== false;
 
-      let lockDuration = Number(this._config.lock_duration);
-      if (!isFinite(lockDuration) || lockDuration < 0) {
-        lockDuration = 0;
-      }
+  	    let lockDuration = Number(this._config.lock_duration);
+  	    if (!isFinite(lockDuration) || lockDuration < 0) {
+  	      lockDuration = 0;
+  	    }
 
-      let lockMsg = this._config.lock_message;
-      if (lockMsg === undefined) {
-        lockMsg = "Are you sure ?";
-      }
+  	    let lockMsg = this._config.lock_message;
+  	    if (lockMsg === undefined) {
+  	      lockMsg = "Are you sure ?";
+  	    }
 
-      let spacing = this._config.vertical_spacing;
-      if (spacing === undefined) {
-        spacing = 6;
-      }
+  	    let spacing = this._config.vertical_spacing;
+  	    if (spacing === undefined) {
+  	      spacing = 6;
+  	    }
 
-      let coversList = this._config.covers;
-      if (!coversList) {
-        coversList = [];
-      }
+  	    let coversList = this._config.covers;
+  	    if (!coversList) {
+  	      coversList = [];
+  	    }
 
-      return html`
+  	    return html`
       <div class="card-config">
         <h3>General settings</h3>
 
@@ -853,31 +860,31 @@
         ></ha-selector>
 
         <h3>Covers (${coversList.length})</h3>${coversList.map((cover, index) => {
-          let coverName = cover.name;
-          if (!coverName) coverName = "";
+	          let coverName = cover.name;
+	          if (!coverName) coverName = "";
 
-          let showName = cover.show_name;
-          if (showName === undefined) showName = true;
+	          let showName = cover.show_name;
+	          if (showName === undefined) showName = true;
 
-          let nameFontSize = cover.name_font_size;
-          if (nameFontSize === undefined) nameFontSize = 14;
+	          let nameFontSize = cover.name_font_size;
+	          if (nameFontSize === undefined) nameFontSize = 14;
 
-          let pctFontSize = cover.percentage_font_size;
-          if (pctFontSize === undefined) pctFontSize = 16;
+	          let pctFontSize = cover.percentage_font_size;
+	          if (pctFontSize === undefined) pctFontSize = 16;
 
-          let sliderWidth = cover.slider_width;
-          if (sliderWidth === undefined) sliderWidth = 54;
+	          let sliderWidth = cover.slider_width;
+	          if (sliderWidth === undefined) sliderWidth = 54;
 
-          let iconUp = cover.icon_up;
-          if (!iconUp) iconUp = "mdi:arrow-up";
+	          let iconUp = cover.icon_up;
+	          if (!iconUp) iconUp = "mdi:arrow-up";
 
-          let iconStop = cover.icon_stop;
-          if (!iconStop) iconStop = "mdi:square";
+	          let iconStop = cover.icon_stop;
+	          if (!iconStop) iconStop = "mdi:square";
 
-          let iconDown = cover.icon_down;
-          if (!iconDown) iconDown = "mdi:arrow-down";
+	          let iconDown = cover.icon_down;
+	          if (!iconDown) iconDown = "mdi:arrow-down";
 
-          return html`
+	          return html`
             <div class="cover-config">
               <div class="cover-header">
                 <span>Cover ${index + 1}</span>
@@ -948,15 +955,15 @@
               </div>
             </div>
           `;
-        })}
+	        })}
 
         <mwc-button raised @click=${this._addCover}>+ Add cover</mwc-button>
       </div>
     `;
-    }
+  	  }
 
-    static get styles() {
-      return css`
+  	  static get styles() {
+  	    return css`
       .card-config { display: flex; flex-direction: column; gap: 15px; }
       .cover-config { border: 1px solid var(--divider-color); border-radius: 8px; padding: 15px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
       .cover-header { display: flex; justify-content: space-between; align-items: center; font-weight: bold; }
@@ -988,359 +995,358 @@
         font-size: 14px;
       }
     `;
-    }
-  }
+  	  }
+  	}
 
-  // ==========================================
-  // 3. CARTE PRINCIPALE
-  // ==========================================
-  const SLIDER_LENGTH = 220;   // longueur (hauteur) du slider en px
-  const THUMB_SIZE = 6;        // épaisseur de la poignée en px
-  const PENDING_TIMEOUT = 5000; // durée max d'attente d'une confirmation d'état (ms)
+  	// ==========================================
+  	// 3. MAIN CARD
+  	// ==========================================
+  	const SLIDER_LENGTH = 220;   // slider length (height) in px
+  	const THUMB_SIZE = 6;        // thumb thickness in px
+  	const PENDING_TIMEOUT = 5000; // max time to wait for a state confirmation (ms)
 
-  class PlooumCoverCard extends LitElement {
-    static get properties() {
-      return {
-        hass: {},
-        config: {},
-        _drag: {}
-      };
-    }
+  	class PlooumCoverCard extends LitElement {
+  	  static get properties() {
+  	    return {
+  	      hass: {},
+  	      config: {},
+  	      _drag: {}
+  	    };
+  	  }
 
-    constructor() {
-      super();
-      this._unlockedUntil = 0;  // timestamp de fin de déverrouillage
-      this._drag = null;        // { entity, pointerId, value } pendant un glissement
-      this._ignorePointerUntil = 0; // ignore les événements parasites juste après une boîte de dialogue
-      this._pending = {};       // { [entity]: { value, from, timer } } commande envoyée, état pas encore reçu
-    }
+  	  constructor() {
+  	    super();
+  	    this._unlockedUntil = 0;  // timestamp at which the unlock expires
+  	    this._drag = null;        // { entity, pointerId, value } while dragging
+  	    this._ignorePointerUntil = 0; // ignore stray events right after a dialog
+  	    this._pending = {};       // { [entity]: { value, from, timer } } command sent, state not received yet
+  	  }
 
-    disconnectedCallback() {
-      super.disconnectedCallback();
-      this._drag = null;
-      Object.keys(this._pending).forEach((id) => this._clearPending(id));
-    }
+  	  disconnectedCallback() {
+  	    super.disconnectedCallback();
+  	    this._drag = null;
+  	    Object.keys(this._pending).forEach((id) => this._clearPending(id));
+  	  }
 
-    static getConfigElement() {
-      return document.createElement("ha-plooum-cover-card-editor");
-    }
+  	  static getConfigElement() {
+  	    return document.createElement("ha-plooum-cover-card-editor");
+  	  }
 
-    static getStubConfig() {
-      return {
-        lock_enabled: true,
-        lock_duration: 0,
-        lock_message: "Are you sure ?",
-        vertical_spacing: 6,
-        covers: []
-      };
-    }
+  	  static getStubConfig() {
+  	    return {
+  	      lock_enabled: true,
+  	      lock_duration: 0,
+  	      lock_message: "Are you sure ?",
+  	      vertical_spacing: 6,
+  	      covers: []
+  	    };
+  	  }
 
-    getCardSize() {
-      return 6;
-    }
+  	  getCardSize() {
+  	    return 6;
+  	  }
 
-    setConfig(config) {
-      if (!config.covers) {
-        throw new Error("You must define at least one cover.");
-      }
-      this.config = Object.assign({}, config, {
-        covers: config.covers.map(cover => Object.assign({
-          slider_bg_color: "#222222",
-          slider_progress_color: "#888888",
-          slider_thumb_color: "#ffffff",
-          name_color: "#ffffff"
-        }, cover))
-      });
-      // Un changement de config réinitialise l'état de déverrouillage
-      this._unlockedUntil = 0;
-    }
+  	  setConfig(config) {
+  	    if (!config.covers) {
+  	      throw new Error("You must define at least one cover.");
+  	    }
+  	    this.config = Object.assign({}, config, {
+  	      covers: config.covers.map(cover => Object.assign({
+  	        slider_bg_color: "#222222",
+  	        slider_progress_color: "#888888",
+  	        slider_thumb_color: "#ffffff",
+  	        name_color: "#ffffff"
+  	      }, cover))
+  	    });
+  	    // A config change resets the unlock state
+  	    this._unlockedUntil = 0;
+  	  }
 
-    // ------------------------------------------
-    // Verrou
-    // ------------------------------------------
-    _lockEnabled() {
-      // Actif par défaut
-      return this.config.lock_enabled !== false;
-    }
+  	  // ------------------------------------------
+  	  // Lock
+  	  // ------------------------------------------
+  	  _lockEnabled() {
+  	    // Enabled by default
+  	    return this.config.lock_enabled !== false;
+  	  }
 
-    _lockDurationMs() {
-      const seconds = Number(this.config.lock_duration);
-      if (!isFinite(seconds) || seconds <= 0) return 0;
-      return seconds * 1000;
-    }
+  	  _lockDurationMs() {
+  	    const seconds = Number(this.config.lock_duration);
+  	    if (!isFinite(seconds) || seconds <= 0) return 0;
+  	    return seconds * 1000;
+  	  }
 
-    // Retourne true si l'action peut être exécutée
-    _checkLock() {
-      if (!this._lockEnabled()) return true;
+  	  // Returns true if the action can be executed
+  	  _checkLock() {
+  	    if (!this._lockEnabled()) return true;
 
-      const duration = this._lockDurationMs();
-      if (duration > 0 && Date.now() < this._unlockedUntil) return true;
+  	    const duration = this._lockDurationMs();
+  	    if (duration > 0 && Date.now() < this._unlockedUntil) return true;
 
-      let msg = this.config.lock_message;
-      if (msg === undefined) {
-        msg = "Are you sure ?";
-      }
-      if (!window.confirm(msg)) return false;
+  	    let msg = this.config.lock_message;
+  	    if (msg === undefined) {
+  	      msg = "Are you sure ?";
+  	    }
+  	    if (!window.confirm(msg)) return false;
 
-      // Durée 0 : on ne mémorise rien, il faudra confirmer à la prochaine action
-      if (duration > 0) {
-        this._unlockedUntil = Date.now() + duration;
-      }
-      return true;
-    }
+  	    // Duration 0: nothing is remembered, the next action will require confirmation again
+  	    if (duration > 0) {
+  	      this._unlockedUntil = Date.now() + duration;
+  	    }
+  	    return true;
+  	  }
 
-    // ------------------------------------------
-    // Services
-    // ------------------------------------------
-    _callService(domain, service, entityId, data = {}) {
-      if (!this._checkLock()) return;
-      const serviceData = Object.assign({ entity_id: entityId }, data);
-      return this.hass.callService(domain, service, serviceData);
-    }
+  	  // ------------------------------------------
+  	  // Services
+  	  // ------------------------------------------
+  	  _callService(domain, service, entityId, data = {}) {
+  	    if (!this._checkLock()) return;
+  	    const serviceData = Object.assign({ entity_id: entityId }, data);
+  	    return this.hass.callService(domain, service, serviceData);
+  	  }
 
-    // ------------------------------------------
-    // Synchronisation du slider
-    // ------------------------------------------
-    _positionOf(stateObj) {
-      const p = stateObj.attributes.current_position;
-      if (typeof p === "number" && isFinite(p)) {
-        return Math.min(100, Math.max(0, Math.round(p)));
-      }
-      // Volet sans gestion de position
-      if (stateObj.state === "open") return 100;
-      return 0;
-    }
+  	  // ------------------------------------------
+  	  // Slider synchronisation
+  	  // ------------------------------------------
+  	  _positionOf(stateObj) {
+  	    const p = stateObj.attributes.current_position;
+  	    if (typeof p === "number" && isFinite(p)) {
+  	      return Math.min(100, Math.max(0, Math.round(p)));
+  	    }
+  	    // Cover without position support
+  	    if (stateObj.state === "open") return 100;
+  	    return 0;
+  	  }
 
-    _clearPending(entityId) {
-      const pending = this._pending[entityId];
-      if (pending) {
-        clearTimeout(pending.timer);
-        delete this._pending[entityId];
-      }
-    }
+  	  _clearPending(entityId) {
+  	    const pending = this._pending[entityId];
+  	    if (pending) {
+  	      clearTimeout(pending.timer);
+  	      delete this._pending[entityId];
+  	    }
+  	  }
 
-    _setPending(entityId, value, from) {
-      this._clearPending(entityId);
-      const timer = setTimeout(() => {
-        delete this._pending[entityId];
-        this.requestUpdate();
-      }, PENDING_TIMEOUT);
-      this._pending[entityId] = { value: value, from: from, timer: timer };
-    }
+  	  _setPending(entityId, value, from) {
+  	    this._clearPending(entityId);
+  	    const timer = setTimeout(() => {
+  	      delete this._pending[entityId];
+  	      this.requestUpdate();
+  	    }, PENDING_TIMEOUT);
+  	    this._pending[entityId] = { value: value, from: from, timer: timer };
+  	  }
 
-    // Valeur à afficher : glissement en cours > commande en attente > état réel.
-    // L'affichage est toujours dérivé, il ne peut donc pas rester bloqué sur une
-    // valeur obsolète.
-    _displayPosition(entityId, realPosition) {
-      if (this._drag && this._drag.entity === entityId) {
-        return this._drag.value;
-      }
-      const pending = this._pending[entityId];
-      if (pending) {
-        if (pending.from === realPosition) {
-          return pending.value; // HA n'a pas encore répondu
-        }
-        this._clearPending(entityId); // l'état a changé : on suit à nouveau l'état réel
-      }
-      return realPosition;
-    }
+  	  // Value to display: drag in progress > pending command > actual state.
+  	  // The display is always derived, so it cannot get stuck on a stale value.
+  	  _displayPosition(entityId, realPosition) {
+  	    if (this._drag && this._drag.entity === entityId) {
+  	      return this._drag.value;
+  	    }
+  	    const pending = this._pending[entityId];
+  	    if (pending) {
+  	      if (pending.from === realPosition) {
+  	        return pending.value; // HA has not answered yet
+  	      }
+  	      this._clearPending(entityId); // the state changed: follow the actual state again
+  	    }
+  	    return realPosition;
+  	  }
 
-    _valueFromPointer(e, el) {
-      const rect = el.getBoundingClientRect();
-      const inset = THUMB_SIZE / 2;
-      const usable = rect.height - 2 * inset;
-      if (usable <= 0) return 0;
-      const ratio = (rect.bottom - inset - e.clientY) / usable;
-      return Math.round(Math.min(1, Math.max(0, ratio)) * 100);
-    }
+  	  _valueFromPointer(e, el) {
+  	    const rect = el.getBoundingClientRect();
+  	    const inset = THUMB_SIZE / 2;
+  	    const usable = rect.height - 2 * inset;
+  	    if (usable <= 0) return 0;
+  	    const ratio = (rect.bottom - inset - e.clientY) / usable;
+  	    return Math.round(Math.min(1, Math.max(0, ratio)) * 100);
+  	  }
 
-    _onSliderDown(e, entityId) {
-      if (e.pointerType === "mouse" && e.button !== 0) return;
-      if (Date.now() < this._ignorePointerUntil) return; // clic parasite après la boîte de confirmation
-      if (this._drag) return; // un seul glissement à la fois
-      e.preventDefault();
-      // Un nouveau geste annule toute valeur "en attente" d'une action précédente :
-      // si ce geste est annulé, on doit revenir à l'état réel, pas à l'ancienne consigne.
-      this._clearPending(entityId);
-      const el = e.currentTarget;
-      try { el.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
-      this._drag = {
-        entity: entityId,
-        pointerId: e.pointerId,
-        value: this._valueFromPointer(e, el)
-      };
-    }
+  	  _onSliderDown(e, entityId) {
+  	    if (e.pointerType === "mouse" && e.button !== 0) return;
+  	    if (Date.now() < this._ignorePointerUntil) return; // stray click after the confirmation dialog
+  	    if (this._drag) return; // only one drag at a time
+  	    e.preventDefault();
+  	    // A new gesture cancels any "pending" value from a previous action:
+  	    // if this gesture is cancelled, we must go back to the actual state, not to the old setpoint.
+  	    this._clearPending(entityId);
+  	    const el = e.currentTarget;
+  	    try { el.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+  	    this._drag = {
+  	      entity: entityId,
+  	      pointerId: e.pointerId,
+  	      value: this._valueFromPointer(e, el)
+  	    };
+  	  }
 
-    _onSliderMove(e) {
-      if (!this._drag || this._drag.pointerId !== e.pointerId) return;
-      if (e.pointerType === "mouse" && e.buttons === 0) {
-        this._drag = null; // bouton relâché sans pointerup : on abandonne le glissement
-        return;
-      }
-      const value = this._valueFromPointer(e, e.currentTarget);
-      if (value !== this._drag.value) {
-        this._drag = Object.assign({}, this._drag, { value: value });
-      }
-    }
+  	  _onSliderMove(e) {
+  	    if (!this._drag || this._drag.pointerId !== e.pointerId) return;
+  	    if (e.pointerType === "mouse" && e.buttons === 0) {
+  	      this._drag = null; // button released without pointerup: abandon the drag
+  	      return;
+  	    }
+  	    const value = this._valueFromPointer(e, e.currentTarget);
+  	    if (value !== this._drag.value) {
+  	      this._drag = Object.assign({}, this._drag, { value: value });
+  	    }
+  	  }
 
-    _onSliderUp(e) {
-      if (!this._drag || this._drag.pointerId !== e.pointerId) return;
-      const entityId = this._drag.entity;
-      const value = this._valueFromPointer(e, e.currentTarget);
-      this._drag = null;
-      this._commitPosition(entityId, value);
-    }
+  	  _onSliderUp(e) {
+  	    if (!this._drag || this._drag.pointerId !== e.pointerId) return;
+  	    const entityId = this._drag.entity;
+  	    const value = this._valueFromPointer(e, e.currentTarget);
+  	    this._drag = null;
+  	    this._commitPosition(entityId, value);
+  	  }
 
-    _onSliderCancel(e) {
-      if (!this._drag || this._drag.pointerId !== e.pointerId) return;
-      this._drag = null; // retour à l'état réel
-    }
+  	  _onSliderCancel(e) {
+  	    if (!this._drag || this._drag.pointerId !== e.pointerId) return;
+  	    this._drag = null; // back to the actual state
+  	  }
 
-    _onSliderKey(e, entityId, current) {
-      let value = null;
-      if (e.key === "ArrowUp" || e.key === "ArrowRight") value = current + 5;
-      else if (e.key === "ArrowDown" || e.key === "ArrowLeft") value = current - 5;
-      else if (e.key === "PageUp") value = current + 10;
-      else if (e.key === "PageDown") value = current - 10;
-      else if (e.key === "Home") value = 0;
-      else if (e.key === "End") value = 100;
-      if (value === null) return;
-      e.preventDefault();
-      this._commitPosition(entityId, Math.min(100, Math.max(0, value)));
-    }
+  	  _onSliderKey(e, entityId, current) {
+  	    let value = null;
+  	    if (e.key === "ArrowUp" || e.key === "ArrowRight") value = current + 5;
+  	    else if (e.key === "ArrowDown" || e.key === "ArrowLeft") value = current - 5;
+  	    else if (e.key === "PageUp") value = current + 10;
+  	    else if (e.key === "PageDown") value = current - 10;
+  	    else if (e.key === "Home") value = 0;
+  	    else if (e.key === "End") value = 100;
+  	    if (value === null) return;
+  	    e.preventDefault();
+  	    this._commitPosition(entityId, Math.min(100, Math.max(0, value)));
+  	  }
 
-    _commitPosition(entityId, value) {
-      const stateObj = this.hass.states[entityId];
-      if (!stateObj) return;
-      const real = this._positionOf(stateObj);
-      if (value === real) return;
+  	  _commitPosition(entityId, value) {
+  	    const stateObj = this.hass.states[entityId];
+  	    if (!stateObj) return;
+  	    const real = this._positionOf(stateObj);
+  	    if (value === real) return;
 
-      // On garde la valeur affichée pendant la confirmation
-      this._setPending(entityId, value, real);
-      this.requestUpdate();
+  	    // Keep the displayed value during the confirmation
+  	    this._setPending(entityId, value, real);
+  	    this.requestUpdate();
 
-      // La confirmation est ouverte APRÈS la fin de l'événement pointeur,
-      // pour éviter que la boîte de dialogue ne perturbe le geste en cours.
-      setTimeout(() => {
-        const allowed = this._checkLock();
-        // Ignore les événements parasites qui suivent la fermeture de la boîte
-        this._ignorePointerUntil = Date.now() + 500;
-        this._drag = null;
+  	    // The confirmation is opened AFTER the pointer event has ended,
+  	    // so that the dialog does not disturb the gesture in progress.
+  	    setTimeout(() => {
+  	      const allowed = this._checkLock();
+  	      // Ignore stray events that follow the dialog closing
+  	      this._ignorePointerUntil = Date.now() + 500;
+  	      this._drag = null;
 
-        if (!allowed) {
-          // Refusé : aucune commande, retour explicite à l'état réel
-          this._clearPending(entityId);
-          this.requestUpdate();
-          return;
-        }
+  	      if (!allowed) {
+  	        // Declined: no command, explicit return to the actual state
+  	        this._clearPending(entityId);
+  	        this.requestUpdate();
+  	        return;
+  	      }
 
-        this._setPending(entityId, value, real); // relance le délai d'attente
-        let result;
-        try {
-          result = this.hass.callService("cover", "set_cover_position", {
-            entity_id: entityId,
-            position: value
-          });
-        } catch (err) {
-          this._clearPending(entityId);
-          this.requestUpdate();
-          return;
-        }
-        Promise.resolve(result).catch(() => {
-          // Échec du service : retour immédiat à l'état réel
-          this._clearPending(entityId);
-          this.requestUpdate();
-        });
-      }, 0);
-    }
+  	      this._setPending(entityId, value, real); // restart the wait timeout
+  	      let result;
+  	      try {
+  	        result = this.hass.callService("cover", "set_cover_position", {
+  	          entity_id: entityId,
+  	          position: value
+  	        });
+  	      } catch (err) {
+  	        this._clearPending(entityId);
+  	        this.requestUpdate();
+  	        return;
+  	      }
+  	      Promise.resolve(result).catch(() => {
+  	        // Service call failed: immediately go back to the actual state
+  	        this._clearPending(entityId);
+  	        this.requestUpdate();
+  	      });
+  	    }, 0);
+  	  }
 
-    // ------------------------------------------
-    // Rendu
-    // ------------------------------------------
-    render() {
-      if (!this.config) return html``;
-      if (!this.hass) return html``;
+  	  // ------------------------------------------
+  	  // Rendering
+  	  // ------------------------------------------
+  	  render() {
+  	    if (!this.config) return html``;
+  	    if (!this.hass) return html``;
 
-      let spacing = this.config.vertical_spacing;
-      if (spacing === undefined) {
-        spacing = 6;
-      }
+  	    let spacing = this.config.vertical_spacing;
+  	    if (spacing === undefined) {
+  	      spacing = 6;
+  	    }
 
-      return html`
+  	    return html`
       <ha-card style="--card-spacing: ${spacing}px;">
         <div class="covers-container">
           ${this.config.covers.map((coverConfig) => this._renderCover(coverConfig))}
         </div>
       </ha-card>
     `;
-    }
+  	  }
 
-    _renderCover(cover) {
-      const stateObj = this.hass.states[cover.entity];
-      if (!stateObj) return html`<div class="cover-column">Entity not found</div>`;
+  	  _renderCover(cover) {
+  	    const stateObj = this.hass.states[cover.entity];
+  	    if (!stateObj) return html`<div class="cover-column">Entity not found</div>`;
 
-      const realPosition = this._positionOf(stateObj);
-      const position = this._displayPosition(cover.entity, realPosition);
-      const unavailable = stateObj.state === "unavailable";
+  	    const realPosition = this._positionOf(stateObj);
+  	    const position = this._displayPosition(cover.entity, realPosition);
+  	    const unavailable = stateObj.state === "unavailable";
 
-      let displayName = cover.name;
-      if (!displayName) {
-        if (stateObj.attributes.friendly_name) {
-          displayName = stateObj.attributes.friendly_name;
-        } else {
-          displayName = cover.entity;
-        }
-      }
+  	    let displayName = cover.name;
+  	    if (!displayName) {
+  	      if (stateObj.attributes.friendly_name) {
+  	        displayName = stateObj.attributes.friendly_name;
+  	      } else {
+  	        displayName = cover.entity;
+  	      }
+  	    }
 
-      let sliderWidth = cover.slider_width;
-      if (sliderWidth === undefined) sliderWidth = 54;
+  	    let sliderWidth = cover.slider_width;
+  	    if (sliderWidth === undefined) sliderWidth = 54;
 
-      let nameFontSize = cover.name_font_size;
-      if (nameFontSize === undefined) nameFontSize = 14;
+  	    let nameFontSize = cover.name_font_size;
+  	    if (nameFontSize === undefined) nameFontSize = 14;
 
-      let percentageFontSize = cover.percentage_font_size;
-      if (percentageFontSize === undefined) percentageFontSize = 16;
+  	    let percentageFontSize = cover.percentage_font_size;
+  	    if (percentageFontSize === undefined) percentageFontSize = 16;
 
-      let textColor = cover.name_color;
-      if (!textColor) {
-        textColor = "#ffffff";
-      }
+  	    let textColor = cover.name_color;
+  	    if (!textColor) {
+  	      textColor = "#ffffff";
+  	    }
 
-      let sliderBgColor = cover.slider_bg_color;
-      if (!sliderBgColor) sliderBgColor = "#222222";
+  	    let sliderBgColor = cover.slider_bg_color;
+  	    if (!sliderBgColor) sliderBgColor = "#222222";
 
-      let sliderProgColor = cover.slider_progress_color;
-      if (!sliderProgColor) sliderProgColor = "#888888";
+  	    let sliderProgColor = cover.slider_progress_color;
+  	    if (!sliderProgColor) sliderProgColor = "#888888";
 
-      let sliderThumbColor = cover.slider_thumb_color;
-      if (!sliderThumbColor) sliderThumbColor = "#ffffff";
+  	    let sliderThumbColor = cover.slider_thumb_color;
+  	    if (!sliderThumbColor) sliderThumbColor = "#ffffff";
 
-      let iconUp = cover.icon_up;
-      if (!iconUp) iconUp = "mdi:arrow-up";
+  	    let iconUp = cover.icon_up;
+  	    if (!iconUp) iconUp = "mdi:arrow-up";
 
-      let iconDown = cover.icon_down;
-      if (!iconDown) iconDown = "mdi:arrow-down";
+  	    let iconDown = cover.icon_down;
+  	    if (!iconDown) iconDown = "mdi:arrow-down";
 
-      let iconStop = cover.icon_stop;
-      if (!iconStop) iconStop = "mdi:square";
+  	    let iconStop = cover.icon_stop;
+  	    if (!iconStop) iconStop = "mdi:square";
 
-      let showName = cover.show_name;
-      if (showName === undefined) showName = true;
+  	    let showName = cover.show_name;
+  	    if (showName === undefined) showName = true;
 
-      return html`
+  	    return html`
       <div class="cover-column">
 
-        <!-- Position en % -->
+        <!-- Position in % -->
         <div class="percentage" style="font-size: ${percentageFontSize}px;">${position}%</div>
 
-        <!-- Bouton Monter -->
+        <!-- Up button -->
         <ha-icon
           class="control-icon"
           .icon=${iconUp}
           @click=${() => this._callService('cover', 'open_cover', cover.entity)}>
         </ha-icon>
 
-        <!-- Slider (pointer events, touch-action: none => ne fait jamais défiler la page) -->
+        <!-- Slider (pointer events, touch-action: none => never scrolls the page) -->
         <div class="slider-wrapper" style="--slider-width: ${sliderWidth}px; --slider-bg: ${sliderBgColor}; --slider-prog: ${sliderProgColor}; --slider-thumb: ${sliderThumbColor};">
           <div
             class="slider ${unavailable ? "disabled" : ""}"
@@ -1362,21 +1368,21 @@
           </div>
         </div>
 
-        <!-- Bouton Descendre -->
+        <!-- Down button -->
         <ha-icon
           class="control-icon"
           .icon=${iconDown}
           @click=${() => this._callService('cover', 'close_cover', cover.entity)}>
         </ha-icon>
 
-        <!-- Bouton Stop -->
+        <!-- Stop button -->
         <ha-icon
           class="control-icon stop-icon"
           .icon=${iconStop}
           @click=${() => this._callService('cover', 'stop_cover', cover.entity)}>
         </ha-icon>
 
-        <!-- Nom du volet -->
+        <!-- Cover name -->
         ${showName ? html`
           <div class="cover-name" style="color: ${textColor}; font-size:${nameFontSize}px;">
             ${displayName}
@@ -1384,10 +1390,10 @@
         ` : ""}
       </div>
     `;
-    }
+  	  }
 
-    static get styles() {
-      return css`
+  	  static get styles() {
+  	    return css`
       ha-card {
         padding: 20px 10px;
         background: var(--ha-card-background, var(--card-background-color));
@@ -1434,7 +1440,7 @@
         overflow: hidden;
         cursor: pointer;
         outline: none;
-        /* Empêche tout scroll / zoom / sélection pendant le geste */
+        /* Prevent any scroll / zoom / selection during the gesture */
         touch-action: none;
         user-select: none;
         -webkit-user-select: none;
@@ -1472,41 +1478,45 @@
         word-wrap: break-word;
       }
     `;
-    }
+  	  }
+  	}
+
+  	// ==========================================
+  	// 4. SAFE REGISTRATION
+  	// ==========================================
+  	if (LitElement) {
+  	  if (!customElements.get("ha-plooum-cover-card-editor")) {
+  	    customElements.define("ha-plooum-cover-card-editor", PlooumCoverCardEditor);
+  	  }
+  	  if (!customElements.get("ha-plooum-cover-card")) {
+  	    customElements.define("ha-plooum-cover-card", PlooumCoverCard);
+  	  }
+  	}
+
+  	// Lovelace registration
+  	if (!window.customCards) {
+  	  window.customCards = [];
+  	}
+  	let cardExists = false;
+  	for (let i = 0; i < window.customCards.length; i++) {
+  	  if (window.customCards[i].type === "ha-plooum-cover-card") {
+  	    cardExists = true;
+  	    break;
+  	  }
+  	}
+
+  	if (!cardExists) {
+  	  window.customCards.push({
+  	    type: "ha-plooum-cover-card",
+  	    name: "Plooum Cover Card",
+  	    preview: true,
+  	    description: "Customizable card to control several roller shutters."
+  	  });
+  	}
+  	return haPlooumCoverCard;
   }
 
-  // ==========================================
-  // 4. DÉCLARATION SÉCURISÉE
-  // ==========================================
-  if (LitElement) {
-    if (!customElements.get("ha-plooum-cover-card-editor")) {
-      customElements.define("ha-plooum-cover-card-editor", PlooumCoverCardEditor);
-    }
-    if (!customElements.get("ha-plooum-cover-card")) {
-      customElements.define("ha-plooum-cover-card", PlooumCoverCard);
-    }
-  }
-
-  // Déclaration Lovelace
-  if (!window.customCards) {
-    window.customCards = [];
-  }
-  let cardExists = false;
-  for (let i = 0; i < window.customCards.length; i++) {
-    if (window.customCards[i].type === "ha-plooum-cover-card") {
-      cardExists = true;
-      break;
-    }
-  }
-
-  if (!cardExists) {
-    window.customCards.push({
-      type: "ha-plooum-cover-card",
-      name: "Plooum Cover Card",
-      preview: true,
-      description: "Customizable card to control several roller shutters."
-    });
-  }
+  requireHaPlooumCoverCard();
 
   /* ==========================================================================
      MAIN CARD : ha-plooum-dpad-card
@@ -1651,7 +1661,7 @@
       }
       .remote-container {
         display: grid;
-        /* Utilisation de minmax(0, 1fr) pour éviter que les icônes trop grandes ne décalent la grille */
+        /* Use minmax(0, 1fr) so that oversized icons do not shift the grid */
         grid-template-columns: repeat(3, minmax(0, 1fr));
         grid-template-rows: repeat(3, minmax(0, 1fr));
         grid-template-areas: 
@@ -1689,7 +1699,7 @@
         cursor: pointer;
         border-radius: 50%;
         transition: background-color 0.2s ease;
-        /* Optionnel mais sécurise le débordement visuel si l'icône est immense */
+        /* Optional, but guards against visual overflow if the icon is huge */
         width: 100%;
         height: 100%;
       }
@@ -2229,7 +2239,7 @@
       if (action === "toggle") {
         const entityId = actionConfig.target?.entity_id || iconConf.entity;
         if (entityId) {
-          // Utilisation du service universel natif (gère tous les domaines)
+          // Use the native universal service (handles all domains)
           this.hass.callService("homeassistant", "toggle", { entity_id: entityId });
         }
       } 
@@ -2275,7 +2285,7 @@
 
     // --- Tap / Hold Events ---
     _startTimer(e, iconConf) {
-      // Sécurité contre les doubles clics tactiles+souris sur mobile
+      // Guard against touch+mouse double clicks on mobile
       if (e.type === "mousedown" && this._isTouch) return;
       if (e.type === "touchstart") this._isTouch = true;
 
@@ -2289,7 +2299,7 @@
     }
 
     _stopTimer(e, iconConf) {
-      // Sécurité contre les doubles clics tactiles+souris sur mobile
+      // Guard against touch+mouse double clicks on mobile
       if (e.type === "mouseup" && this._isTouch) return;
 
       e.stopPropagation();
@@ -2299,7 +2309,7 @@
       }
 
       if (e.type === "touchend") {
-        // Désactive la sécurité tactile après un court délai
+        // Disable the touch guard after a short delay
         setTimeout(() => { this._isTouch = false; }, 300);
       }
     }
@@ -2542,7 +2552,7 @@
       if (ev && ev.target) {
         const btn = ev.target;
         const oldText = btn.innerHTML;
-        btn.innerHTML = "✔ Copié";
+        btn.innerHTML = "✔ Copied";
         setTimeout(() => { btn.innerHTML = oldText; }, 1000);
       }
     }
@@ -2550,7 +2560,7 @@
     _pasteIcon(index) {
       const clipboard = localStorage.getItem("ha_plooum_icon_clipboard");
       if (!clipboard) {
-        alert("Presse-papiers vide. Copiez d'abord une icône.");
+        alert("Clipboard is empty. Copy an icon first.");
         return;
       }
       try {
@@ -2566,7 +2576,7 @@
     _pasteNewIcon() {
       const clipboard = localStorage.getItem("ha_plooum_icon_clipboard");
       if (!clipboard) {
-        alert("Presse-papiers vide. Copiez d'abord une icône.");
+        alert("Clipboard is empty. Copy an icon first.");
         return;
       }
       try {
@@ -2721,11 +2731,11 @@
               <div class="icon-header">
                 <strong>Icon #${index + 1}</strong>
                 <div class="icon-actions">
-                  <button class="icon-btn copy-btn" title="Copier cette icône" @click=${(e) => this._copyIcon(index, e)}>Copier</button>
-                  <button class="icon-btn paste-btn" title="Remplacer par l'icône copiée" @click=${() => this._pasteIcon(index)}>Coller</button>
-                  <button class="icon-btn" title="Monter" @click=${() => this._moveIcon(index, "up")} ?disabled=${index === 0}>&#9650;</button>
-                  <button class="icon-btn" title="Descendre" @click=${() => this._moveIcon(index, "down")} ?disabled=${index === icons.length - 1}>&#9660;</button>
-                  <button class="icon-btn remove-btn" title="Supprimer" @click=${() => this._removeIcon(index)}>&#10006;</button>
+                  <button class="icon-btn copy-btn" title="Copy this icon" @click=${(e) => this._copyIcon(index, e)}>Copy</button>
+                  <button class="icon-btn paste-btn" title="Replace with the copied icon" @click=${() => this._pasteIcon(index)}>Paste</button>
+                  <button class="icon-btn" title="Move up" @click=${() => this._moveIcon(index, "up")} ?disabled=${index === 0}>&#9650;</button>
+                  <button class="icon-btn" title="Move down" @click=${() => this._moveIcon(index, "down")} ?disabled=${index === icons.length - 1}>&#9660;</button>
+                  <button class="icon-btn remove-btn" title="Delete" @click=${() => this._removeIcon(index)}>&#10006;</button>
                 </div>
               </div>
 
@@ -2738,7 +2748,7 @@
               ></ha-entity-picker>
 
               <ha-icon-picker
-                .label=${"Icon (Laisser vide pour l'icône par défaut de l'entité)"}
+                .label=${"Icon (leave empty to use the entity's default icon)"}
                 .hass=${this.hass}
                 .value=${iconConf.icon || ""}
                 @value-changed=${(e) => this._iconValueChanged(e, index, "icon")}
@@ -2757,22 +2767,22 @@
                       .checked=${Boolean(iconConf.new_row)}
                       @change=${(e) => this._iconCheckboxChanged(e, index, "new_row")}
                     />
-                    Start on a new row (Passer à la ligne)
+                    Start on a new row
                   </label>
                 </div>
               ` : ""}
 
               <div class="actions-container">
-                ${this._renderActionConfig(index, "tap_action", "Tap Action (Clic court)")}
-                ${this._renderActionConfig(index, "hold_action", "Hold Action (Clic long)")}
+                ${this._renderActionConfig(index, "tap_action", "Tap Action (Short press)")}
+                ${this._renderActionConfig(index, "hold_action", "Hold Action (Long press)")}
               </div>
             </div>
           `)}
         </div>
 
         <div style="display: flex; gap: 8px; margin-top: 8px;">
-          <button class="add-btn" style="flex: 1;" @click=${this._addIcon}>+ Ajouter une icône</button>
-          <button class="add-btn" style="flex: 1; border-style: solid;" @click=${this._pasteNewIcon}>📋 Coller une nouvelle icône</button>
+          <button class="add-btn" style="flex: 1;" @click=${this._addIcon}>+ Add an icon</button>
+          <button class="add-btn" style="flex: 1; border-style: solid;" @click=${this._pasteNewIcon}>📋 Paste as a new icon</button>
         </div>
       </div>
     `;
@@ -2998,7 +3008,7 @@
 
     setConfig(config) {
       if (!config || !config.title) {
-        throw new Error('Veuillez définir un titre (title)');
+        throw new Error('Please define a title (title)');
       }
       this.config = config;
     }
@@ -3009,7 +3019,7 @@
 
     static getStubConfig() {
       return { 
-        title: 'Mon Équipement', 
+        title: 'My Device', 
         tap_action_type: 'navigate',
         navigation_path: '/dashboard-maison', 
         temp_entity: 'sensor.temperature',
@@ -3034,7 +3044,7 @@
       const showTemp = this.config.show_temp !== false;
       const statusItems = this.config.status_items || [];
       
-      // Gestion de l'action au clic
+      // Tap action handling
       const actionType = this.config.tap_action_type || 'navigate';
       const cursorStyle = actionType === 'none' ? 'default' : 'pointer';
 
@@ -3131,7 +3141,7 @@
 
         case 'toggle':
           if (this.config.tap_action_entity) {
-            // Utilisation du service générique homeassistant.toggle
+            // Use the generic homeassistant.toggle service
             this.hass.callService('homeassistant', 'toggle', {
               entity_id: this.config.tap_action_entity
             });
@@ -3191,7 +3201,7 @@
   }
 
   // -------------------------------------------------------------------------
-  // Éditeur visuel
+  // Visual editor
   // -------------------------------------------------------------------------
   class HaPlooumMultiStatusCardEditor extends i {
     static get properties() {
@@ -3212,44 +3222,44 @@
 
       const actionType = this.config.tap_action_type || 'navigate';
 
-      // Construction dynamique du schéma de l'éditeur
+      // Build the editor schema dynamically
       const schema = [
-        { name: 'title', label: 'Titre de la carte', selector: { text: {} } },
+        { name: 'title', label: 'Card title', selector: { text: {} } },
         { 
           name: 'tap_action_type', 
-          label: 'Action au clic sur la carte', 
+          label: 'Action when the card is tapped', 
           selector: { 
             select: { 
               options: [
-                { value: 'navigate', label: 'Navigation vers une autre page' },
-                { value: 'toggle', label: 'Basculer une entité (Toggle)' },
-                { value: 'script', label: 'Exécuter un script' },
-                { value: 'none', label: 'Aucune action' }
+                { value: 'navigate', label: 'Navigate to another page' },
+                { value: 'toggle', label: 'Toggle an entity' },
+                { value: 'script', label: 'Run a script' },
+                { value: 'none', label: 'No action' }
               ] 
             } 
           } 
         }
       ];
 
-      // Champs conditionnels selon l'action choisie
+      // Conditional fields depending on the chosen action
       if (actionType === 'navigate') {
-        schema.push({ name: 'navigation_path', label: 'Chemin de navigation (ex: /dashboard/vue1)', selector: { text: {} } });
+        schema.push({ name: 'navigation_path', label: 'Navigation path (e.g. /dashboard/view1)', selector: { text: {} } });
       } else if (actionType === 'toggle') {
-        schema.push({ name: 'tap_action_entity', label: 'Entité à basculer (switch, light...)', selector: { entity: {} } });
+        schema.push({ name: 'tap_action_entity', label: 'Entity to toggle (switch, light...)', selector: { entity: {} } });
       } else if (actionType === 'script') {
-        schema.push({ name: 'tap_action_script', label: 'Script à exécuter', selector: { entity: { domain: 'script' } } });
+        schema.push({ name: 'tap_action_script', label: 'Script to run', selector: { entity: { domain: 'script' } } });
       }
 
-      schema.push({ name: 'show_temp', label: 'Afficher la ligne de valeur principale', selector: { boolean: {} } });
+      schema.push({ name: 'show_temp', label: 'Show the main value line', selector: { boolean: {} } });
 
       if (this.config.show_temp !== false) {
         schema.push(
           { 
             name: 'temp_entity', 
-            label: 'Entité principale (ex: température)', 
+            label: 'Main entity (e.g. temperature)', 
             selector: { entity: { domain: 'sensor' } } 
           },
-          { name: 'temp_unit', label: 'Unité (ex: °C)', selector: { text: {} } }
+          { name: 'temp_unit', label: 'Unit (e.g. °C)', selector: { text: {} } }
         );
       }
 
@@ -3267,8 +3277,8 @@
         <hr class="divider" />
 
         <div class="section-header">
-          <h3>Éléments de statut (Équipements)</h3>
-          <button class="btn-add" @click="${this._addItem}">+ Ajouter un équipement</button>
+          <h3>Status items (Devices)</h3>
+          <button class="btn-add" @click="${this._addItem}">+ Add a device</button>
         </div>
 
         <div class="items-container">
@@ -3276,15 +3286,15 @@
             const isSvg = item.type === 'svg';
             
             const itemSchema = [
-              { name: 'entity', label: 'Entité (ex: switch, light...)', selector: { entity: {} } },
+              { name: 'entity', label: 'Entity (e.g. switch, light...)', selector: { entity: {} } },
               { 
                 name: 'type', 
-                label: "Type d'affichage", 
+                label: "Display type", 
                 selector: { 
                   select: { 
                     options: [
-                      { value: 'icon', label: 'Icône classique (MDI)' },
-                      { value: 'svg', label: 'SVG personnalisé' }
+                      { value: 'icon', label: 'Standard icon (MDI)' },
+                      { value: 'svg', label: 'Custom SVG' }
                     ] 
                   } 
                 } 
@@ -3295,22 +3305,22 @@
               itemSchema.push(
                 { 
                   name: 'svg_content', 
-                  label: 'Code SVG brut (ex: <svg ...>${color}</svg>)', 
+                  label: 'Raw SVG code (e.g. <svg ...>${color}</svg>)', 
                   selector: { text: { multiline: true } } 
                 }
               );
             } else {
               itemSchema.push(
-                { name: 'icon_on', label: 'Icône (Allumé)', selector: { icon: {} } },
-                { name: 'icon_off', label: 'Icône (Éteint)', selector: { icon: {} } }
+                { name: 'icon_on', label: 'Icon (On)', selector: { icon: {} } },
+                { name: 'icon_off', label: 'Icon (Off)', selector: { icon: {} } }
               );
             }
 
             return b`
               <div class="item-card">
                 <div class="item-header">
-                  <span>Équipement #${index + 1} (${item.type || 'icon'})</span>
-                  <button class="btn-delete" @click="${() => this._deleteItem(index)}">Supprimer</button>
+                  <span>Device #${index + 1} (${item.type || 'icon'})</span>
+                  <button class="btn-delete" @click="${() => this._deleteItem(index)}">Delete</button>
                 </div>
 
                 <ha-form
@@ -3564,7 +3574,7 @@
     window.customCards.push({
       type: 'ha-plooum-multi-status-card',
       name: 'Ha Plooum Multi Status Card',
-      description: 'Une carte personnalisée pour afficher plusieurs statuts et icônes.',
+      description: 'A custom card to display several statuses and icons.',
       preview: false,
     });
   }
@@ -4457,7 +4467,7 @@
       return str;
     }
 
-    /* --- Gestion des Actions (Tap & Hold par cible) --- */
+    /* --- Action handling (Tap & Hold per target) --- */
     _handlePointerDown(e, targetKey) {
       e.stopPropagation();
       this._activeTarget = targetKey;
@@ -4611,7 +4621,7 @@
         center_values = true,
       } = this.config;
 
-      // Température
+      // Temperature
       const tempStateObj = temp_entity ? this.hass.states[temp_entity] : null;
       const tempRawVal = tempStateObj ? tempStateObj.state : undefined;
       const tempFormattedVal = this._formatValue(tempRawVal, temp_decimals);
@@ -4620,7 +4630,7 @@
           ? temp_unit
           : tempStateObj?.attributes?.unit_of_measurement || "°C";
 
-      // Humidité
+      // Humidity
       const humStateObj = humidity_entity ? this.hass.states[humidity_entity] : null;
       const humRawVal = humStateObj ? humStateObj.state : undefined;
       const humFormattedVal = this._formatValue(humRawVal, humidity_decimals);
@@ -4674,7 +4684,7 @@
             : ""}
 
           <div class="values-container" style="gap: ${formattedValuesGap};">
-            <!-- Ligne Température -->
+            <!-- Temperature row -->
             <div
               class="value-row clickable"
               style="color: ${temp_color}; font-size:${this._formatCssUnit(temp_font_size, "13px")}; gap: ${formattedIconTextGap};"
@@ -4695,7 +4705,7 @@
               >
             </div>
 
-            <!-- Ligne Humidité -->
+            <!-- Humidity row -->
             <div
               class="value-row clickable"
               style="color: ${humidity_color}; font-size:${this._formatCssUnit(humidity_font_size, "13px")}; gap: ${formattedIconTextGap};"
@@ -4895,18 +4905,18 @@
             .value=${selectedAction}
             @change=${(e) => this._actionChanged(e, actionKey, "action")}
           >
-            <option value="none">Aucune action</option>
-            <option value="more-info">Afficher plus d'informations (more-info)</option>
-            <option value="toggle">Toggle l'entité</option>
-            <option value="navigate">Naviguer</option>
-            <option value="call-service">Exécuter un script / service</option>
+            <option value="none">No action</option>
+            <option value="more-info">Show more info (more-info)</option>
+            <option value="toggle">Toggle the entity</option>
+            <option value="navigate">Navigate</option>
+            <option value="call-service">Run a script / service</option>
           </select>
         </div>
 
         ${!hideEntityPicker && (selectedAction === "more-info" || selectedAction === "toggle")
           ? b`
               <ha-entity-picker
-                .label=${defaultEntityLabel || "Entité cible (laisser vide pour l'entité par défaut)"}
+                .label=${defaultEntityLabel || "Target entity (leave empty for the default entity)"}
                 .hass=${this.hass}
                 .value=${actionObj.entity || ""}
                 @value-changed=${(e) => this._actionChanged(e, actionKey, "entity")}
@@ -4917,7 +4927,7 @@
         ${selectedAction === "navigate"
           ? b`
               <div class="input-field">
-                <label>Chemin de navigation (ex: /lovelace/salon)</label>
+                <label>Navigation path (e.g. /lovelace/living-room)</label>
                 <input
                   type="text"
                   placeholder="/lovelace/1"
@@ -4930,10 +4940,10 @@
         ${selectedAction === "call-service"
           ? b`
               <div class="input-field">
-                <label>Script / Service (ex: script.mon_script ou light.turn_on)</label>
+                <label>Script / Service (e.g. script.my_script or light.turn_on)</label>
                 <input
                   type="text"
-                  placeholder="script.nom_du_script"
+                  placeholder="script.script_name"
                   .value=${actionObj.service || ""}
                   @input=${(e) => this._actionChanged(e, actionKey, "service")}
                 />
@@ -4949,11 +4959,11 @@
 
       return b`
       <div class="card-config">
-        <!-- Configuration Générale -->
-        <h3>Configuration Générale</h3>
+        <!-- General Settings -->
+        <h3>General Settings</h3>
         <div style="display: flex; gap: 8px;">
           <div class="input-field" style="flex: 2;">
-            <label>Titre (Laisser vide pour masquer)</label>
+            <label>Title (leave empty to hide)</label>
             <input
               type="text"
               placeholder="Title"
@@ -4962,7 +4972,7 @@
             />
           </div>
           <div class="input-field" style="flex: 1;">
-            <label>Taille titre</label>
+            <label>Title size</label>
             <input
               type="text"
               placeholder="15px"
@@ -4974,7 +4984,7 @@
 
         <div style="display: flex; gap: 8px;">
           <div class="input-field" style="flex: 1;">
-            <label>Marge basse titre</label>
+            <label>Title bottom margin</label>
             <input
               type="text"
               placeholder="3px"
@@ -4983,7 +4993,7 @@
             />
           </div>
           <div class="input-field" style="flex: 1;">
-            <label>Padding carte</label>
+            <label>Card padding</label>
             <input
               type="text"
               placeholder="4px"
@@ -4992,7 +5002,7 @@
             />
           </div>
           <div class="input-field" style="flex: 1;">
-            <label>Espace valeurs (gap)</label>
+            <label>Values spacing (gap)</label>
             <input
               type="text"
               placeholder="0px"
@@ -5001,7 +5011,7 @@
             />
           </div>
           <div class="input-field" style="flex: 1;">
-            <label>Espace icône/texte (gap)</label>
+            <label>Icon/text spacing (gap)</label>
             <input
               type="text"
               placeholder="0px"
@@ -5018,32 +5028,32 @@
               .checked=${this._config.center_values !== undefined ? Boolean(this._config.center_values) : true}
               @change=${(e) => this._checkboxChanged(e, "center_values")}
             />
-            Centrer les valeurs horizontalement
+            Center values horizontally
           </label>
         </div>
 
         <hr />
 
         <!-- Card Fallback Actions -->
-        <h3>Actions globales carte (Fond / Titre)</h3>
-        ${this._renderActionBlock("Tap Action (Appui court carte)", "tap_action", "Entité cible par défaut", false)}
-        ${this._renderActionBlock("Hold Action (Appui long carte)", "hold_action", "Entité cible par défaut", false)}
+        <h3>Global card actions (Background / Title)</h3>
+        ${this._renderActionBlock("Tap Action (Card short press)", "tap_action", "Default target entity", false)}
+        ${this._renderActionBlock("Hold Action (Card long press)", "hold_action", "Default target entity", false)}
 
         <hr />
 
         <!-- Main Icon (Left) -->
-        <h3>Icône Principale (Gauche)</h3>
+        <h3>Main Icon (Left)</h3>
         <ha-icon-picker
-          .label=${"Icône principale (Laisser vide pour masquer)"}
+          .label=${"Main icon (leave empty to hide)"}
           .hass=${this.hass}
           .value=${this._config.main_icon !== undefined ? this._config.main_icon : "mdi:sofa"}
           @value-changed=${(e) => this._valueChanged(e, "main_icon")}
         ></ha-icon-picker>
 
         <div style="display: flex; gap: 8px;">
-          ${this._renderColorPicker("Couleur icône", "main_icon_color", "#FFFFFF")}
+          ${this._renderColorPicker("Icon color", "main_icon_color", "#FFFFFF")}
           <div class="input-field" style="flex: 1;">
-            <label>Taille icône</label>
+            <label>Icon size</label>
             <input
               type="text"
               placeholder="32px"
@@ -5055,7 +5065,7 @@
 
         <div style="display: flex; gap: 8px;">
           <div class="input-field" style="flex: 1;">
-            <label>Décalage X (ex: 5px, -10px)</label>
+            <label>X offset (e.g. 5px, -10px)</label>
             <input
               type="text"
               placeholder="3px"
@@ -5064,7 +5074,7 @@
             />
           </div>
           <div class="input-field" style="flex: 1;">
-            <label>Décalage Y (ex: 5px, -10px)</label>
+            <label>Y offset (e.g. 5px, -10px)</label>
             <input
               type="text"
               placeholder="0px"
@@ -5077,9 +5087,9 @@
         <hr />
 
         <!-- Temperature Section -->
-        <h3>Configuration Température</h3>
+        <h3>Temperature Settings</h3>
         <ha-entity-picker
-          .label=${"Entité Température"}
+          .label=${"Temperature entity"}
           .hass=${this.hass}
           .value=${this._config.temp_entity || ""}
           @value-changed=${(e) => this._valueChanged(e, "temp_entity")}
@@ -5093,14 +5103,14 @@
               .checked=${this._config.show_temp_icon !== false}
               @change=${(e) => this._checkboxChanged(e, "show_temp_icon")}
             />
-            Afficher l'icône de température
+            Show temperature icon
           </label>
         </div>
 
         ${this._config.show_temp_icon !== false
           ? b`
               <ha-icon-picker
-                .label=${"Icône Température"}
+                .label=${"Temperature icon"}
                 .hass=${this.hass}
                 .value=${this._config.temp_icon || "mdi:thermometer"}
                 @value-changed=${(e) => this._valueChanged(e, "temp_icon")}
@@ -5109,9 +5119,9 @@
           : ""}
 
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          ${this._renderColorPicker("Couleur", "temp_color", "#E57373")}
+          ${this._renderColorPicker("Color", "temp_color", "#E57373")}
           <div class="input-field" style="flex: 1; min-width: 80px;">
-            <label>Taille texte</label>
+            <label>Text size</label>
             <input
               type="text"
               placeholder="13px"
@@ -5120,7 +5130,7 @@
             />
           </div>
           <div class="input-field" style="flex: 1; min-width: 80px;">
-            <label>Taille icône</label>
+            <label>Icon size</label>
             <input
               type="text"
               placeholder="1.2em"
@@ -5129,7 +5139,7 @@
             />
           </div>
           <div class="input-field" style="flex: 1; min-width: 70px;">
-            <label>Décimales</label>
+            <label>Decimals</label>
             <input
               type="number"
               min="0"
@@ -5140,7 +5150,7 @@
             />
           </div>
           <div class="input-field" style="flex: 1; min-width: 70px;">
-            <label>Unité (ex: °C, °F)</label>
+            <label>Unit (e.g. °C, °F)</label>
             <input
               type="text"
               placeholder="Auto (°C)"
@@ -5150,15 +5160,15 @@
           </div>
         </div>
 
-        ${this._renderActionBlock("Tap Action (Température)", "temp_tap_action", "", true)}
-        ${this._renderActionBlock("Hold Action (Température)", "temp_hold_action", "", true)}
+        ${this._renderActionBlock("Tap Action (Temperature)", "temp_tap_action", "", true)}
+        ${this._renderActionBlock("Hold Action (Temperature)", "temp_hold_action", "", true)}
 
         <hr />
 
         <!-- Humidity Section -->
-        <h3>Configuration Humidité</h3>
+        <h3>Humidity Settings</h3>
         <ha-entity-picker
-          .label=${"Entité Humidité"}
+          .label=${"Humidity entity"}
           .hass=${this.hass}
           .value=${this._config.humidity_entity || ""}
           @value-changed=${(e) => this._valueChanged(e, "humidity_entity")}
@@ -5172,14 +5182,14 @@
               .checked=${this._config.show_humidity_icon !== false}
               @change=${(e) => this._checkboxChanged(e, "show_humidity_icon")}
             />
-            Afficher l'icône d'humidité
+            Show humidity icon
           </label>
         </div>
 
         ${this._config.show_humidity_icon !== false
           ? b`
               <ha-icon-picker
-                .label=${"Icône Humidité"}
+                .label=${"Humidity icon"}
                 .hass=${this.hass}
                 .value=${this._config.humidity_icon || "mdi:water"}
                 @value-changed=${(e) => this._valueChanged(e, "humidity_icon")}
@@ -5188,9 +5198,9 @@
           : ""}
 
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          ${this._renderColorPicker("Couleur", "humidity_color", "#4FC3F7")}
+          ${this._renderColorPicker("Color", "humidity_color", "#4FC3F7")}
           <div class="input-field" style="flex: 1; min-width: 80px;">
-            <label>Taille texte</label>
+            <label>Text size</label>
             <input
               type="text"
               placeholder="13px"
@@ -5199,7 +5209,7 @@
             />
           </div>
           <div class="input-field" style="flex: 1; min-width: 80px;">
-            <label>Taille icône</label>
+            <label>Icon size</label>
             <input
               type="text"
               placeholder="1.2em"
@@ -5208,7 +5218,7 @@
             />
           </div>
           <div class="input-field" style="flex: 1; min-width: 70px;">
-            <label>Décimales</label>
+            <label>Decimals</label>
             <input
               type="number"
               min="0"
@@ -5219,7 +5229,7 @@
             />
           </div>
           <div class="input-field" style="flex: 1; min-width: 70px;">
-            <label>Unité (ex: %)</label>
+            <label>Unit (e.g. %)</label>
             <input
               type="text"
               placeholder="Auto (%)"
@@ -5229,8 +5239,8 @@
           </div>
         </div>
 
-        ${this._renderActionBlock("Tap Action (Humidité)", "humidity_tap_action", "", true)}
-        ${this._renderActionBlock("Hold Action (Humidité)", "humidity_hold_action", "", true)}
+        ${this._renderActionBlock("Tap Action (Humidity)", "humidity_tap_action", "", true)}
+        ${this._renderActionBlock("Hold Action (Humidity)", "humidity_hold_action", "", true)}
       </div>
     `;
     }

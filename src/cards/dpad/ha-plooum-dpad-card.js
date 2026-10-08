@@ -143,7 +143,7 @@ class HaPlooumDpadCard extends LitElement {
       }
       .remote-container {
         display: grid;
-        /* Utilisation de minmax(0, 1fr) pour éviter que les icônes trop grandes ne décalent la grille */
+        /* Use minmax(0, 1fr) so that oversized icons do not shift the grid */
         grid-template-columns: repeat(3, minmax(0, 1fr));
         grid-template-rows: repeat(3, minmax(0, 1fr));
         grid-template-areas: 
@@ -181,7 +181,7 @@ class HaPlooumDpadCard extends LitElement {
         cursor: pointer;
         border-radius: 50%;
         transition: background-color 0.2s ease;
-        /* Optionnel mais sécurise le débordement visuel si l'icône est immense */
+        /* Optional, but guards against visual overflow if the icon is huge */
         width: 100%;
         height: 100%;
       }

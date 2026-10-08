@@ -27,7 +27,7 @@ class HaPlooumMultiStatusCard extends LitElement {
 
   setConfig(config) {
     if (!config || !config.title) {
-      throw new Error('Veuillez définir un titre (title)');
+      throw new Error('Please define a title (title)');
     }
     this.config = config;
   }
@@ -38,7 +38,7 @@ class HaPlooumMultiStatusCard extends LitElement {
 
   static getStubConfig() {
     return { 
-      title: 'Mon Équipement', 
+      title: 'My Device', 
       tap_action_type: 'navigate',
       navigation_path: '/dashboard-maison', 
       temp_entity: 'sensor.temperature',
@@ -63,7 +63,7 @@ class HaPlooumMultiStatusCard extends LitElement {
     const showTemp = this.config.show_temp !== false;
     const statusItems = this.config.status_items || [];
     
-    // Gestion de l'action au clic
+    // Tap action handling
     const actionType = this.config.tap_action_type || 'navigate';
     const cursorStyle = actionType === 'none' ? 'default' : 'pointer';
 
@@ -160,7 +160,7 @@ class HaPlooumMultiStatusCard extends LitElement {
 
       case 'toggle':
         if (this.config.tap_action_entity) {
-          // Utilisation du service générique homeassistant.toggle
+          // Use the generic homeassistant.toggle service
           this.hass.callService('homeassistant', 'toggle', {
             entity_id: this.config.tap_action_entity
           });
@@ -179,7 +179,7 @@ class HaPlooumMultiStatusCard extends LitElement {
 
       case 'none':
       default:
-        // Ne rien faire
+        // Do nothing
         break;
     }
   }
@@ -225,7 +225,7 @@ class HaPlooumMultiStatusCard extends LitElement {
 }
 
 // -------------------------------------------------------------------------
-// Éditeur visuel
+// Visual editor
 // -------------------------------------------------------------------------
 class HaPlooumMultiStatusCardEditor extends LitElement {
   static get properties() {
@@ -246,44 +246,44 @@ class HaPlooumMultiStatusCardEditor extends LitElement {
 
     const actionType = this.config.tap_action_type || 'navigate';
 
-    // Construction dynamique du schéma de l'éditeur
+    // Build the editor schema dynamically
     const schema = [
-      { name: 'title', label: 'Titre de la carte', selector: { text: {} } },
+      { name: 'title', label: 'Card title', selector: { text: {} } },
       { 
         name: 'tap_action_type', 
-        label: 'Action au clic sur la carte', 
+        label: 'Action when the card is tapped', 
         selector: { 
           select: { 
             options: [
-              { value: 'navigate', label: 'Navigation vers une autre page' },
-              { value: 'toggle', label: 'Basculer une entité (Toggle)' },
-              { value: 'script', label: 'Exécuter un script' },
-              { value: 'none', label: 'Aucune action' }
+              { value: 'navigate', label: 'Navigate to another page' },
+              { value: 'toggle', label: 'Toggle an entity' },
+              { value: 'script', label: 'Run a script' },
+              { value: 'none', label: 'No action' }
             ] 
           } 
         } 
       }
     ];
 
-    // Champs conditionnels selon l'action choisie
+    // Conditional fields depending on the chosen action
     if (actionType === 'navigate') {
-      schema.push({ name: 'navigation_path', label: 'Chemin de navigation (ex: /dashboard/vue1)', selector: { text: {} } });
+      schema.push({ name: 'navigation_path', label: 'Navigation path (e.g. /dashboard/view1)', selector: { text: {} } });
     } else if (actionType === 'toggle') {
-      schema.push({ name: 'tap_action_entity', label: 'Entité à basculer (switch, light...)', selector: { entity: {} } });
+      schema.push({ name: 'tap_action_entity', label: 'Entity to toggle (switch, light...)', selector: { entity: {} } });
     } else if (actionType === 'script') {
-      schema.push({ name: 'tap_action_script', label: 'Script à exécuter', selector: { entity: { domain: 'script' } } });
+      schema.push({ name: 'tap_action_script', label: 'Script to run', selector: { entity: { domain: 'script' } } });
     }
 
-    schema.push({ name: 'show_temp', label: 'Afficher la ligne de valeur principale', selector: { boolean: {} } });
+    schema.push({ name: 'show_temp', label: 'Show the main value line', selector: { boolean: {} } });
 
     if (this.config.show_temp !== false) {
       schema.push(
         { 
           name: 'temp_entity', 
-          label: 'Entité principale (ex: température)', 
+          label: 'Main entity (e.g. temperature)', 
           selector: { entity: { domain: 'sensor' } } 
         },
-        { name: 'temp_unit', label: 'Unité (ex: °C)', selector: { text: {} } }
+        { name: 'temp_unit', label: 'Unit (e.g. °C)', selector: { text: {} } }
       );
     }
 
@@ -301,8 +301,8 @@ class HaPlooumMultiStatusCardEditor extends LitElement {
         <hr class="divider" />
 
         <div class="section-header">
-          <h3>Éléments de statut (Équipements)</h3>
-          <button class="btn-add" @click="${this._addItem}">+ Ajouter un équipement</button>
+          <h3>Status items (Devices)</h3>
+          <button class="btn-add" @click="${this._addItem}">+ Add a device</button>
         </div>
 
         <div class="items-container">
@@ -310,15 +310,15 @@ class HaPlooumMultiStatusCardEditor extends LitElement {
             const isSvg = item.type === 'svg';
             
             const itemSchema = [
-              { name: 'entity', label: 'Entité (ex: switch, light...)', selector: { entity: {} } },
+              { name: 'entity', label: 'Entity (e.g. switch, light...)', selector: { entity: {} } },
               { 
                 name: 'type', 
-                label: "Type d'affichage", 
+                label: "Display type", 
                 selector: { 
                   select: { 
                     options: [
-                      { value: 'icon', label: 'Icône classique (MDI)' },
-                      { value: 'svg', label: 'SVG personnalisé' }
+                      { value: 'icon', label: 'Standard icon (MDI)' },
+                      { value: 'svg', label: 'Custom SVG' }
                     ] 
                   } 
                 } 
@@ -329,22 +329,22 @@ class HaPlooumMultiStatusCardEditor extends LitElement {
               itemSchema.push(
                 { 
                   name: 'svg_content', 
-                  label: 'Code SVG brut (ex: <svg ...>${color}</svg>)', 
+                  label: 'Raw SVG code (e.g. <svg ...>${color}</svg>)', 
                   selector: { text: { multiline: true } } 
                 }
               );
             } else {
               itemSchema.push(
-                { name: 'icon_on', label: 'Icône (Allumé)', selector: { icon: {} } },
-                { name: 'icon_off', label: 'Icône (Éteint)', selector: { icon: {} } }
+                { name: 'icon_on', label: 'Icon (On)', selector: { icon: {} } },
+                { name: 'icon_off', label: 'Icon (Off)', selector: { icon: {} } }
               );
             }
 
             return html`
               <div class="item-card">
                 <div class="item-header">
-                  <span>Équipement #${index + 1} (${item.type || 'icon'})</span>
-                  <button class="btn-delete" @click="${() => this._deleteItem(index)}">Supprimer</button>
+                  <span>Device #${index + 1} (${item.type || 'icon'})</span>
+                  <button class="btn-delete" @click="${() => this._deleteItem(index)}">Delete</button>
                 </div>
 
                 <ha-form
@@ -598,7 +598,7 @@ if (!window.customCards.some(card => card.type === 'ha-plooum-multi-status-card'
   window.customCards.push({
     type: 'ha-plooum-multi-status-card',
     name: 'Ha Plooum Multi Status Card',
-    description: 'Une carte personnalisée pour afficher plusieurs statuts et icônes.',
+    description: 'A custom card to display several statuses and icons.',
     preview: false,
   });
 }

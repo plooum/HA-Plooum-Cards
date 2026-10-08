@@ -250,7 +250,7 @@ class HaPlooumGridIconsCard extends LitElement {
     if (action === "toggle") {
       const entityId = actionConfig.target?.entity_id || iconConf.entity;
       if (entityId) {
-        // Utilisation du service universel natif (gère tous les domaines)
+        // Use the native universal service (handles all domains)
         this.hass.callService("homeassistant", "toggle", { entity_id: entityId });
       }
     } 
@@ -296,7 +296,7 @@ class HaPlooumGridIconsCard extends LitElement {
 
   // --- Tap / Hold Events ---
   _startTimer(e, iconConf) {
-    // Sécurité contre les doubles clics tactiles+souris sur mobile
+    // Guard against touch+mouse double clicks on mobile
     if (e.type === "mousedown" && this._isTouch) return;
     if (e.type === "touchstart") this._isTouch = true;
 
@@ -310,7 +310,7 @@ class HaPlooumGridIconsCard extends LitElement {
   }
 
   _stopTimer(e, iconConf) {
-    // Sécurité contre les doubles clics tactiles+souris sur mobile
+    // Guard against touch+mouse double clicks on mobile
     if (e.type === "mouseup" && this._isTouch) return;
 
     e.stopPropagation();
@@ -320,7 +320,7 @@ class HaPlooumGridIconsCard extends LitElement {
     }
 
     if (e.type === "touchend") {
-      // Désactive la sécurité tactile après un court délai
+      // Disable the touch guard after a short delay
       setTimeout(() => { this._isTouch = false; }, 300);
     }
   }
@@ -563,7 +563,7 @@ class HaPlooumGridIconsCardEditor extends LitElement {
     if (ev && ev.target) {
       const btn = ev.target;
       const oldText = btn.innerHTML;
-      btn.innerHTML = "✔ Copié";
+      btn.innerHTML = "✔ Copied";
       setTimeout(() => { btn.innerHTML = oldText; }, 1000);
     }
   }
@@ -571,7 +571,7 @@ class HaPlooumGridIconsCardEditor extends LitElement {
   _pasteIcon(index) {
     const clipboard = localStorage.getItem("ha_plooum_icon_clipboard");
     if (!clipboard) {
-      alert("Presse-papiers vide. Copiez d'abord une icône.");
+      alert("Clipboard is empty. Copy an icon first.");
       return;
     }
     try {
@@ -587,7 +587,7 @@ class HaPlooumGridIconsCardEditor extends LitElement {
   _pasteNewIcon() {
     const clipboard = localStorage.getItem("ha_plooum_icon_clipboard");
     if (!clipboard) {
-      alert("Presse-papiers vide. Copiez d'abord une icône.");
+      alert("Clipboard is empty. Copy an icon first.");
       return;
     }
     try {
@@ -742,11 +742,11 @@ class HaPlooumGridIconsCardEditor extends LitElement {
               <div class="icon-header">
                 <strong>Icon #${index + 1}</strong>
                 <div class="icon-actions">
-                  <button class="icon-btn copy-btn" title="Copier cette icône" @click=${(e) => this._copyIcon(index, e)}>Copier</button>
-                  <button class="icon-btn paste-btn" title="Remplacer par l'icône copiée" @click=${() => this._pasteIcon(index)}>Coller</button>
-                  <button class="icon-btn" title="Monter" @click=${() => this._moveIcon(index, "up")} ?disabled=${index === 0}>&#9650;</button>
-                  <button class="icon-btn" title="Descendre" @click=${() => this._moveIcon(index, "down")} ?disabled=${index === icons.length - 1}>&#9660;</button>
-                  <button class="icon-btn remove-btn" title="Supprimer" @click=${() => this._removeIcon(index)}>&#10006;</button>
+                  <button class="icon-btn copy-btn" title="Copy this icon" @click=${(e) => this._copyIcon(index, e)}>Copy</button>
+                  <button class="icon-btn paste-btn" title="Replace with the copied icon" @click=${() => this._pasteIcon(index)}>Paste</button>
+                  <button class="icon-btn" title="Move up" @click=${() => this._moveIcon(index, "up")} ?disabled=${index === 0}>&#9650;</button>
+                  <button class="icon-btn" title="Move down" @click=${() => this._moveIcon(index, "down")} ?disabled=${index === icons.length - 1}>&#9660;</button>
+                  <button class="icon-btn remove-btn" title="Delete" @click=${() => this._removeIcon(index)}>&#10006;</button>
                 </div>
               </div>
 
@@ -759,7 +759,7 @@ class HaPlooumGridIconsCardEditor extends LitElement {
               ></ha-entity-picker>
 
               <ha-icon-picker
-                .label=${"Icon (Laisser vide pour l'icône par défaut de l'entité)"}
+                .label=${"Icon (leave empty to use the entity's default icon)"}
                 .hass=${this.hass}
                 .value=${iconConf.icon || ""}
                 @value-changed=${(e) => this._iconValueChanged(e, index, "icon")}
@@ -778,22 +778,22 @@ class HaPlooumGridIconsCardEditor extends LitElement {
                       .checked=${Boolean(iconConf.new_row)}
                       @change=${(e) => this._iconCheckboxChanged(e, index, "new_row")}
                     />
-                    Start on a new row (Passer à la ligne)
+                    Start on a new row
                   </label>
                 </div>
               ` : ""}
 
               <div class="actions-container">
-                ${this._renderActionConfig(index, "tap_action", "Tap Action (Clic court)")}
-                ${this._renderActionConfig(index, "hold_action", "Hold Action (Clic long)")}
+                ${this._renderActionConfig(index, "tap_action", "Tap Action (Short press)")}
+                ${this._renderActionConfig(index, "hold_action", "Hold Action (Long press)")}
               </div>
             </div>
           `)}
         </div>
 
         <div style="display: flex; gap: 8px; margin-top: 8px;">
-          <button class="add-btn" style="flex: 1;" @click=${this._addIcon}>+ Ajouter une icône</button>
-          <button class="add-btn" style="flex: 1; border-style: solid;" @click=${this._pasteNewIcon}>📋 Coller une nouvelle icône</button>
+          <button class="add-btn" style="flex: 1;" @click=${this._addIcon}>+ Add an icon</button>
+          <button class="add-btn" style="flex: 1; border-style: solid;" @click=${this._pasteNewIcon}>📋 Paste as a new icon</button>
         </div>
       </div>
     `;
