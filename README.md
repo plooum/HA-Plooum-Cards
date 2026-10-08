@@ -38,7 +38,11 @@ Pavé directionnel façon télécommande, idéal pour le contrôle PTZ de camér
 ### Ha Plooum Floorplan Card
 Plan vivant de la maison : les pièces éclairées rayonnent autour de leurs lampes, le sol prend la couleur de la température, les volets se ferment sur les fenêtres. Sans configuration, le plan est généré depuis tes pièces Home Assistant ; l'éditeur permet ensuite de dessiner tes pièces et d'y glisser-déposer tes entités, même si elles sont mal rangées dans Home Assistant.
 
+En **3D**, le même plan devient une maquette de la maison et du jardin, avec un toit généré automatiquement : l'image de chaque caméra s'affiche sur un écran placé devant elle, là où elle regarde. Les caméras se placent et s'orientent dans l'éditeur du plan.
+
 ![Floorplan preview](docs/previews/floorplan.png)
+
+![3D view preview](docs/previews/floorplan-3d.png)
 
 ### HA Plooum GridIcons Card
 Rangée compacte d'icônes d'entités dans un pill container, avec couleurs d'état et actions tap/hold.

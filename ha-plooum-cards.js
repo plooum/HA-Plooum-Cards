@@ -6,31 +6,31 @@
    * Copyright 2019 Google LLC
    * SPDX-License-Identifier: BSD-3-Clause
    */
-  const t$1=globalThis,e$2=t$1.ShadowRoot&&(void 0===t$1.ShadyCSS||t$1.ShadyCSS.nativeShadow)&&"adoptedStyleSheets"in Document.prototype&&"replace"in CSSStyleSheet.prototype,s$2=Symbol(),o$3=new WeakMap;let n$2 = class n{constructor(t,e,o){if(this._$cssResult$=true,o!==s$2)throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");this.cssText=t,this.t=e;}get styleSheet(){let t=this.o;const s=this.t;if(e$2&&void 0===t){const e=void 0!==s&&1===s.length;e&&(t=o$3.get(s)),void 0===t&&((this.o=t=new CSSStyleSheet).replaceSync(this.cssText),e&&o$3.set(s,t));}return t}toString(){return this.cssText}};const r$2=t=>new n$2("string"==typeof t?t:t+"",void 0,s$2),i$3=(t,...e)=>{const o=1===t.length?t[0]:e.reduce((e,s,o)=>e+(t=>{if(true===t._$cssResult$)return t.cssText;if("number"==typeof t)return t;throw Error("Value passed to 'css' function must be a 'css' function result: "+t+". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.")})(s)+t[o+1],t[0]);return new n$2(o,t,s$2)},S$1=(s,o)=>{if(e$2)s.adoptedStyleSheets=o.map(t=>t instanceof CSSStyleSheet?t:t.styleSheet);else for(const e of o){const o=document.createElement("style"),n=t$1.litNonce;void 0!==n&&o.setAttribute("nonce",n),o.textContent=e.cssText,s.appendChild(o);}},c$2=e$2?t=>t:t=>t instanceof CSSStyleSheet?(t=>{let e="";for(const s of t.cssRules)e+=s.cssText;return r$2(e)})(t):t;
+  const t$3=globalThis,e$3=t$3.ShadowRoot&&(void 0===t$3.ShadyCSS||t$3.ShadyCSS.nativeShadow)&&"adoptedStyleSheets"in Document.prototype&&"replace"in CSSStyleSheet.prototype,s$3=Symbol(),o$3=new WeakMap;let n$2 = class n{constructor(t,e,o){if(this._$cssResult$=true,o!==s$3)throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");this.cssText=t,this.t=e;}get styleSheet(){let t=this.o;const s=this.t;if(e$3&&void 0===t){const e=void 0!==s&&1===s.length;e&&(t=o$3.get(s)),void 0===t&&((this.o=t=new CSSStyleSheet).replaceSync(this.cssText),e&&o$3.set(s,t));}return t}toString(){return this.cssText}};const r$2=t=>new n$2("string"==typeof t?t:t+"",void 0,s$3),i$5=(t,...e)=>{const o=1===t.length?t[0]:e.reduce((e,s,o)=>e+(t=>{if(true===t._$cssResult$)return t.cssText;if("number"==typeof t)return t;throw Error("Value passed to 'css' function must be a 'css' function result: "+t+". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.")})(s)+t[o+1],t[0]);return new n$2(o,t,s$3)},S$1=(s,o)=>{if(e$3)s.adoptedStyleSheets=o.map(t=>t instanceof CSSStyleSheet?t:t.styleSheet);else for(const e of o){const o=document.createElement("style"),n=t$3.litNonce;void 0!==n&&o.setAttribute("nonce",n),o.textContent=e.cssText,s.appendChild(o);}},c$3=e$3?t=>t:t=>t instanceof CSSStyleSheet?(t=>{let e="";for(const s of t.cssRules)e+=s.cssText;return r$2(e)})(t):t;
 
   /**
    * @license
    * Copyright 2017 Google LLC
    * SPDX-License-Identifier: BSD-3-Clause
-   */const{is:i$2,defineProperty:e$1,getOwnPropertyDescriptor:h$1,getOwnPropertyNames:r$1,getOwnPropertySymbols:o$2,getPrototypeOf:n$1}=Object,a$1=globalThis,c$1=a$1.trustedTypes,l$1=c$1?c$1.emptyScript:"",p$1=a$1.reactiveElementPolyfillSupport,d$1=(t,s)=>t,u$1={toAttribute(t,s){switch(s){case Boolean:t=t?l$1:null;break;case Object:case Array:t=null==t?t:JSON.stringify(t);}return t},fromAttribute(t,s){let i=t;switch(s){case Boolean:i=null!==t;break;case Number:i=null===t?null:Number(t);break;case Object:case Array:try{i=JSON.parse(t);}catch(t){i=null;}}return i}},f$1=(t,s)=>!i$2(t,s),b$1={attribute:true,type:String,converter:u$1,reflect:false,useDefault:false,hasChanged:f$1};Symbol.metadata??=Symbol("metadata"),a$1.litPropertyMetadata??=new WeakMap;let y$1 = class y extends HTMLElement{static addInitializer(t){this._$Ei(),(this.l??=[]).push(t);}static get observedAttributes(){return this.finalize(),this._$Eh&&[...this._$Eh.keys()]}static createProperty(t,s=b$1){if(s.state&&(s.attribute=false),this._$Ei(),this.prototype.hasOwnProperty(t)&&((s=Object.create(s)).wrapped=true),this.elementProperties.set(t,s),!s.noAccessor){const i=Symbol(),h=this.getPropertyDescriptor(t,i,s);void 0!==h&&e$1(this.prototype,t,h);}}static getPropertyDescriptor(t,s,i){const{get:e,set:r}=h$1(this.prototype,t)??{get(){return this[s]},set(t){this[s]=t;}};return {get:e,set(s){const h=e?.call(this);r?.call(this,s),this.requestUpdate(t,h,i);},configurable:true,enumerable:true}}static getPropertyOptions(t){return this.elementProperties.get(t)??b$1}static _$Ei(){if(this.hasOwnProperty(d$1("elementProperties")))return;const t=n$1(this);t.finalize(),void 0!==t.l&&(this.l=[...t.l]),this.elementProperties=new Map(t.elementProperties);}static finalize(){if(this.hasOwnProperty(d$1("finalized")))return;if(this.finalized=true,this._$Ei(),this.hasOwnProperty(d$1("properties"))){const t=this.properties,s=[...r$1(t),...o$2(t)];for(const i of s)this.createProperty(i,t[i]);}const t=this[Symbol.metadata];if(null!==t){const s=litPropertyMetadata.get(t);if(void 0!==s)for(const[t,i]of s)this.elementProperties.set(t,i);}this._$Eh=new Map;for(const[t,s]of this.elementProperties){const i=this._$Eu(t,s);void 0!==i&&this._$Eh.set(i,t);}this.elementStyles=this.finalizeStyles(this.styles);}static finalizeStyles(s){const i=[];if(Array.isArray(s)){const e=new Set(s.flat(1/0).reverse());for(const s of e)i.unshift(c$2(s));}else void 0!==s&&i.push(c$2(s));return i}static _$Eu(t,s){const i=s.attribute;return  false===i?void 0:"string"==typeof i?i:"string"==typeof t?t.toLowerCase():void 0}constructor(){super(),this._$Ep=void 0,this.isUpdatePending=false,this.hasUpdated=false,this._$Em=null,this._$Ev();}_$Ev(){this._$ES=new Promise(t=>this.enableUpdating=t),this._$AL=new Map,this._$E_(),this.requestUpdate(),this.constructor.l?.forEach(t=>t(this));}addController(t){(this._$EO??=new Set).add(t),void 0!==this.renderRoot&&this.isConnected&&t.hostConnected?.();}removeController(t){this._$EO?.delete(t);}_$E_(){const t=new Map,s=this.constructor.elementProperties;for(const i of s.keys())this.hasOwnProperty(i)&&(t.set(i,this[i]),delete this[i]);t.size>0&&(this._$Ep=t);}createRenderRoot(){const t=this.shadowRoot??this.attachShadow(this.constructor.shadowRootOptions);return S$1(t,this.constructor.elementStyles),t}connectedCallback(){this.renderRoot??=this.createRenderRoot(),this.enableUpdating(true),this._$EO?.forEach(t=>t.hostConnected?.());}enableUpdating(t){}disconnectedCallback(){this._$EO?.forEach(t=>t.hostDisconnected?.());}attributeChangedCallback(t,s,i){this._$AK(t,i);}_$ET(t,s){const i=this.constructor.elementProperties.get(t),e=this.constructor._$Eu(t,i);if(void 0!==e&&true===i.reflect){const h=(void 0!==i.converter?.toAttribute?i.converter:u$1).toAttribute(s,i.type);this._$Em=t,null==h?this.removeAttribute(e):this.setAttribute(e,h),this._$Em=null;}}_$AK(t,s){const i=this.constructor,e=i._$Eh.get(t);if(void 0!==e&&this._$Em!==e){const t=i.getPropertyOptions(e),h="function"==typeof t.converter?{fromAttribute:t.converter}:void 0!==t.converter?.fromAttribute?t.converter:u$1;this._$Em=e;const r=h.fromAttribute(s,t.type);this[e]=r??this._$Ej?.get(e)??r,this._$Em=null;}}requestUpdate(t,s,i,e=false,h){if(void 0!==t){const r=this.constructor;if(false===e&&(h=this[t]),i??=r.getPropertyOptions(t),!((i.hasChanged??f$1)(h,s)||i.useDefault&&i.reflect&&h===this._$Ej?.get(t)&&!this.hasAttribute(r._$Eu(t,i))))return;this.C(t,s,i);} false===this.isUpdatePending&&(this._$ES=this._$EP());}C(t,s,{useDefault:i,reflect:e,wrapped:h},r){i&&!(this._$Ej??=new Map).has(t)&&(this._$Ej.set(t,r??s??this[t]),true!==h||void 0!==r)||(this._$AL.has(t)||(this.hasUpdated||i||(s=void 0),this._$AL.set(t,s)),true===e&&this._$Em!==t&&(this._$Eq??=new Set).add(t));}async _$EP(){this.isUpdatePending=true;try{await this._$ES;}catch(t){Promise.reject(t);}const t=this.scheduleUpdate();return null!=t&&await t,!this.isUpdatePending}scheduleUpdate(){return this.performUpdate()}performUpdate(){if(!this.isUpdatePending)return;if(!this.hasUpdated){if(this.renderRoot??=this.createRenderRoot(),this._$Ep){for(const[t,s]of this._$Ep)this[t]=s;this._$Ep=void 0;}const t=this.constructor.elementProperties;if(t.size>0)for(const[s,i]of t){const{wrapped:t}=i,e=this[s];true!==t||this._$AL.has(s)||void 0===e||this.C(s,void 0,i,e);}}let t=false;const s=this._$AL;try{t=this.shouldUpdate(s),t?(this.willUpdate(s),this._$EO?.forEach(t=>t.hostUpdate?.()),this.update(s)):this._$EM();}catch(s){throw t=false,this._$EM(),s}t&&this._$AE(s);}willUpdate(t){}_$AE(t){this._$EO?.forEach(t=>t.hostUpdated?.()),this.hasUpdated||(this.hasUpdated=true,this.firstUpdated(t)),this.updated(t);}_$EM(){this._$AL=new Map,this.isUpdatePending=false;}get updateComplete(){return this.getUpdateComplete()}getUpdateComplete(){return this._$ES}shouldUpdate(t){return  true}update(t){this._$Eq&&=this._$Eq.forEach(t=>this._$ET(t,this[t])),this._$EM();}updated(t){}firstUpdated(t){}};y$1.elementStyles=[],y$1.shadowRootOptions={mode:"open"},y$1[d$1("elementProperties")]=new Map,y$1[d$1("finalized")]=new Map,p$1?.({ReactiveElement:y$1}),(a$1.reactiveElementVersions??=[]).push("2.1.2");
+   */const{is:i$4,defineProperty:e$2,getOwnPropertyDescriptor:h$2,getOwnPropertyNames:r$1,getOwnPropertySymbols:o$2,getPrototypeOf:n$1}=Object,a$1=globalThis,c$2=a$1.trustedTypes,l$1=c$2?c$2.emptyScript:"",p$2=a$1.reactiveElementPolyfillSupport,d$1=(t,s)=>t,u$3={toAttribute(t,s){switch(s){case Boolean:t=t?l$1:null;break;case Object:case Array:t=null==t?t:JSON.stringify(t);}return t},fromAttribute(t,s){let i=t;switch(s){case Boolean:i=null!==t;break;case Number:i=null===t?null:Number(t);break;case Object:case Array:try{i=JSON.parse(t);}catch(t){i=null;}}return i}},f$1=(t,s)=>!i$4(t,s),b$1={attribute:true,type:String,converter:u$3,reflect:false,useDefault:false,hasChanged:f$1};Symbol.metadata??=Symbol("metadata"),a$1.litPropertyMetadata??=new WeakMap;let y$1 = class y extends HTMLElement{static addInitializer(t){this._$Ei(),(this.l??=[]).push(t);}static get observedAttributes(){return this.finalize(),this._$Eh&&[...this._$Eh.keys()]}static createProperty(t,s=b$1){if(s.state&&(s.attribute=false),this._$Ei(),this.prototype.hasOwnProperty(t)&&((s=Object.create(s)).wrapped=true),this.elementProperties.set(t,s),!s.noAccessor){const i=Symbol(),h=this.getPropertyDescriptor(t,i,s);void 0!==h&&e$2(this.prototype,t,h);}}static getPropertyDescriptor(t,s,i){const{get:e,set:r}=h$2(this.prototype,t)??{get(){return this[s]},set(t){this[s]=t;}};return {get:e,set(s){const h=e?.call(this);r?.call(this,s),this.requestUpdate(t,h,i);},configurable:true,enumerable:true}}static getPropertyOptions(t){return this.elementProperties.get(t)??b$1}static _$Ei(){if(this.hasOwnProperty(d$1("elementProperties")))return;const t=n$1(this);t.finalize(),void 0!==t.l&&(this.l=[...t.l]),this.elementProperties=new Map(t.elementProperties);}static finalize(){if(this.hasOwnProperty(d$1("finalized")))return;if(this.finalized=true,this._$Ei(),this.hasOwnProperty(d$1("properties"))){const t=this.properties,s=[...r$1(t),...o$2(t)];for(const i of s)this.createProperty(i,t[i]);}const t=this[Symbol.metadata];if(null!==t){const s=litPropertyMetadata.get(t);if(void 0!==s)for(const[t,i]of s)this.elementProperties.set(t,i);}this._$Eh=new Map;for(const[t,s]of this.elementProperties){const i=this._$Eu(t,s);void 0!==i&&this._$Eh.set(i,t);}this.elementStyles=this.finalizeStyles(this.styles);}static finalizeStyles(s){const i=[];if(Array.isArray(s)){const e=new Set(s.flat(1/0).reverse());for(const s of e)i.unshift(c$3(s));}else void 0!==s&&i.push(c$3(s));return i}static _$Eu(t,s){const i=s.attribute;return  false===i?void 0:"string"==typeof i?i:"string"==typeof t?t.toLowerCase():void 0}constructor(){super(),this._$Ep=void 0,this.isUpdatePending=false,this.hasUpdated=false,this._$Em=null,this._$Ev();}_$Ev(){this._$ES=new Promise(t=>this.enableUpdating=t),this._$AL=new Map,this._$E_(),this.requestUpdate(),this.constructor.l?.forEach(t=>t(this));}addController(t){(this._$EO??=new Set).add(t),void 0!==this.renderRoot&&this.isConnected&&t.hostConnected?.();}removeController(t){this._$EO?.delete(t);}_$E_(){const t=new Map,s=this.constructor.elementProperties;for(const i of s.keys())this.hasOwnProperty(i)&&(t.set(i,this[i]),delete this[i]);t.size>0&&(this._$Ep=t);}createRenderRoot(){const t=this.shadowRoot??this.attachShadow(this.constructor.shadowRootOptions);return S$1(t,this.constructor.elementStyles),t}connectedCallback(){this.renderRoot??=this.createRenderRoot(),this.enableUpdating(true),this._$EO?.forEach(t=>t.hostConnected?.());}enableUpdating(t){}disconnectedCallback(){this._$EO?.forEach(t=>t.hostDisconnected?.());}attributeChangedCallback(t,s,i){this._$AK(t,i);}_$ET(t,s){const i=this.constructor.elementProperties.get(t),e=this.constructor._$Eu(t,i);if(void 0!==e&&true===i.reflect){const h=(void 0!==i.converter?.toAttribute?i.converter:u$3).toAttribute(s,i.type);this._$Em=t,null==h?this.removeAttribute(e):this.setAttribute(e,h),this._$Em=null;}}_$AK(t,s){const i=this.constructor,e=i._$Eh.get(t);if(void 0!==e&&this._$Em!==e){const t=i.getPropertyOptions(e),h="function"==typeof t.converter?{fromAttribute:t.converter}:void 0!==t.converter?.fromAttribute?t.converter:u$3;this._$Em=e;const r=h.fromAttribute(s,t.type);this[e]=r??this._$Ej?.get(e)??r,this._$Em=null;}}requestUpdate(t,s,i,e=false,h){if(void 0!==t){const r=this.constructor;if(false===e&&(h=this[t]),i??=r.getPropertyOptions(t),!((i.hasChanged??f$1)(h,s)||i.useDefault&&i.reflect&&h===this._$Ej?.get(t)&&!this.hasAttribute(r._$Eu(t,i))))return;this.C(t,s,i);} false===this.isUpdatePending&&(this._$ES=this._$EP());}C(t,s,{useDefault:i,reflect:e,wrapped:h},r){i&&!(this._$Ej??=new Map).has(t)&&(this._$Ej.set(t,r??s??this[t]),true!==h||void 0!==r)||(this._$AL.has(t)||(this.hasUpdated||i||(s=void 0),this._$AL.set(t,s)),true===e&&this._$Em!==t&&(this._$Eq??=new Set).add(t));}async _$EP(){this.isUpdatePending=true;try{await this._$ES;}catch(t){Promise.reject(t);}const t=this.scheduleUpdate();return null!=t&&await t,!this.isUpdatePending}scheduleUpdate(){return this.performUpdate()}performUpdate(){if(!this.isUpdatePending)return;if(!this.hasUpdated){if(this.renderRoot??=this.createRenderRoot(),this._$Ep){for(const[t,s]of this._$Ep)this[t]=s;this._$Ep=void 0;}const t=this.constructor.elementProperties;if(t.size>0)for(const[s,i]of t){const{wrapped:t}=i,e=this[s];true!==t||this._$AL.has(s)||void 0===e||this.C(s,void 0,i,e);}}let t=false;const s=this._$AL;try{t=this.shouldUpdate(s),t?(this.willUpdate(s),this._$EO?.forEach(t=>t.hostUpdate?.()),this.update(s)):this._$EM();}catch(s){throw t=false,this._$EM(),s}t&&this._$AE(s);}willUpdate(t){}_$AE(t){this._$EO?.forEach(t=>t.hostUpdated?.()),this.hasUpdated||(this.hasUpdated=true,this.firstUpdated(t)),this.updated(t);}_$EM(){this._$AL=new Map,this.isUpdatePending=false;}get updateComplete(){return this.getUpdateComplete()}getUpdateComplete(){return this._$ES}shouldUpdate(t){return  true}update(t){this._$Eq&&=this._$Eq.forEach(t=>this._$ET(t,this[t])),this._$EM();}updated(t){}firstUpdated(t){}};y$1.elementStyles=[],y$1.shadowRootOptions={mode:"open"},y$1[d$1("elementProperties")]=new Map,y$1[d$1("finalized")]=new Map,p$2?.({ReactiveElement:y$1}),(a$1.reactiveElementVersions??=[]).push("2.1.2");
 
   /**
    * @license
    * Copyright 2017 Google LLC
    * SPDX-License-Identifier: BSD-3-Clause
    */
-  const t=globalThis,i$1=t=>t,s$1=t.trustedTypes,e=s$1?s$1.createPolicy("lit-html",{createHTML:t=>t}):void 0,h="$lit$",o$1=`lit$${Math.random().toFixed(9).slice(2)}$`,n="?"+o$1,r=`<${n}>`,l=document,c=()=>l.createComment(""),a=t=>null===t||"object"!=typeof t&&"function"!=typeof t,u=Array.isArray,d=t=>u(t)||"function"==typeof t?.[Symbol.iterator],f="[ \t\n\f\r]",v=/<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g,_=/-->/g,m=/>/g,p=RegExp(`>|${f}(?:([^\\s"'>=/]+)(${f}*=${f}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`,"g"),g=/'/g,$=/"/g,y=/^(?:script|style|textarea|title)$/i,x=t=>(i,...s)=>({_$litType$:t,strings:i,values:s}),b=x(1),w=x(2),E=Symbol.for("lit-noChange"),A=Symbol.for("lit-nothing"),C=new WeakMap,P=l.createTreeWalker(l,129);function V(t,i){if(!u(t)||!t.hasOwnProperty("raw"))throw Error("invalid template strings array");return void 0!==e?e.createHTML(i):i}const N=(t,i)=>{const s=t.length-1,e=[];let n,l=2===i?"<svg>":3===i?"<math>":"",c=v;for(let i=0;i<s;i++){const s=t[i];let a,u,d=-1,f=0;for(;f<s.length&&(c.lastIndex=f,u=c.exec(s),null!==u);)f=c.lastIndex,c===v?"!--"===u[1]?c=_:void 0!==u[1]?c=m:void 0!==u[2]?(y.test(u[2])&&(n=RegExp("</"+u[2],"g")),c=p):void 0!==u[3]&&(c=p):c===p?">"===u[0]?(c=n??v,d=-1):void 0===u[1]?d=-2:(d=c.lastIndex-u[2].length,a=u[1],c=void 0===u[3]?p:'"'===u[3]?$:g):c===$||c===g?c=p:c===_||c===m?c=v:(c=p,n=void 0);const x=c===p&&t[i+1].startsWith("/>")?" ":"";l+=c===v?s+r:d>=0?(e.push(a),s.slice(0,d)+h+s.slice(d)+o$1+x):s+o$1+(-2===d?i:x);}return [V(t,l+(t[s]||"<?>")+(2===i?"</svg>":3===i?"</math>":"")),e]};class S{constructor({strings:t,_$litType$:i},e){let r;this.parts=[];let l=0,a=0;const u=t.length-1,d=this.parts,[f,v]=N(t,i);if(this.el=S.createElement(f,e),P.currentNode=this.el.content,2===i||3===i){const t=this.el.content.firstChild;t.replaceWith(...t.childNodes);}for(;null!==(r=P.nextNode())&&d.length<u;){if(1===r.nodeType){if(r.hasAttributes())for(const t of r.getAttributeNames())if(t.endsWith(h)){const i=v[a++],s=r.getAttribute(t).split(o$1),e=/([.?@])?(.*)/.exec(i);d.push({type:1,index:l,name:e[2],strings:s,ctor:"."===e[1]?I:"?"===e[1]?L:"@"===e[1]?z:H}),r.removeAttribute(t);}else t.startsWith(o$1)&&(d.push({type:6,index:l}),r.removeAttribute(t));if(y.test(r.tagName)){const t=r.textContent.split(o$1),i=t.length-1;if(i>0){r.textContent=s$1?s$1.emptyScript:"";for(let s=0;s<i;s++)r.append(t[s],c()),P.nextNode(),d.push({type:2,index:++l});r.append(t[i],c());}}}else if(8===r.nodeType)if(r.data===n)d.push({type:2,index:l});else {let t=-1;for(;-1!==(t=r.data.indexOf(o$1,t+1));)d.push({type:7,index:l}),t+=o$1.length-1;}l++;}}static createElement(t,i){const s=l.createElement("template");return s.innerHTML=t,s}}function M(t,i,s=t,e){if(i===E)return i;let h=void 0!==e?s._$Co?.[e]:s._$Cl;const o=a(i)?void 0:i._$litDirective$;return h?.constructor!==o&&(h?._$AO?.(false),void 0===o?h=void 0:(h=new o(t),h._$AT(t,s,e)),void 0!==e?(s._$Co??=[])[e]=h:s._$Cl=h),void 0!==h&&(i=M(t,h._$AS(t,i.values),h,e)),i}class R{constructor(t,i){this._$AV=[],this._$AN=void 0,this._$AD=t,this._$AM=i;}get parentNode(){return this._$AM.parentNode}get _$AU(){return this._$AM._$AU}u(t){const{el:{content:i},parts:s}=this._$AD,e=(t?.creationScope??l).importNode(i,true);P.currentNode=e;let h=P.nextNode(),o=0,n=0,r=s[0];for(;void 0!==r;){if(o===r.index){let i;2===r.type?i=new k(h,h.nextSibling,this,t):1===r.type?i=new r.ctor(h,r.name,r.strings,this,t):6===r.type&&(i=new Z(h,this,t)),this._$AV.push(i),r=s[++n];}o!==r?.index&&(h=P.nextNode(),o++);}return P.currentNode=l,e}p(t){let i=0;for(const s of this._$AV) void 0!==s&&(void 0!==s.strings?(s._$AI(t,s,i),i+=s.strings.length-2):s._$AI(t[i])),i++;}}class k{get _$AU(){return this._$AM?._$AU??this._$Cv}constructor(t,i,s,e){this.type=2,this._$AH=A,this._$AN=void 0,this._$AA=t,this._$AB=i,this._$AM=s,this.options=e,this._$Cv=e?.isConnected??true;}get parentNode(){let t=this._$AA.parentNode;const i=this._$AM;return void 0!==i&&11===t?.nodeType&&(t=i.parentNode),t}get startNode(){return this._$AA}get endNode(){return this._$AB}_$AI(t,i=this){t=M(this,t,i),a(t)?t===A||null==t||""===t?(this._$AH!==A&&this._$AR(),this._$AH=A):t!==this._$AH&&t!==E&&this._(t):void 0!==t._$litType$?this.$(t):void 0!==t.nodeType?this.T(t):d(t)?this.k(t):this._(t);}O(t){return this._$AA.parentNode.insertBefore(t,this._$AB)}T(t){this._$AH!==t&&(this._$AR(),this._$AH=this.O(t));}_(t){this._$AH!==A&&a(this._$AH)?this._$AA.nextSibling.data=t:this.T(l.createTextNode(t)),this._$AH=t;}$(t){const{values:i,_$litType$:s}=t,e="number"==typeof s?this._$AC(t):(void 0===s.el&&(s.el=S.createElement(V(s.h,s.h[0]),this.options)),s);if(this._$AH?._$AD===e)this._$AH.p(i);else {const t=new R(e,this),s=t.u(this.options);t.p(i),this.T(s),this._$AH=t;}}_$AC(t){let i=C.get(t.strings);return void 0===i&&C.set(t.strings,i=new S(t)),i}k(t){u(this._$AH)||(this._$AH=[],this._$AR());const i=this._$AH;let s,e=0;for(const h of t)e===i.length?i.push(s=new k(this.O(c()),this.O(c()),this,this.options)):s=i[e],s._$AI(h),e++;e<i.length&&(this._$AR(s&&s._$AB.nextSibling,e),i.length=e);}_$AR(t=this._$AA.nextSibling,s){for(this._$AP?.(false,true,s);t!==this._$AB;){const s=i$1(t).nextSibling;i$1(t).remove(),t=s;}}setConnected(t){ void 0===this._$AM&&(this._$Cv=t,this._$AP?.(t));}}class H{get tagName(){return this.element.tagName}get _$AU(){return this._$AM._$AU}constructor(t,i,s,e,h){this.type=1,this._$AH=A,this._$AN=void 0,this.element=t,this.name=i,this._$AM=e,this.options=h,s.length>2||""!==s[0]||""!==s[1]?(this._$AH=Array(s.length-1).fill(new String),this.strings=s):this._$AH=A;}_$AI(t,i=this,s,e){const h=this.strings;let o=false;if(void 0===h)t=M(this,t,i,0),o=!a(t)||t!==this._$AH&&t!==E,o&&(this._$AH=t);else {const e=t;let n,r;for(t=h[0],n=0;n<h.length-1;n++)r=M(this,e[s+n],i,n),r===E&&(r=this._$AH[n]),o||=!a(r)||r!==this._$AH[n],r===A?t=A:t!==A&&(t+=(r??"")+h[n+1]),this._$AH[n]=r;}o&&!e&&this.j(t);}j(t){t===A?this.element.removeAttribute(this.name):this.element.setAttribute(this.name,t??"");}}class I extends H{constructor(){super(...arguments),this.type=3;}j(t){this.element[this.name]=t===A?void 0:t;}}class L extends H{constructor(){super(...arguments),this.type=4;}j(t){this.element.toggleAttribute(this.name,!!t&&t!==A);}}class z extends H{constructor(t,i,s,e,h){super(t,i,s,e,h),this.type=5;}_$AI(t,i=this){if((t=M(this,t,i,0)??A)===E)return;const s=this._$AH,e=t===A&&s!==A||t.capture!==s.capture||t.once!==s.once||t.passive!==s.passive,h=t!==A&&(s===A||e);e&&this.element.removeEventListener(this.name,this,s),h&&this.element.addEventListener(this.name,this,t),this._$AH=t;}handleEvent(t){"function"==typeof this._$AH?this._$AH.call(this.options?.host??this.element,t):this._$AH.handleEvent(t);}}class Z{constructor(t,i,s){this.element=t,this.type=6,this._$AN=void 0,this._$AM=i,this.options=s;}get _$AU(){return this._$AM._$AU}_$AI(t){M(this,t);}}const B=t.litHtmlPolyfillSupport;B?.(S,k),(t.litHtmlVersions??=[]).push("3.3.3");const D=(t,i,s)=>{const e=s?.renderBefore??i;let h=e._$litPart$;if(void 0===h){const t=s?.renderBefore??null;e._$litPart$=h=new k(i.insertBefore(c(),t),t,void 0,s??{});}return h._$AI(t),h};
+  const t$2=globalThis,i$3=t=>t,s$2=t$2.trustedTypes,e$1=s$2?s$2.createPolicy("lit-html",{createHTML:t=>t}):void 0,h$1="$lit$",o$1=`lit$${Math.random().toFixed(9).slice(2)}$`,n="?"+o$1,r=`<${n}>`,l=document,c$1=()=>l.createComment(""),a=t=>null===t||"object"!=typeof t&&"function"!=typeof t,u$2=Array.isArray,d=t=>u$2(t)||"function"==typeof t?.[Symbol.iterator],f="[ \t\n\f\r]",v$1=/<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g,_=/-->/g,m$1=/>/g,p$1=RegExp(`>|${f}(?:([^\\s"'>=/]+)(${f}*=${f}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`,"g"),g=/'/g,$=/"/g,y=/^(?:script|style|textarea|title)$/i,x=t=>(i,...s)=>({_$litType$:t,strings:i,values:s}),b=x(1),w=x(2),E=Symbol.for("lit-noChange"),A=Symbol.for("lit-nothing"),C=new WeakMap,P=l.createTreeWalker(l,129);function V(t,i){if(!u$2(t)||!t.hasOwnProperty("raw"))throw Error("invalid template strings array");return void 0!==e$1?e$1.createHTML(i):i}const N=(t,i)=>{const s=t.length-1,e=[];let n,l=2===i?"<svg>":3===i?"<math>":"",c=v$1;for(let i=0;i<s;i++){const s=t[i];let a,u,d=-1,f=0;for(;f<s.length&&(c.lastIndex=f,u=c.exec(s),null!==u);)f=c.lastIndex,c===v$1?"!--"===u[1]?c=_:void 0!==u[1]?c=m$1:void 0!==u[2]?(y.test(u[2])&&(n=RegExp("</"+u[2],"g")),c=p$1):void 0!==u[3]&&(c=p$1):c===p$1?">"===u[0]?(c=n??v$1,d=-1):void 0===u[1]?d=-2:(d=c.lastIndex-u[2].length,a=u[1],c=void 0===u[3]?p$1:'"'===u[3]?$:g):c===$||c===g?c=p$1:c===_||c===m$1?c=v$1:(c=p$1,n=void 0);const x=c===p$1&&t[i+1].startsWith("/>")?" ":"";l+=c===v$1?s+r:d>=0?(e.push(a),s.slice(0,d)+h$1+s.slice(d)+o$1+x):s+o$1+(-2===d?i:x);}return [V(t,l+(t[s]||"<?>")+(2===i?"</svg>":3===i?"</math>":"")),e]};class S{constructor({strings:t,_$litType$:i},e){let r;this.parts=[];let l=0,a=0;const u=t.length-1,d=this.parts,[f,v]=N(t,i);if(this.el=S.createElement(f,e),P.currentNode=this.el.content,2===i||3===i){const t=this.el.content.firstChild;t.replaceWith(...t.childNodes);}for(;null!==(r=P.nextNode())&&d.length<u;){if(1===r.nodeType){if(r.hasAttributes())for(const t of r.getAttributeNames())if(t.endsWith(h$1)){const i=v[a++],s=r.getAttribute(t).split(o$1),e=/([.?@])?(.*)/.exec(i);d.push({type:1,index:l,name:e[2],strings:s,ctor:"."===e[1]?I:"?"===e[1]?L:"@"===e[1]?z:H}),r.removeAttribute(t);}else t.startsWith(o$1)&&(d.push({type:6,index:l}),r.removeAttribute(t));if(y.test(r.tagName)){const t=r.textContent.split(o$1),i=t.length-1;if(i>0){r.textContent=s$2?s$2.emptyScript:"";for(let s=0;s<i;s++)r.append(t[s],c$1()),P.nextNode(),d.push({type:2,index:++l});r.append(t[i],c$1());}}}else if(8===r.nodeType)if(r.data===n)d.push({type:2,index:l});else {let t=-1;for(;-1!==(t=r.data.indexOf(o$1,t+1));)d.push({type:7,index:l}),t+=o$1.length-1;}l++;}}static createElement(t,i){const s=l.createElement("template");return s.innerHTML=t,s}}function M$1(t,i,s=t,e){if(i===E)return i;let h=void 0!==e?s._$Co?.[e]:s._$Cl;const o=a(i)?void 0:i._$litDirective$;return h?.constructor!==o&&(h?._$AO?.(false),void 0===o?h=void 0:(h=new o(t),h._$AT(t,s,e)),void 0!==e?(s._$Co??=[])[e]=h:s._$Cl=h),void 0!==h&&(i=M$1(t,h._$AS(t,i.values),h,e)),i}class R{constructor(t,i){this._$AV=[],this._$AN=void 0,this._$AD=t,this._$AM=i;}get parentNode(){return this._$AM.parentNode}get _$AU(){return this._$AM._$AU}u(t){const{el:{content:i},parts:s}=this._$AD,e=(t?.creationScope??l).importNode(i,true);P.currentNode=e;let h=P.nextNode(),o=0,n=0,r=s[0];for(;void 0!==r;){if(o===r.index){let i;2===r.type?i=new k(h,h.nextSibling,this,t):1===r.type?i=new r.ctor(h,r.name,r.strings,this,t):6===r.type&&(i=new Z(h,this,t)),this._$AV.push(i),r=s[++n];}o!==r?.index&&(h=P.nextNode(),o++);}return P.currentNode=l,e}p(t){let i=0;for(const s of this._$AV) void 0!==s&&(void 0!==s.strings?(s._$AI(t,s,i),i+=s.strings.length-2):s._$AI(t[i])),i++;}}class k{get _$AU(){return this._$AM?._$AU??this._$Cv}constructor(t,i,s,e){this.type=2,this._$AH=A,this._$AN=void 0,this._$AA=t,this._$AB=i,this._$AM=s,this.options=e,this._$Cv=e?.isConnected??true;}get parentNode(){let t=this._$AA.parentNode;const i=this._$AM;return void 0!==i&&11===t?.nodeType&&(t=i.parentNode),t}get startNode(){return this._$AA}get endNode(){return this._$AB}_$AI(t,i=this){t=M$1(this,t,i),a(t)?t===A||null==t||""===t?(this._$AH!==A&&this._$AR(),this._$AH=A):t!==this._$AH&&t!==E&&this._(t):void 0!==t._$litType$?this.$(t):void 0!==t.nodeType?this.T(t):d(t)?this.k(t):this._(t);}O(t){return this._$AA.parentNode.insertBefore(t,this._$AB)}T(t){this._$AH!==t&&(this._$AR(),this._$AH=this.O(t));}_(t){this._$AH!==A&&a(this._$AH)?this._$AA.nextSibling.data=t:this.T(l.createTextNode(t)),this._$AH=t;}$(t){const{values:i,_$litType$:s}=t,e="number"==typeof s?this._$AC(t):(void 0===s.el&&(s.el=S.createElement(V(s.h,s.h[0]),this.options)),s);if(this._$AH?._$AD===e)this._$AH.p(i);else {const t=new R(e,this),s=t.u(this.options);t.p(i),this.T(s),this._$AH=t;}}_$AC(t){let i=C.get(t.strings);return void 0===i&&C.set(t.strings,i=new S(t)),i}k(t){u$2(this._$AH)||(this._$AH=[],this._$AR());const i=this._$AH;let s,e=0;for(const h of t)e===i.length?i.push(s=new k(this.O(c$1()),this.O(c$1()),this,this.options)):s=i[e],s._$AI(h),e++;e<i.length&&(this._$AR(s&&s._$AB.nextSibling,e),i.length=e);}_$AR(t=this._$AA.nextSibling,s){for(this._$AP?.(false,true,s);t!==this._$AB;){const s=i$3(t).nextSibling;i$3(t).remove(),t=s;}}setConnected(t){ void 0===this._$AM&&(this._$Cv=t,this._$AP?.(t));}}class H{get tagName(){return this.element.tagName}get _$AU(){return this._$AM._$AU}constructor(t,i,s,e,h){this.type=1,this._$AH=A,this._$AN=void 0,this.element=t,this.name=i,this._$AM=e,this.options=h,s.length>2||""!==s[0]||""!==s[1]?(this._$AH=Array(s.length-1).fill(new String),this.strings=s):this._$AH=A;}_$AI(t,i=this,s,e){const h=this.strings;let o=false;if(void 0===h)t=M$1(this,t,i,0),o=!a(t)||t!==this._$AH&&t!==E,o&&(this._$AH=t);else {const e=t;let n,r;for(t=h[0],n=0;n<h.length-1;n++)r=M$1(this,e[s+n],i,n),r===E&&(r=this._$AH[n]),o||=!a(r)||r!==this._$AH[n],r===A?t=A:t!==A&&(t+=(r??"")+h[n+1]),this._$AH[n]=r;}o&&!e&&this.j(t);}j(t){t===A?this.element.removeAttribute(this.name):this.element.setAttribute(this.name,t??"");}}class I extends H{constructor(){super(...arguments),this.type=3;}j(t){this.element[this.name]=t===A?void 0:t;}}class L extends H{constructor(){super(...arguments),this.type=4;}j(t){this.element.toggleAttribute(this.name,!!t&&t!==A);}}class z extends H{constructor(t,i,s,e,h){super(t,i,s,e,h),this.type=5;}_$AI(t,i=this){if((t=M$1(this,t,i,0)??A)===E)return;const s=this._$AH,e=t===A&&s!==A||t.capture!==s.capture||t.once!==s.once||t.passive!==s.passive,h=t!==A&&(s===A||e);e&&this.element.removeEventListener(this.name,this,s),h&&this.element.addEventListener(this.name,this,t),this._$AH=t;}handleEvent(t){"function"==typeof this._$AH?this._$AH.call(this.options?.host??this.element,t):this._$AH.handleEvent(t);}}class Z{constructor(t,i,s){this.element=t,this.type=6,this._$AN=void 0,this._$AM=i,this.options=s;}get _$AU(){return this._$AM._$AU}_$AI(t){M$1(this,t);}}const j={I:k},B=t$2.litHtmlPolyfillSupport;B?.(S,k),(t$2.litHtmlVersions??=[]).push("3.3.3");const D=(t,i,s)=>{const e=s?.renderBefore??i;let h=e._$litPart$;if(void 0===h){const t=s?.renderBefore??null;e._$litPart$=h=new k(i.insertBefore(c$1(),t),t,void 0,s??{});}return h._$AI(t),h};
 
   /**
    * @license
    * Copyright 2017 Google LLC
    * SPDX-License-Identifier: BSD-3-Clause
-   */const s=globalThis;class i extends y$1{constructor(){super(...arguments),this.renderOptions={host:this},this._$Do=void 0;}createRenderRoot(){const t=super.createRenderRoot();return this.renderOptions.renderBefore??=t.firstChild,t}update(t){const r=this.render();this.hasUpdated||(this.renderOptions.isConnected=this.isConnected),super.update(t),this._$Do=D(r,this.renderRoot,this.renderOptions);}connectedCallback(){super.connectedCallback(),this._$Do?.setConnected(true);}disconnectedCallback(){super.disconnectedCallback(),this._$Do?.setConnected(false);}render(){return E}}i._$litElement$=true,i["finalized"]=true,s.litElementHydrateSupport?.({LitElement:i});const o=s.litElementPolyfillSupport;o?.({LitElement:i});(s.litElementVersions??=[]).push("4.2.2");
+   */const s$1=globalThis;let i$2 = class i extends y$1{constructor(){super(...arguments),this.renderOptions={host:this},this._$Do=void 0;}createRenderRoot(){const t=super.createRenderRoot();return this.renderOptions.renderBefore??=t.firstChild,t}update(t){const r=this.render();this.hasUpdated||(this.renderOptions.isConnected=this.isConnected),super.update(t),this._$Do=D(r,this.renderRoot,this.renderOptions);}connectedCallback(){super.connectedCallback(),this._$Do?.setConnected(true);}disconnectedCallback(){super.disconnectedCallback(),this._$Do?.setConnected(false);}render(){return E}};i$2._$litElement$=true,i$2["finalized"]=true,s$1.litElementHydrateSupport?.({LitElement:i$2});const o=s$1.litElementPolyfillSupport;o?.({LitElement:i$2});(s$1.litElementVersions??=[]).push("4.2.2");
 
   /* ==========================================================================
      MAIN CARD : ha-plooum-buttonbadge-card
      ========================================================================== */
-  class HaPlooumButtonBadgeCard extends i {
+  class HaPlooumButtonBadgeCard extends i$2 {
     static get properties() {
       return {
         hass: { type: Object },
@@ -174,7 +174,7 @@
     }
 
     static get styles() {
-      return i$3`
+      return i$5`
       .plooum-card {
         background: rgba(0, 0, 0, 0.35);
         border-radius: 20px;
@@ -249,7 +249,7 @@
   /* ==========================================================================
      CARD EDITOR
      ========================================================================== */
-  class HaPlooumButtonBadgeCardEditor extends i {
+  class HaPlooumButtonBadgeCardEditor extends i$2 {
     static get properties() {
       return {
         hass: { type: Object },
@@ -522,7 +522,7 @@
     }
 
     static get styles() {
-      return i$3`
+      return i$5`
       .card-config {
         display: flex;
         flex-direction: column;
@@ -1521,7 +1521,7 @@
   /* ==========================================================================
      MAIN CARD : ha-plooum-dpad-card
      ========================================================================== */
-  class HaPlooumDpadCard extends i {
+  class HaPlooumDpadCard extends i$2 {
     static get properties() {
       return {
         hass: { type: Object },
@@ -1650,7 +1650,7 @@
     }
 
     static get styles() {
-      return i$3`
+      return i$5`
       .plooum-remote-card {
         background: transparent;
         border: none;
@@ -1718,7 +1718,7 @@
   /* ==========================================================================
      CARD EDITOR
      ========================================================================== */
-  class HaPlooumDpadCardEditor extends i {
+  class HaPlooumDpadCardEditor extends i$2 {
     static get properties() {
       return {
         hass: { type: Object },
@@ -1893,7 +1893,7 @@
     }
 
     static get styles() {
-      return i$3`
+      return i$5`
       .card-config {
         display: flex;
         flex-direction: column;
@@ -1989,6 +1989,26 @@
     });
   }
 
+  /**
+   * @license
+   * Copyright 2017 Google LLC
+   * SPDX-License-Identifier: BSD-3-Clause
+   */
+  const t$1={CHILD:2},e=t=>(...e)=>({_$litDirective$:t,values:e});let i$1 = class i{constructor(t){}get _$AU(){return this._$AM._$AU}_$AT(t,e,i){this._$Ct=t,this._$AM=e,this._$Ci=i;}_$AS(t,e){return this.update(t,e)}update(t,e){return this.render(...e)}};
+
+  /**
+   * @license
+   * Copyright 2020 Google LLC
+   * SPDX-License-Identifier: BSD-3-Clause
+   */const {I:t}=j,i=o=>o,s=()=>document.createComment(""),v=(o,n,e)=>{const l=o._$AA.parentNode,d=void 0===n?o._$AB:n._$AA;if(void 0===e){const i=l.insertBefore(s(),d),n=l.insertBefore(s(),d);e=new t(i,n,o,o.options);}else {const t=e._$AB.nextSibling,n=e._$AM,c=n!==o;if(c){let t;e._$AQ?.(o),e._$AM=o,void 0!==e._$AP&&(t=o._$AU)!==n._$AU&&e._$AP(t);}if(t!==d||c){let o=e._$AA;for(;o!==t;){const t=i(o).nextSibling;i(l).insertBefore(o,d),o=t;}}}return e},u$1=(o,t,i=o)=>(o._$AI(t,i),o),m={},p=(o,t=m)=>o._$AH=t,M=o=>o._$AH,h=o=>{o._$AR(),o._$AA.remove();};
+
+  /**
+   * @license
+   * Copyright 2017 Google LLC
+   * SPDX-License-Identifier: BSD-3-Clause
+   */
+  const u=(e,s,t)=>{const r=new Map;for(let l=s;l<=t;l++)r.set(e[l],l);return r},c=e(class extends i$1{constructor(e){if(super(e),e.type!==t$1.CHILD)throw Error("repeat() can only be used in text expressions")}dt(e,s,t){let r;void 0===t?t=s:void 0!==s&&(r=s);const l=[],o=[];let i=0;for(const s of e)l[i]=r?r(s,i):i,o[i]=t(s,i),i++;return {values:o,keys:l}}render(e,s,t){return this.dt(e,s,t).values}update(s,[t,r,c]){const d=M(s),{values:p$1,keys:a}=this.dt(t,r,c);if(!Array.isArray(d))return this.ut=a,p$1;const h$1=this.ut??=[],v$1=[];let m,y,x=0,j=d.length-1,k=0,w=p$1.length-1;for(;x<=j&&k<=w;)if(null===d[x])x++;else if(null===d[j])j--;else if(h$1[x]===a[k])v$1[k]=u$1(d[x],p$1[k]),x++,k++;else if(h$1[j]===a[w])v$1[w]=u$1(d[j],p$1[w]),j--,w--;else if(h$1[x]===a[w])v$1[w]=u$1(d[x],p$1[w]),v(s,v$1[w+1],d[x]),x++,w--;else if(h$1[j]===a[k])v$1[k]=u$1(d[j],p$1[k]),v(s,d[x],d[j]),j--,k++;else if(void 0===m&&(m=u(a,k,w),y=u(h$1,x,j)),m.has(h$1[x]))if(m.has(h$1[j])){const e=y.get(a[k]),t=void 0!==e?d[e]:null;if(null===t){const e=v(s,d[x]);u$1(e,p$1[k]),v$1[k]=e;}else v$1[k]=u$1(t,p$1[k]),v(s,d[x],t),d[e]=null;k++;}else h(d[j]),j--;else h(d[x]),x++;for(;k<=w;){const e=v(s,v$1[w+1]);u$1(e,p$1[k]),v$1[k++]=e;}for(;x<=j;){const e=d[x++];null!==e&&h(e);}return this.ut=a,p(s,v$1),E}});
+
   const CARD_VERSION$1 = '1.0.0';
 
   const UNAVAILABLE_STATES$1 = ['unavailable', 'unknown'];
@@ -2035,10 +2055,38 @@
     { id: 'suggested', label: 'Suggested' },
     { id: 'lights', label: 'Lights' },
     { id: 'covers', label: 'Covers' },
+    { id: 'cameras', label: 'Cameras' },
     { id: 'sensors', label: 'Sensors' },
     { id: 'switches', label: 'Switches' },
     { id: 'all', label: 'All' },
   ];
+
+  // Card options shown in the editor with their default value, and left out of the config when unchanged.
+  const CARD_DEFAULTS = { view: '2d', camera_view: 'snapshot', roof: true };
+
+  // Cameras (2D cone and 3D screen). Angles in degrees; `direction` is clockwise from the top of the plan.
+  const CAMERA_FOV = 90;
+  const CAMERA_HEIGHT = 2.2; // above the floor (grid units)
+  const CAMERA_TILT = 15; // downwards
+  const CAMERA_REACH = 2.5; // 2D cone length when no wall is in front of the camera
+  const SCREEN_SIZE = 2.4; // max screen width in 3D (grid units)
+  const SCREEN_DISTANCE = 2.5; // max distance from the camera to its screen in 3D (grid units)
+  const SCREEN_PX = 480; // raster width of a screen: keeps the image sharp when zoomed in
+  const REFRESH_INTERVAL = 3; // s between two snapshots of a camera
+  const AIM_HANDLE = 1.25; // distance from a camera to its aim handle in the editor (grid units)
+
+  // 3D view. Grid units are meant as meters: walls are 2.5 units high by default.
+  const U3 = 100; // px per grid unit in the 3D scene
+  const WALL_HEIGHT = 2.5;
+  const SLAB = 0.25; // thickness between two floors
+  const WALL_CAP = 0.12; // wall thickness, drawn as a cap on top of each wall
+  const CUT_HEIGHT = 0.35; // height of the walls cut away in front of the viewer
+  const ROOF_PITCH = 0.7; // rise per run (35°)
+  const ROOF_OVERHANG = 0.25;
+  const GROUND_MARGIN = 4; // lawn around the home (grid units)
+  const ORBIT_DEFAULT = { az: -25, tilt: 55 };
+  const TILT_MIN = 0;
+  const TILT_MAX = 88;
 
   // -------------------------------------------------------------------------
   // Pure helpers (shared by the card and its editor)
@@ -2085,6 +2133,7 @@
     const dc = st && st.attributes.device_class;
     if (domain === 'light') return 'light';
     if (domain === 'cover') return 'cover';
+    if (domain === 'camera') return 'camera';
     if (domain === 'sensor' && dc === 'temperature') return 'temperature';
     if (domain === 'sensor' && dc === 'humidity') return 'humidity';
     if (domain === 'sensor') return 'sensor';
@@ -2141,6 +2190,7 @@
       y: num(r.y),
       w: Math.max(ROOM_SNAP, num(r.w, 1)),
       h: Math.max(ROOM_SNAP, num(r.h, 1)),
+      outdoor: !!r.outdoor,
     };
   }
 
@@ -2234,14 +2284,16 @@
       lights: [],
       presence: false,
     }));
+    // Outdoor rooms (garden, terrace) have no walls: no windows on them, no outer wall around them.
+    const indoor = rooms.filter((r) => !r.outdoor);
     const items = ((floor && floor.entities) || []).map((e, index) => {
       const id = e.entity;
       const st = hass.states[id];
       const role = entityRole(id, st);
       const x = num(e.x);
       const y = num(e.y);
-      const wall = role === 'cover' ? nearestWall(rooms, x, y, ON_WALL_EPS * 2) : null;
-      return { index, id, st, role, x, y, wall, roomIndex: roomAt(rooms, x, y), icon: e.icon, name: e.name, length: e.length };
+      const wall = role === 'cover' ? nearestWall(indoor, x, y, ON_WALL_EPS * 2) : null;
+      return { index, id, st, role, x, y, wall, roomIndex: roomAt(rooms, x, y), icon: e.icon, name: e.name, length: e.length, conf: e };
     });
 
     for (const item of items) {
@@ -2283,7 +2335,11 @@
     }
     const bounds = Number.isFinite(minX) ? { minX, minY, maxX, maxY } : { minX: 0, minY: 0, maxX: 8, maxY: 5 };
 
-    return { rooms, items, bounds, exterior: exteriorSegments(rooms) };
+    for (const it of items) {
+      if (it.role === 'camera') it.camera = cameraSetup(it, rooms, indoor);
+    }
+
+    return { rooms, indoor, items, bounds, exterior: exteriorSegments(indoor) };
   }
 
   function roomTemperature(room) {
@@ -2292,6 +2348,254 @@
     }
     if (room.climateTemp) return room.climateTemp.st.attributes.current_temperature;
     return null;
+  }
+
+  // --- Cameras ----------------------------------------------------------------
+
+  const isNum = (v) => v !== undefined && v !== null && v !== '' && Number.isFinite(parseFloat(v));
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  // Plan direction (clockwise from the top of the plan) of a vector, rounded to 5°.
+  const directionOf = (dx, dy) => ((Math.round(((Math.atan2(dx, -dy) * 180) / Math.PI) / 5) * 5) % 360 + 360) % 360;
+
+  // Distance from (x, y) along the unit vector (dx, dy) to the first wall further than `skip`, or null.
+  function raycast(rooms, x, y, dx, dy, skip = 0.15) {
+    let best = null;
+    for (const r of rooms) {
+      for (const e of roomEdges(r)) {
+        let t;
+        let along;
+        if (e.o === 'h') {
+          if (Math.abs(dy) < 1e-9) continue;
+          t = (e.at - y) / dy;
+          along = x + t * dx;
+        } else {
+          if (Math.abs(dx) < 1e-9) continue;
+          t = (e.at - x) / dx;
+          along = y + t * dy;
+        }
+        if (t > skip && along >= e.a - 1e-6 && along <= e.b + 1e-6 && (best === null || t < best)) best = t;
+      }
+    }
+    return best;
+  }
+
+  // Where a camera looks by default: the middle of its room, or away from the home when outdoors.
+  function defaultCameraDirection(rooms, indoor, x, y) {
+    const room = rooms[roomAt(rooms, x, y)];
+    let tx;
+    let ty;
+    if (room && !room.outdoor) {
+      tx = room.x + room.w / 2 - x;
+      ty = room.y + room.h / 2 - y;
+    } else if (indoor.length) {
+      const x1 = Math.min(...indoor.map((r) => r.x));
+      const y1 = Math.min(...indoor.map((r) => r.y));
+      const x2 = Math.max(...indoor.map((r) => r.x + r.w));
+      const y2 = Math.max(...indoor.map((r) => r.y + r.h));
+      tx = x - (x1 + x2) / 2;
+      ty = y - (y1 + y2) / 2;
+    } else {
+      return 180;
+    }
+    return Math.hypot(tx, ty) < 0.01 ? 180 : directionOf(tx, ty);
+  }
+
+  // Orientation of a placed camera and how far it sees on the plan (up to the first wall).
+  function cameraSetup(item, rooms, indoor) {
+    const c = item.conf || {};
+    const direction = isNum(c.direction) ? num(c.direction) : defaultCameraDirection(rooms, indoor, item.x, item.y);
+    const a = toRad(direction);
+    const dx = Math.sin(a);
+    const dy = -Math.cos(a);
+    // Indoors when it stands in a room and looks into it; a camera on an outer wall looking out is outdoors.
+    const inside = roomAt(indoor, item.x, item.y) >= 0 && roomAt(indoor, item.x + dx * 0.25, item.y + dy * 0.25) >= 0;
+    return {
+      direction,
+      dx,
+      dy,
+      indoor: inside,
+      fov: clamp(num(c.fov, CAMERA_FOV), 10, 170),
+      height: isNum(c.height) ? num(c.height) : null, // default depends on the wall height (3D only)
+      tilt: clamp(num(c.tilt, CAMERA_TILT), -45, 89),
+      hit: raycast(indoor, item.x, item.y, dx, dy),
+    };
+  }
+
+  // 2D view cone of a camera, as an SVG path (plan coordinates).
+  function conePath(item) {
+    const cam = item.camera;
+    const reach = cam.hit !== null ? Math.min(cam.hit, 8) : CAMERA_REACH;
+    const half = toRad(Math.min(cam.fov, 160) / 2);
+    const a = toRad(cam.direction);
+    const p = (ang) => [item.x + Math.sin(ang) * reach, item.y - Math.cos(ang) * reach].map(round2);
+    const [x1, y1] = p(a - half);
+    const [x2, y2] = p(a + half);
+    return `M ${item.x} ${item.y} L ${x1} ${y1} A ${reach} ${reach} 0 0 1 ${x2} ${y2} Z`;
+  }
+
+  // --- 3D geometry -------------------------------------------------------------
+  // The scene is made of flat HTML elements placed with CSS 3D transforms. World axes: x and y
+  // as on the plan, z upwards; 1 grid unit = U3 px.
+
+  const add3 = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+  const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  const mul3 = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
+  const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const cross3 = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const len3 = (a) => Math.hypot(a[0], a[1], a[2]);
+  const norm3 = (a) => mul3(a, 1 / (len3(a) || 1));
+  const LIGHT_DIR = norm3([-0.5, -0.75, 0.6]);
+
+  // A flat element whose top-left corner is at `o` and whose top and left edges follow `u` and `v`
+  // (world units; they need not be perpendicular). `w` x `h` is its size in px: by default its real
+  // size, so that text and images are rasterized at the scene's scale.
+  function face(o, u, v, w = len3(u) * U3, h = len3(v) * U3) {
+    const n = norm3(cross3(u, v));
+    const m = [...mul3(u, U3 / w), 0, ...mul3(v, U3 / h), 0, ...n, 0, ...mul3(o, U3), 1];
+    return { w: round2(w), h: round2(h), n, transform: `matrix3d(${m.map((x) => +x.toFixed(5)).join(',')})` };
+  }
+
+  // Brightness (%) of a face lit by a fixed light, whichever side is seen.
+  const shade = (n, min = 58) => Math.round(min + (100 - min) * Math.abs(dot3(n, LIGHT_DIR)));
+
+  // Wall segments of a floor: shared walls (`normal` null) and outer walls with their outward normal.
+  function wallSegments(rooms) {
+    const lines = new Map();
+    const add = (o, at, a, b, side) => {
+      const key = `${o}:${round2(at)}`;
+      if (!lines.has(key)) lines.set(key, { o, at, spans: [] });
+      lines.get(key).spans.push({ a, b, side });
+    };
+    for (const r of rooms) {
+      // `side`: +1 when the room lies after the line (larger x or y), -1 before it.
+      add('h', r.y, r.x, r.x + r.w, 1);
+      add('h', r.y + r.h, r.x, r.x + r.w, -1);
+      add('v', r.x, r.y, r.y + r.h, 1);
+      add('v', r.x + r.w, r.y, r.y + r.h, -1);
+    }
+    const out = [];
+    for (const { o, at, spans } of lines.values()) {
+      const points = [...new Set(spans.flatMap((s) => [s.a, s.b]))].sort((p, q) => p - q);
+      let current = null;
+      for (let i = 0; i + 1 < points.length; i++) {
+        const a = points[i];
+        const b = points[i + 1];
+        const mid = (a + b) / 2;
+        const covering = spans.filter((s) => s.a < mid && s.b > mid);
+        if (!covering.length) {
+          current = null;
+          continue;
+        }
+        const after = covering.some((s) => s.side > 0);
+        const before = covering.some((s) => s.side < 0);
+        let normal = null;
+        if (!(after && before)) {
+          const k = after ? -1 : 1; // outwards: towards the side without a room
+          normal = o === 'h' ? [0, k] : [k, 0];
+        }
+        const same = current && current.b === a && String(current.normal) === String(normal);
+        if (same) current.b = b;
+        else {
+          current = { o, at, a, b, normal };
+          out.push(current);
+        }
+      }
+    }
+    return out;
+  }
+
+  // Rectangles covering a floor's roof: the floor's footprint minus what the floors above cover.
+  // They may overlap: hip roofs of the same pitch on overlapping rectangles meet like a real roof.
+  function roofRects(rooms, above) {
+    const xs = [...new Set([...rooms, ...above].flatMap((r) => [r.x, r.x + r.w]))].sort((a, b) => a - b);
+    const ys = [...new Set([...rooms, ...above].flatMap((r) => [r.y, r.y + r.h]))].sort((a, b) => a - b);
+    const nx = xs.length - 1;
+    const ny = ys.length - 1;
+    const strictly = (r, x, y) => x > r.x && x < r.x + r.w && y > r.y && y < r.y + r.h;
+    const fp = [];
+    for (let i = 0; i < nx; i++) {
+      fp.push([]);
+      for (let j = 0; j < ny; j++) {
+        const cx = (xs[i] + xs[i + 1]) / 2;
+        const cy = (ys[j] + ys[j + 1]) / 2;
+        fp[i].push(rooms.some((r) => strictly(r, cx, cy)) && !above.some((r) => strictly(r, cx, cy)));
+      }
+    }
+    const covered = fp.map((col) => col.map(() => false));
+    const rowFull = (j, i0, i1) => {
+      for (let i = i0; i <= i1; i++) if (!fp[i][j]) return false;
+      return true;
+    };
+    const rects = [];
+    for (let j = 0; j < ny; j++) {
+      for (let i = 0; i < nx; i++) {
+        if (!fp[i][j] || covered[i][j]) continue;
+        // Largest rectangle of the footprint containing this cell.
+        let lo = i;
+        let hi = i;
+        while (lo > 0 && fp[lo - 1][j]) lo--;
+        while (hi < nx - 1 && fp[hi + 1][j]) hi++;
+        let best = null;
+        for (let i0 = lo; i0 <= i; i0++) {
+          for (let i1 = i; i1 <= hi; i1++) {
+            let j0 = j;
+            let j1 = j;
+            while (j0 > 0 && rowFull(j0 - 1, i0, i1)) j0--;
+            while (j1 < ny - 1 && rowFull(j1 + 1, i0, i1)) j1++;
+            const area = (xs[i1 + 1] - xs[i0]) * (ys[j1 + 1] - ys[j0]);
+            if (!best || area > best.area) best = { i0, i1, j0, j1, area };
+          }
+        }
+        for (let a = best.i0; a <= best.i1; a++) for (let b = best.j0; b <= best.j1; b++) covered[a][b] = true;
+        rects.push({ x: xs[best.i0], y: ys[best.j0], w: xs[best.i1 + 1] - xs[best.i0], h: ys[best.j1 + 1] - ys[best.j0] });
+      }
+    }
+    const inside = (a, b) => a !== b && a.x >= b.x && a.y >= b.y && a.x + a.w <= b.x + b.w && a.y + a.h <= b.y + b.h;
+    return rects.filter((a) => !rects.some((b) => inside(a, b)));
+  }
+
+  // The 4 slopes of a hip roof on a rectangle whose walls stop at height z.
+  function hipRoof(rect, z) {
+    const o = ROOF_OVERHANG;
+    const x0 = rect.x - o;
+    const y0 = rect.y - o;
+    const x1 = rect.x + rect.w + o;
+    const y1 = rect.y + rect.h + o;
+    const eave = z - o * ROOF_PITCH;
+    const run = Math.min(x1 - x0, y1 - y0) / 2;
+    const sides = [
+      { p: [x0, y0], q: [x1, y0], d: [0, 1] },
+      { p: [x1, y0], q: [x1, y1], d: [-1, 0] },
+      { p: [x1, y1], q: [x0, y1], d: [0, -1] },
+      { p: [x0, y1], q: [x0, y0], d: [1, 0] },
+    ];
+    return sides.map(({ p, q, d }) => {
+      const u = [q[0] - p[0], q[1] - p[1], 0];
+      const k = round2((run / len3(u)) * 100);
+      return {
+        ...face([p[0], p[1], eave], u, [d[0] * run, d[1] * run, run * ROOF_PITCH]),
+        clip: `polygon(0 0, 100% 0, ${100 - k}% 100%, ${k}% 100%)`,
+      };
+    });
+  }
+
+  // The 6 faces of a box centered on c, with half-extent vectors X, Y, Z. The +X face comes first.
+  function boxFaces(c, X, Y, Z) {
+    const p = (sx, sy, sz) => add3(add3(add3(c, mul3(X, sx)), mul3(Y, sy)), mul3(Z, sz));
+    return [
+      face(p(1, -1, 1), mul3(Y, 2), mul3(Z, -2)),
+      face(p(-1, -1, 1), mul3(Y, 2), mul3(Z, -2)),
+      face(p(-1, -1, 1), mul3(X, 2), mul3(Y, 2)),
+      face(p(-1, 1, -1), mul3(X, 2), mul3(Y, -2)),
+      face(p(-1, -1, 1), mul3(X, 2), mul3(Z, -2)),
+      face(p(-1, 1, 1), mul3(X, 2), mul3(Z, -2)),
+    ];
+  }
+
+  // Do segments p1-p2 and q1-q2 (2D) cross?
+  function segmentsCross(p1, p2, q1, q2) {
+    const orient = (a, b, c) => Math.sign((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]));
+    return orient(p1, p2, q1) * orient(p1, p2, q2) < 0 && orient(q1, q2, p1) * orient(q1, q2, p2) < 0;
   }
 
   // --- "Generate from my areas" ---------------------------------------------
@@ -2430,7 +2734,7 @@
   // -------------------------------------------------------------------------
   // Card
   // -------------------------------------------------------------------------
-  class HaPlooumFloorplanCard extends i {
+  class HaPlooumFloorplanCard extends i$2 {
     static get properties() {
       return {
         hass: { type: Object },
@@ -2439,6 +2743,12 @@
         _selectedRoom: { state: true },
         _coverDrag: { state: true },
         _width: { state: true },
+        _view: { state: true },
+        _level3d: { state: true },
+        _orbit: { state: true },
+        _focus: { state: true },
+        _dragging3d: { state: true },
+        _tick: { state: true },
       };
     }
 
@@ -2454,8 +2764,20 @@
       this._selectedRoom = null;
       this._coverDrag = null;
       this._pending = {};
+      this._view = null; // '2d' | '3d', from the config until the user switches
+      this._level3d = null; // floors shown in 3D: up to this index; floors.length = the closed house, with its roof
+      this._orbit = null; // 3D point of view, null = framed automatically
+      this._focus = null; // camera whose screen the 3D view is zoomed on
+      this._dragging3d = false;
+      this._pointers = new Map();
+      this._aspects = {}; // camera id -> image aspect ratio, learned when its image loads
+      this._tick = 0; // bumps every refresh_interval: reloads camera snapshots
+      this._wheelListener = { handleEvent: (ev) => this._wheel3d(ev), passive: false };
       this._onKeyDown = (ev) => {
-        if (ev.key === 'Escape' && this._selectedRoom !== null) this._selectedRoom = null;
+        // Escape also closes dialogs (the more-info of a camera): leave the view as it is then.
+        if (ev.key !== 'Escape' || ev.composedPath().some((n) => n.localName && n.localName.includes('dialog'))) return;
+        if (this._selectedRoom !== null) this._selectedRoom = null;
+        if (this._view === '3d') this._resetView();
       };
     }
 
@@ -2468,6 +2790,7 @@
       );
       window.addEventListener('keydown', this._onKeyDown);
       this._resizeObserver.observe(this);
+      this._startRefresh();
     }
 
     disconnectedCallback() {
@@ -2475,6 +2798,7 @@
       window.removeEventListener('keydown', this._onKeyDown);
       this._resizeObserver.disconnect();
       clearTimeout(this._holdTimer);
+      clearInterval(this._refreshTimer);
     }
 
     setConfig(config) {
@@ -2482,7 +2806,25 @@
       if (config.floors !== undefined && !Array.isArray(config.floors)) {
         throw new Error('floors must be a list');
       }
+      if (config.view !== undefined && !['2d', '3d'].includes(config.view)) {
+        throw new Error('view must be 2d or 3d');
+      }
+      // A new `view` or `roof` in the config (editor) is applied; otherwise the user's choice stays.
+      if (!this.config || this.config.view !== config.view) this._view = config.view || '2d';
+      if (!this.config || this.config.roof !== config.roof) this._level3d = null;
+      const refreshChanged = !this.config || this.config.refresh_interval !== config.refresh_interval;
       this.config = config;
+      if (refreshChanged && this.isConnected) this._startRefresh();
+    }
+
+    // Camera snapshots are reloaded periodically, only while the 3D view is shown.
+    _startRefresh() {
+      clearInterval(this._refreshTimer);
+      if (!this.config) return;
+      const seconds = Math.max(1, num(this.config.refresh_interval, REFRESH_INTERVAL));
+      this._refreshTimer = setInterval(() => {
+        if (this._view === '3d' && !document.hidden && this.config.camera_view !== 'live') this._tick++;
+      }, seconds * 1000);
     }
 
     static getStubConfig() {
@@ -2527,36 +2869,54 @@
       const floorIndex = clamp(this._floorIndex, 0, floors.length - 1);
       const plan = resolveFloor(this.hass, floors[floorIndex]);
       const selected = this._selectedRoom !== null ? plan.rooms[this._selectedRoom] : null;
-      const empty = !plan.rooms.length && !plan.items.length;
+      const is3d = this._view === '3d';
+      const empty = is3d
+        ? floors.every((f) => !(f.rooms || []).length && !(f.entities || []).length)
+        : !plan.rooms.length && !plan.items.length;
+      const level = this._level(floors);
 
       return b`
       <ha-card>
-        ${this.config.title || floors.length > 1
-          ? b`
-              <div class="header">
-                <div class="title">${this.config.title || ''}</div>
-                ${floors.length > 1
-                  ? b`<div class="floors">
-                      ${floors.map(
-                        (f, i) => b`<button
-                          class="chip ${i === floorIndex ? 'active' : ''}"
-                          @click=${() => this._selectFloor(i)}
-                        >${f.name || `Floor ${i + 1}`}</button>`
-                      )}
-                    </div>`
-                  : A}
-              </div>
-            `
-          : A}
+        <div class="header">
+          <div class="title">${this.config.title || ''}</div>
+          <div class="floors">
+            ${is3d
+              ? b`${floors.map(
+                    (f, i) => b`<button class="chip ${i === level ? 'active' : ''}" @click=${() => this._setLevel(i)}
+                      title="Show this floor and the ones below">${f.name || `Floor ${i + 1}`}</button>`
+                  )}<button class="chip ${level === floors.length ? 'active' : ''}" @click=${() => this._setLevel(floors.length)}
+                    title="Whole home, with its roof"><ha-icon icon="mdi:home-roof"></ha-icon></button>`
+              : floors.length > 1
+                ? floors.map(
+                    (f, i) => b`<button
+                      class="chip ${i === floorIndex ? 'active' : ''}"
+                      @click=${() => this._selectFloor(i)}
+                    >${f.name || `Floor ${i + 1}`}</button>`
+                  )
+                : A}
+            <div class="seg" role="group" aria-label="View">
+              <button class=${is3d ? '' : 'active'} @click=${() => this._setView('2d')} title="Floor plan">2D</button>
+              <button class=${is3d ? 'active' : ''} @click=${() => this._setView('3d')} title="3D view">3D</button>
+            </div>
+          </div>
+        </div>
         ${empty
           ? b`<div class="empty">
               <ha-icon icon="mdi:floor-plan"></ha-icon>
               <div>No plan yet. Edit this card to draw your home and place your devices.</div>
             </div>`
-          : this._renderPlan(plan, selected)}
-        ${selected ? this._renderPanel(selected) : A}
+          : is3d
+            ? this._renderScene3d(floors, level)
+            : this._renderPlan(plan, selected)}
+        ${selected && !is3d ? this._renderPanel(selected) : A}
       </ha-card>
     `;
+    }
+
+    _setView(view) {
+      this._view = view;
+      this._selectedRoom = null;
+      if (view === '3d') this._tick++;
     }
 
     _selectFloor(i) {
@@ -2575,6 +2935,8 @@
       const { min, max } = this._tempRange();
 
       const dim = (room) => (selected && room !== selected ? 'dim' : '');
+      const dimItem = (it) => (selected && it.roomIndex !== selected.index ? 'dim' : '');
+      const cameras = plan.items.filter((it) => it.camera && it.st && !isUnavailable(it.st));
       const planWidth = this._width - 2 * CARD_PADDING;
       const markerSize = planWidth > 0 ? clamp(Math.round((planWidth / vb.w) * 0.8), 18, 28) : 28;
       const zoom = this._zoomView(vb, selected, planWidth);
@@ -2605,12 +2967,27 @@
                     )}
                 `
               )}
+              ${cameras.map(
+                (it) => w`<radialGradient id="cone-${it.index}" gradientUnits="userSpaceOnUse" cx=${it.x} cy=${it.y}
+                  r=${it.camera.hit !== null ? Math.min(it.camera.hit, 8) : CAMERA_REACH}>
+                  <stop offset="0" stop-color="var(--fp-camera)" stop-opacity="0.45"></stop>
+                  <stop offset="1" stop-color="var(--fp-camera)" stop-opacity="0.04"></stop>
+                </radialGradient>`
+              )}
             </defs>
             ${plan.rooms.map((room) => {
+              if (room.outdoor) {
+                return w`<rect class="floor outdoor ${dim(room)}" x=${room.x} y=${room.y} width=${room.w} height=${room.h}></rect>`;
+              }
               const t = roomTemperature(room);
               const fill = t === null ? 'var(--fp-floor)' : rgba(tempRgb(t, min, max), 0.3);
               return w`<rect class="floor ${dim(room)}" x=${room.x} y=${room.y} width=${room.w} height=${room.h} style="fill: ${fill};"></rect>`;
             })}
+            ${cameras.map(
+              // An indoor camera's cone stays in its room.
+              (it) => w`<path class="cone ${dimItem(it)}" d=${conePath(it)} fill="url(#cone-${it.index})"
+                clip-path=${it.camera.indoor && it.roomIndex >= 0 ? `url(#clip-${it.roomIndex})` : A}></path>`
+            )}
             ${plan.rooms.map((room) =>
               room.items
                 .filter((it) => it.role === 'light')
@@ -2623,7 +3000,7 @@
                 })
             )}
             ${plan.rooms.map(
-              (room) => w`<rect class="wall ${dim(room)}" x=${room.x} y=${room.y} width=${room.w} height=${room.h}></rect>`
+              (room) => w`<rect class="wall ${room.outdoor ? 'outdoor' : ''} ${dim(room)}" x=${room.x} y=${room.y} width=${room.w} height=${room.h}></rect>`
             )}
             ${plan.rooms
               .filter((room) => room.presence)
@@ -2860,6 +3237,456 @@
     </div>`;
     }
 
+    // --- 3D view -------------------------------------------------------------
+
+    _wallHeight() {
+      return Math.max(1, num(this.config.wall_height, WALL_HEIGHT));
+    }
+
+    // Floors shown in 3D: up to the returned index; floors.length means the whole home, with its roof.
+    _level(floors) {
+      if (this._level3d !== null) return clamp(this._level3d, 0, floors.length);
+      return this.config.roof === false ? floors.length - 1 : floors.length;
+    }
+
+    _setLevel(level) {
+      this._level3d = level;
+      this._focus = null;
+    }
+
+    // Size of the 3D viewport and its perspective distance (px).
+    _viewport3d() {
+      const w = Math.max(200, (this._width || 600) - 2 * CARD_PADDING);
+      const h = Math.round(clamp(w * 0.62, 260, Math.max(260, window.innerHeight * 0.75)));
+      return { w, h, p: Math.round(1.6 * Math.max(w, 400)) };
+    }
+
+    // Every floor resolved and stacked: floor k stands at z0.
+    _plans3d(floors, level) {
+      const H = this._wallHeight();
+      const top = Math.min(level, floors.length - 1);
+      const all = floors.map((f, k) => ({ ...resolveFloor(this.hass, f), k, z0: k * (H + SLAB) }));
+      return { H, top, roof: level >= floors.length, all, shown: all.slice(0, top + 1) };
+    }
+
+    // Point of view framing the shown floors, used until the user moves the view.
+    _homeView(s, vp) {
+      const b = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+      for (const p of s.shown) {
+        b.minX = Math.min(b.minX, p.bounds.minX);
+        b.minY = Math.min(b.minY, p.bounds.minY);
+        b.maxX = Math.max(b.maxX, p.bounds.maxX);
+        b.maxY = Math.max(b.maxY, p.bounds.maxY);
+      }
+      const zTop = s.shown[s.top].z0 + s.H;
+      const diag = Math.hypot(b.maxX - b.minX, b.maxY - b.minY, zTop) * U3;
+      return {
+        ...ORBIT_DEFAULT,
+        target: [(b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2, zTop / 3],
+        dist: (vp.p * diag) / Math.min(0.8 * vp.w, 1.1 * vp.h),
+      };
+    }
+
+    _currentOrbit() {
+      return { ...(this._orbit || this._scene3dState.home) };
+    }
+
+    _renderScene3d(floors, level) {
+      const vp = this._viewport3d();
+      const s = this._plans3d(floors, level);
+      const home = this._homeView(s, vp);
+      const orbit = this._orbit || home;
+      const a = toRad(orbit.az);
+      const t = toRad(orbit.tilt);
+      const d = orbit.dist / U3;
+      const eye = [
+        orbit.target[0] + Math.sin(t) * Math.sin(a) * d,
+        orbit.target[1] + Math.sin(t) * Math.cos(a) * d,
+        orbit.target[2] + Math.cos(t) * d,
+      ];
+      const { faces, screens } = this._buildScene(s, eye, [Math.sin(a), Math.cos(a)]);
+      this._scene3dState = { vp, home, screens, floors: floors.length };
+
+      const [tx, ty, tz] = orbit.target.map((v) => round2(-v * U3));
+      const world = `translateZ(${round2(vp.p - orbit.dist)}px) rotateX(${round2(orbit.tilt)}deg) rotateZ(${round2(orbit.az)}deg) translate3d(${tx}px, ${ty}px, ${tz}px)`;
+      const dark = this.hass.themes && this.hass.themes.darkMode;
+      return b`
+      <div
+        class="view3d ${this._dragging3d ? 'dragging' : ''} ${dark ? 'dark' : ''}"
+        style="height: ${vp.h}px; perspective: ${vp.p}px;"
+        @pointerdown=${this._down3d}
+        @pointermove=${this._move3d}
+        @pointerup=${this._up3d}
+        @pointercancel=${this._up3d}
+        @wheel=${this._wheelListener}
+        @dblclick=${this._resetView}
+        @contextmenu=${(ev) => ev.preventDefault()}
+      >
+        <div class="world" style="transform: ${world};">
+          <div class="group">${faces.map((x) => this._face3d(x))}</div>
+          <div class="group">${c(screens, (sc) => sc.id, (sc) => this._renderScreen(sc))}</div>
+        </div>
+        <div class="tools">
+          <button class="tool" title="Zoom in" @click=${() => this._zoom3d(1 / 1.3)}><ha-icon icon="mdi:plus"></ha-icon></button>
+          <button class="tool" title="Zoom out" @click=${() => this._zoom3d(1.3)}><ha-icon icon="mdi:minus"></ha-icon></button>
+          <button class="tool" title="Whole home (Escape)" @click=${this._resetView}><ha-icon icon="mdi:home-outline"></ha-icon></button>
+        </div>
+        ${this._focus ? b`<div class="hint3d">Tap the screen again for the live view</div>` : A}
+      </div>
+    `;
+    }
+
+    _face3d(x) {
+      return b`<div
+      class="f ${x.cls}"
+      style="width: ${x.f.w}px; height: ${x.f.h}px; transform: ${x.f.transform};${x.clip ? ` clip-path: ${x.clip};` : ''} ${x.style || ''}"
+    >${x.content || A}</div>`;
+    }
+
+    // Faces of the scene for a point of view: `eye` is the viewer's position, `toViewer` the
+    // horizontal direction from the scene towards the viewer (walls facing it are cut away).
+    _buildScene(s, eye, toViewer) {
+      const H = s.H;
+      const faces = [];
+      const screens = [];
+      const { min, max } = this._tempRange();
+      const wallColor = (n) => `background: color-mix(in srgb, var(--fp3-wall) ${shade(n)}%, #000);`;
+
+      // Lawn around the home.
+      const g = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+      for (const p of s.all) {
+        g.minX = Math.min(g.minX, p.bounds.minX - GROUND_MARGIN);
+        g.minY = Math.min(g.minY, p.bounds.minY - GROUND_MARGIN);
+        g.maxX = Math.max(g.maxX, p.bounds.maxX + GROUND_MARGIN);
+        g.maxY = Math.max(g.maxY, p.bounds.maxY + GROUND_MARGIN);
+      }
+      faces.push({ f: face([g.minX, g.minY, -0.02], [g.maxX - g.minX, 0, 0], [0, g.maxY - g.minY, 0]), cls: 'ground' });
+
+      // Cameras first: the walls between the viewer and the screen zoomed on are cut away.
+      let sight = null;
+      for (const p of s.shown) {
+        for (const it of p.items) {
+          if (it.role !== 'camera') continue;
+          const indoor = it.camera.indoor;
+          // Hidden inside the home (under the roof or a floor above): not rendered, no snapshot loaded.
+          if (indoor && (s.roof || p.k < s.top)) continue;
+          const sc = this._camera3d(it, p, indoor, H, eye, faces);
+          screens.push(sc);
+          if (this._focus === it.id) sight = [[eye[0], eye[1]], [sc.center[0], sc.center[1]]];
+        }
+      }
+
+      for (const p of s.shown) {
+        const isTop = p.k === s.top;
+        const cutaway = isTop && !s.roof;
+
+        for (const room of p.rooms) {
+          const f = face([room.x, room.y, p.z0 + (room.outdoor ? 0.005 : 0.01)], [room.w, 0, 0], [0, room.h, 0]);
+          const layers = [];
+          for (const it of room.lights) {
+            if (!isActive(it.st)) continue;
+            const c = lightRgb(it.st);
+            const b = typeof it.st.attributes.brightness === 'number' ? it.st.attributes.brightness / 255 : 1;
+            const cx = round2((it.x - room.x) * U3);
+            const cy = round2((it.y - room.y) * U3);
+            layers.push(`radial-gradient(circle at ${cx}px ${cy}px, ${rgba(c, 0.35 + 0.5 * b)}, ${rgba(c, 0)} ${round2(Math.max(room.w, room.h) * 0.7 * U3)}px)`);
+          }
+          const temp = room.outdoor ? null : roomTemperature(room);
+          if (temp !== null) layers.push(`linear-gradient(${rgba(tempRgb(temp, min, max), 0.25)}, ${rgba(tempRgb(temp, min, max), 0.25)})`);
+          layers.push(room.outdoor ? 'var(--fp3-terrace)' : 'var(--fp3-floor)');
+          faces.push({
+            f,
+            cls: room.outdoor ? 'floor3d outdoor' : 'floor3d',
+            style: `background: ${layers.join(', ')};`,
+            content:
+              cutaway && room.name
+                ? b`<div class="label3d">${room.icon ? b`<ha-icon icon=${room.icon}></ha-icon>` : A}<span>${room.name}</span></div>`
+                : A,
+          });
+        }
+
+        // Walls: the outer ones on every floor shown (they also cover the slab), the inner ones only
+        // on the top floor when the roof is off. Those facing the viewer are cut low, like a dollhouse.
+        const segments = wallSegments(p.indoor);
+        for (const seg of segments) {
+          const outer = !!seg.normal;
+          if (!outer && !cutaway) continue;
+          const ends = seg.o === 'h' ? [[seg.a, seg.at], [seg.b, seg.at]] : [[seg.at, seg.a], [seg.at, seg.b]];
+          seg.cut =
+            (cutaway && outer && seg.normal[0] * toViewer[0] + seg.normal[1] * toViewer[1] > 0.2) ||
+            (!!sight && segmentsCross(sight[0], sight[1], ends[0], ends[1]));
+          const top = p.z0 + (seg.cut ? CUT_HEIGHT : H);
+          const bottom = p.k > 0 ? p.z0 - SLAB : 0;
+          const len = seg.b - seg.a;
+          const u = seg.o === 'h' ? [len, 0, 0] : [0, len, 0];
+          const f = face([...ends[0], top], u, [0, 0, bottom - top]);
+          faces.push({ f, cls: outer ? 'wall' : 'wall inner', style: wallColor(f.n) });
+          const capOrigin = seg.o === 'h' ? [seg.a, seg.at - WALL_CAP / 2, top] : [seg.at - WALL_CAP / 2, seg.a, top];
+          faces.push({ f: face(capOrigin, u, seg.o === 'h' ? [0, WALL_CAP, 0] : [WALL_CAP, 0, 0]), cls: 'cap' });
+        }
+
+        // Windows: covers on an outer wall, on both sides of it.
+        for (const it of p.items) {
+          if (it.role !== 'cover' || !it.wall || !it.st) continue;
+          const w = it.wall;
+          const seg = segments.find(
+            (sg) => sg.normal && sg.o === w.o && Math.abs(sg.at - w.at) < ON_WALL_EPS && w.pos >= sg.a - ON_WALL_EPS && w.pos <= sg.b + ON_WALL_EPS
+          );
+          if (!seg || seg.cut) continue;
+          const len = Math.min(num(it.length, WINDOW_LENGTH), w.b - w.a);
+          const center = clamp(w.pos, w.a + len / 2, w.b - len / 2);
+          const sill = p.z0 + H * 0.36;
+          const top = p.z0 + H * 0.84;
+          for (const side of [0.02, -0.02]) {
+            const o = seg.o === 'h' ? [center - len / 2, seg.at + seg.normal[1] * side, top] : [seg.at + seg.normal[0] * side, center - len / 2, top];
+            faces.push({
+              f: face(o, seg.o === 'h' ? [len, 0, 0] : [0, len, 0], [0, 0, sill - top]),
+              cls: `window3d ${isUnavailable(it.st) ? 'unavailable' : ''}`,
+              style: `--closed: ${100 - coverPosition(it.st)}%;`,
+              content: b`<div class="shutter3d"></div>`,
+            });
+          }
+        }
+      }
+
+      // Roofs: on each floor shown, over the part that no floor shown above covers.
+      for (const p of s.roof ? s.shown : s.shown.slice(0, -1)) {
+        const above = s.shown.filter((q) => q.k > p.k).flatMap((q) => q.indoor);
+        for (const rect of roofRects(p.indoor, above)) {
+          for (const r of hipRoof(rect, p.z0 + H)) {
+            faces.push({ f: r, cls: 'roof', clip: r.clip, style: `background-color: color-mix(in srgb, var(--fp3-roof) ${shade(r.n, 45)}%, #000);` });
+          }
+        }
+      }
+      return { faces, screens };
+    }
+
+    // A camera in 3D: its body, its screen in front of it (up to the first wall), and the beam between them.
+    _camera3d(it, p, indoor, H, eye, faces) {
+      const cam = it.camera;
+      const conf = it.conf;
+      const height = cam.height !== null ? cam.height : Math.min(CAMERA_HEIGHT, H - 0.3);
+      const C = [it.x, it.y, p.z0 + height];
+      const t = toRad(cam.tilt);
+      const fwd = [cam.dx * Math.cos(t), cam.dy * Math.cos(t), -Math.sin(t)];
+      const right = [-cam.dy, cam.dx, 0];
+      const up = cross3(fwd, right);
+
+      const maxDistance = Math.max(0.5, num(conf.screen_distance, SCREEN_DISTANCE));
+      const flat = Math.max(0.4, cam.hit !== null ? Math.min(cam.hit - 0.2, maxDistance) : maxDistance);
+      const dist = flat / Math.max(Math.cos(t), 0.2);
+      const aspect = this._aspects[it.id] || 16 / 9;
+      let w = Math.min(2 * dist * Math.tan(toRad(cam.fov) / 2), Math.max(0.3, num(conf.screen_size, SCREEN_SIZE)));
+      let h = w / aspect;
+      const center = add3(C, mul3(fwd, dist));
+      // Keep the screen above the floor, and below the ceiling indoors.
+      const floorZ = p.z0 + 0.05;
+      const ceilZ = indoor ? p.z0 + H - 0.05 : Infinity;
+      let half = (h / 2) * Math.abs(up[2]);
+      if (2 * half > ceilZ - floorZ) {
+        const k = (ceilZ - floorZ) / (2 * half);
+        w *= k;
+        h *= k;
+        half *= k;
+      }
+      if (center[2] - half < floorZ) center[2] = floorZ + half;
+      if (center[2] + half > ceilZ) center[2] = ceilZ - half;
+
+      // Seen from behind the camera, the image reads as the camera sees it.
+      const tl = add3(sub3(center, mul3(right, w / 2)), mul3(up, h / 2));
+      const u = mul3(right, w);
+      const v = mul3(up, -h);
+      const f = face(tl, u, v, SCREEN_PX, SCREEN_PX / aspect);
+
+      // From the other side (in front of the camera), the image is flipped so that it stays readable.
+      const screen = { id: it.id, item: it, f, back: dot3(sub3(eye, center), f.n) < 0, center, w, h, cam, k: p.k, indoor };
+      // Zoomed on: the view stands right behind the camera, whose body and beam would hide the screen.
+      if (this._focus === it.id) return screen;
+
+      const lens = add3(C, mul3(fwd, 0.17));
+      const corners = [tl, add3(tl, u), add3(add3(tl, u), v), add3(tl, v)];
+      corners.forEach((c, i) => {
+        const next = corners[(i + 1) % 4];
+        faces.push({ f: face(c, sub3(next, c), sub3(lens, c), 100, 100), cls: 'beam', clip: 'polygon(0 0, 100% 0, 0 100%)' });
+      });
+      boxFaces(C, mul3(fwd, 0.17), mul3(right, 0.1), mul3(up, 0.09)).forEach((bf, i) =>
+        faces.push({ f: bf, cls: i === 0 ? 'cam lens' : 'cam', style: `background-color: color-mix(in srgb, #4a5058 ${shade(bf.n, 40)}%, #000);` })
+      );
+      return screen;
+    }
+
+    _renderScreen(sc) {
+      const st = sc.item.st;
+      const name = sc.item.name || (st ? friendlyName(this.hass, sc.id) : sc.id);
+      let content;
+      if (!st) {
+        content = b`<div class="screen-msg"><ha-icon icon="mdi:help-circle-outline"></ha-icon><span>${sc.id}: entity not found</span></div>`;
+      } else if (isUnavailable(st)) {
+        content = b`<div class="screen-msg"><ha-icon icon="mdi:cctv-off"></ha-icon><span>${formatState(this.hass, st)}</span></div>`;
+      } else {
+        content = this._cameraImage(st);
+      }
+      const classes = [
+        'f',
+        'screen',
+        sc.back ? 'back' : '',
+        this._focus === sc.id ? 'focused' : '',
+        !st ? 'missing' : isUnavailable(st) ? 'unavailable' : '',
+      ].join(' ');
+      return b`<div class=${classes} data-id=${sc.id} title=${name}
+      style="width: ${sc.f.w}px; height: ${sc.f.h}px; transform: ${sc.f.transform};">
+      <div class="screen-inner">${content}<div class="screen-name">${name}</div></div>
+    </div>`;
+    }
+
+    // Snapshot reloaded every refresh_interval, or the live stream with `camera_view: live`.
+    _cameraImage(st) {
+      const id = st.entity_id;
+      const learn = (ev) => this._learnAspect(id, ev.target);
+      if (this.config.camera_view === 'live') {
+        if (customElements.get('ha-camera-stream')) {
+          return b`<ha-camera-stream .hass=${this.hass} .stateObj=${st} muted></ha-camera-stream>`;
+        }
+        return b`<img alt="" src="/api/camera_proxy_stream/${id}?token=${st.attributes.access_token}" @load=${learn} />`;
+      }
+      const pic = st.attributes.entity_picture;
+      if (!pic) return b`<div class="screen-msg"><ha-icon icon="mdi:cctv"></ha-icon></div>`;
+      return b`<img alt="" src="${pic}${pic.includes('?') ? '&' : '?'}t=${this._tick}" @load=${learn} />`;
+    }
+
+    _learnAspect(id, img) {
+      if (!img.naturalWidth || !img.naturalHeight) return;
+      const aspect = img.naturalWidth / img.naturalHeight;
+      if (Math.abs(aspect - (this._aspects[id] || 16 / 9)) > 0.01) {
+        this._aspects[id] = aspect;
+        this.requestUpdate();
+      }
+    }
+
+    // Drag: orbit (right button or Shift: pan); two fingers: zoom and pan; tap on a screen: zoom on it.
+    _down3d(ev) {
+      const path = ev.composedPath();
+      if (path.some((n) => n.classList && n.classList.contains('tools'))) return;
+      ev.currentTarget.setPointerCapture(ev.pointerId);
+      this._pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+      const screen = path.find((n) => n.classList && n.classList.contains('screen'));
+      this._startGesture(this._pointers.size === 1 && screen ? screen.dataset.id : null, ev.button === 2 || ev.shiftKey);
+    }
+
+    _startGesture(screenId = null, pan = false) {
+      const pts = [...this._pointers.values()];
+      this._gesture = {
+        orbit: this._currentOrbit(),
+        screenId,
+        pan,
+        moved: pts.length > 1,
+        x: pts[0].x,
+        y: pts[0].y,
+        pinch:
+          pts.length > 1
+            ? { d: Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y), x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 }
+            : null,
+      };
+    }
+
+    _move3d(ev) {
+      const g = this._gesture;
+      if (!g || !this._pointers.has(ev.pointerId)) return;
+      this._pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+      const o = g.orbit;
+      const pts = [...this._pointers.values()];
+      let next;
+      if (g.pinch && pts.length > 1) {
+        const d = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+        const zoomed = { ...o, dist: this._clampDist((o.dist * g.pinch.d) / Math.max(d, 1)) };
+        next = this._panned(zoomed, (pts[0].x + pts[1].x) / 2 - g.pinch.x, (pts[0].y + pts[1].y) / 2 - g.pinch.y);
+      } else {
+        const dx = ev.clientX - g.x;
+        const dy = ev.clientY - g.y;
+        if (!g.moved && Math.hypot(dx, dy) < 6) return;
+        g.moved = true;
+        next = g.pan ? this._panned(o, dx, dy) : { ...o, az: o.az - dx * 0.35, tilt: clamp(o.tilt - dy * 0.3, TILT_MIN, TILT_MAX) };
+      }
+      this._dragging3d = true;
+      this._orbit = next;
+    }
+
+    _up3d(ev) {
+      if (!this._pointers.has(ev.pointerId)) return;
+      this._pointers.delete(ev.pointerId);
+      const g = this._gesture;
+      if (this._pointers.size) {
+        // One finger left after a pinch: it orbits from here.
+        this._startGesture();
+        this._gesture.moved = true;
+        return;
+      }
+      this._gesture = null;
+      this._dragging3d = false;
+      if (g && !g.moved && g.screenId && ev.type === 'pointerup') this._screenTap(g.screenId);
+    }
+
+    _wheel3d(ev) {
+      ev.preventDefault();
+      const o = this._currentOrbit();
+      this._dragging3d = true; // no easing between wheel steps
+      clearTimeout(this._wheelTimer);
+      this._wheelTimer = setTimeout(() => (this._dragging3d = false), 200);
+      this._orbit = { ...o, dist: this._clampDist(o.dist * Math.exp(ev.deltaY * 0.0015)) };
+    }
+
+    _zoom3d(k) {
+      const o = this._currentOrbit();
+      this._orbit = { ...o, dist: this._clampDist(o.dist * k) };
+    }
+
+    _clampDist(dist) {
+      const home = this._scene3dState.home.dist;
+      return clamp(dist, home * 0.06, home * 3);
+    }
+
+    // Moves the target so that the scene follows the pointer (dx, dy in px).
+    _panned(o, dx, dy) {
+      const k = o.dist / this._scene3dState.vp.p / U3; // grid units per px, at the target
+      const a = toRad(o.az);
+      const c = Math.max(Math.cos(toRad(o.tilt)), 0.35);
+      return {
+        ...o,
+        target: [
+          o.target[0] - (Math.cos(a) * dx + (Math.sin(a) * dy) / c) * k,
+          o.target[1] - (-Math.sin(a) * dx + (Math.cos(a) * dy) / c) * k,
+          o.target[2],
+        ],
+      };
+    }
+
+    _resetView() {
+      this._orbit = null;
+      this._focus = null;
+    }
+
+    // First tap: fly behind the camera, facing its screen. Second tap: its more-info dialog (live view).
+    _screenTap(id) {
+      if (this._focus === id) {
+        this._moreInfo(id);
+        return;
+      }
+      const state = this._scene3dState;
+      const sc = state.screens.find((x) => x.id === id);
+      if (!sc) return;
+      const { vp } = state;
+      const current = this._currentOrbit();
+      let az = -sc.cam.direction;
+      az += Math.round((current.az - az) / 360) * 360;
+      this._focus = id;
+      this._orbit = {
+        az,
+        tilt: clamp(90 - sc.cam.tilt - 8, 35, 82),
+        dist: Math.max((sc.w * U3 * vp.p) / (0.8 * vp.w), (sc.h * U3 * vp.p) / (0.7 * vp.h)),
+        target: sc.center,
+      };
+    }
+
     // --- Interactions --------------------------------------------------------
 
     // A tap on the selected room does nothing: deselecting would zoom out and move the plan under the
@@ -2957,7 +3784,7 @@
     }
 
     static get styles() {
-      return i$3`
+      return i$5`
       :host {
         display: block;
         --fp-wall: var(--primary-text-color, #e1e1e1);
@@ -2965,6 +3792,18 @@
         --fp-active: var(--state-active-color, var(--amber-color, #ffc107));
         --fp-alert: var(--error-color, #ef5350);
         --fp-presence: var(--info-color, #4fc3f7);
+        --fp-camera: var(--primary-color, #03a9f4);
+        --fp-outdoor: rgba(102, 160, 90, 0.16);
+        /* 3D view */
+        --fp3-wall: #ece7df;
+        --fp3-cap: #6b6660;
+        --fp3-floor: #c9ae8c;
+        --fp3-roof: #a9573f;
+        --fp3-ground: #7da267;
+        --fp3-terrace: #bdb5a6;
+        --fp3-beam: 120, 200, 255;
+        --fp3-sky: linear-gradient(180deg, #cfe3f3 0%, #eef3f6 100%);
+        --fp3-sky-dark: linear-gradient(180deg, #0f161d 0%, #1f2a34 100%);
       }
       ha-card {
         overflow: hidden;
@@ -3000,6 +3839,34 @@
       .chip.active {
         background: var(--primary-color);
         border-color: var(--primary-color);
+        color: var(--text-primary-color, #fff);
+      }
+      .chip ha-icon {
+        --mdc-icon-size: 16px;
+        display: flex;
+      }
+      .floors .chip {
+        display: inline-flex;
+        align-items: center;
+      }
+      .seg {
+        display: inline-flex;
+        border: 1px solid var(--divider-color);
+        border-radius: 14px;
+        overflow: hidden;
+      }
+      .seg button {
+        border: none;
+        background: transparent;
+        color: var(--secondary-text-color);
+        padding: 4px 10px;
+        font: inherit;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .seg button.active {
+        background: var(--primary-color);
         color: var(--text-primary-color, #fff);
       }
       .empty {
@@ -3051,6 +3918,19 @@
         stroke-opacity: 0.25;
         stroke-width: 1.5px;
         vector-effect: non-scaling-stroke;
+      }
+      .floor.outdoor {
+        fill: var(--fp-outdoor);
+      }
+      .wall.outdoor {
+        stroke-dasharray: 4 4;
+      }
+      .cone {
+        stroke: var(--fp-camera);
+        stroke-opacity: 0.35;
+        stroke-width: 1px;
+        vector-effect: non-scaling-stroke;
+        transition: opacity 0.4s ease;
       }
       .outer {
         stroke: var(--fp-wall);
@@ -3405,6 +4285,203 @@
         font-size: 12px;
         cursor: pointer;
       }
+
+      /* --- 3D view --- */
+      .view3d {
+        position: relative;
+        overflow: hidden;
+        border-radius: 8px;
+        background: var(--fp3-sky);
+        perspective-origin: 50% 50%;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+        cursor: grab;
+      }
+      .view3d.dark {
+        --fp3-sky: var(--fp3-sky-dark);
+      }
+      .view3d.dragging {
+        cursor: grabbing;
+      }
+      .world {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 0;
+        height: 0;
+        transform-style: preserve-3d;
+        transition: transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+      .view3d.dragging .world {
+        transition: none;
+      }
+      .group {
+        position: absolute;
+        left: 0;
+        top: 0;
+        transform-style: preserve-3d;
+      }
+      .f {
+        position: absolute;
+        left: 0;
+        top: 0;
+        transform-origin: 0 0;
+        box-sizing: border-box;
+        pointer-events: none;
+      }
+      .f.ground {
+        background: radial-gradient(closest-side, var(--fp3-ground) 70%, transparent);
+      }
+      .view3d.dark .f.ground {
+        background: radial-gradient(closest-side, color-mix(in srgb, var(--fp3-ground) 55%, #000) 70%, transparent);
+      }
+      .f.floor3d {
+        box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.08);
+      }
+      .f.floor3d.outdoor {
+        box-shadow: none;
+        opacity: 0.8;
+      }
+      .label3d {
+        position: absolute;
+        left: 16px;
+        top: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 30px;
+        font-weight: 500;
+        white-space: nowrap;
+        color: rgba(40, 30, 20, 0.75);
+        --mdc-icon-size: 30px;
+      }
+      .f.wall.inner {
+        opacity: 0.55;
+      }
+      .f.cap {
+        background: var(--fp3-cap);
+      }
+      .f.roof {
+        background-image: repeating-linear-gradient(to bottom, transparent 0 22px, rgba(0, 0, 0, 0.16) 22px 25px);
+      }
+      .f.beam {
+        background: linear-gradient(to bottom, rgba(var(--fp3-beam), 0.3), rgba(var(--fp3-beam), 0.04));
+      }
+      .f.cam.lens {
+        background-image: radial-gradient(circle, #9fd8ff 0 18%, #10161c 22% 42%, transparent 46%);
+      }
+      .f.window3d {
+        background: linear-gradient(160deg, #b9e4ff, #6fb6e6);
+        border: 4px solid #f5f2ec;
+      }
+      .f.window3d.unavailable {
+        opacity: 0.5;
+      }
+      .shutter3d {
+        height: var(--closed);
+        background: repeating-linear-gradient(180deg, #6d7680 0 6px, #87909a 6px 12px);
+        transition: height 0.4s ease;
+      }
+      .f.screen {
+        pointer-events: auto;
+        cursor: pointer;
+        background: #000;
+        border: 8px solid #1b1e22;
+        border-radius: 8px;
+        box-shadow: 0 0 40px rgba(var(--fp3-beam), 0.35);
+      }
+      .f.screen.focused {
+        border-color: var(--primary-color);
+      }
+      .f.screen.missing {
+        border: 6px dashed var(--warning-color, #ffa600);
+        background: #222;
+      }
+      .f.screen.unavailable {
+        animation: blink 1.6s ease-in-out infinite;
+      }
+      .screen-inner {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+      .f.screen.back .screen-inner {
+        transform: scaleX(-1);
+      }
+      .screen-inner img,
+      .screen-inner ha-camera-stream {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .screen-name {
+        position: absolute;
+        left: 8px;
+        bottom: 8px;
+        max-width: calc(100% - 16px);
+        padding: 2px 10px;
+        border-radius: 6px;
+        background: rgba(0, 0, 0, 0.55);
+        color: #fff;
+        font-size: 20px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .screen-msg {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 0 16px;
+        text-align: center;
+        color: #9aa0a6;
+        font-size: 24px;
+        --mdc-icon-size: 72px;
+      }
+      .f.screen.missing .screen-msg {
+        color: var(--warning-color, #ffa600);
+      }
+      .tools {
+        position: absolute;
+        right: 8px;
+        bottom: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .tool {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--card-background-color, #fff);
+        color: var(--primary-text-color);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+        cursor: pointer;
+        --mdc-icon-size: 20px;
+      }
+      .hint3d {
+        position: absolute;
+        left: 50%;
+        bottom: 10px;
+        transform: translateX(-50%);
+        padding: 4px 12px;
+        border-radius: 12px;
+        background: rgba(0, 0, 0, 0.55);
+        color: #fff;
+        font-size: 12px;
+        pointer-events: none;
+        animation: reveal 0.3s ease;
+      }
     `;
     }
   }
@@ -3412,7 +4489,7 @@
   // -------------------------------------------------------------------------
   // Visual editor
   // -------------------------------------------------------------------------
-  class HaPlooumFloorplanCardEditor extends i {
+  class HaPlooumFloorplanCardEditor extends i$2 {
     static get properties() {
       return {
         hass: { type: Object },
@@ -3513,8 +4590,23 @@
           schema: [
             { name: 'temp_min', label: 'Coldest temperature (blue floor)', selector: { number: { mode: 'box', step: 0.5 } } },
             { name: 'temp_max', label: 'Warmest temperature (red floor)', selector: { number: { mode: 'box', step: 0.5 } } },
+            {
+              name: 'view',
+              label: 'Opens in',
+              selector: { select: { mode: 'dropdown', options: [{ value: '2d', label: '2D plan' }, { value: '3d', label: '3D view' }] } },
+            },
+            { name: 'wall_height', label: 'Wall height (3D)', selector: { number: { min: 1, max: 6, step: 0.1, mode: 'box' } } },
+            {
+              name: 'camera_view',
+              label: 'Camera screens (3D)',
+              selector: {
+                select: { mode: 'dropdown', options: [{ value: 'snapshot', label: 'Snapshots' }, { value: 'live', label: 'Live streams' }] },
+              },
+            },
+            { name: 'refresh_interval', label: 'Snapshot refresh (s)', selector: { number: { min: 1, max: 60, step: 1, mode: 'box' } } },
           ],
         },
+        { name: 'roof', label: 'Show the roof when the 3D view opens', selector: { boolean: {} } },
       ];
 
       return b`
@@ -3560,7 +4652,7 @@
         <div class="section-title">Card settings</div>
         <ha-form
           .hass=${this.hass}
-          .data=${this._config}
+          .data=${{ ...this._config, ...Object.fromEntries(Object.entries(CARD_DEFAULTS).filter(([k]) => !(k in this._config))) }}
           .schema=${schema}
           .computeLabel=${(s) => s.label || s.name}
           @value-changed=${this._formChanged}
@@ -3585,6 +4677,9 @@
       }
       if (d.type === 'entity' && !d.outside) {
         copy.entities[d.index] = { ...copy.entities[d.index], x: d.pos.x, y: d.pos.y };
+      }
+      if (d.type === 'aim') {
+        copy.entities[d.index] = { ...copy.entities[d.index], direction: d.direction };
       }
       return copy;
     }
@@ -3634,6 +4729,12 @@
       const selectedRoom = sel && sel.kind === 'room' ? plan.rooms[sel.index] : null;
       const d = this._drag;
       const ghost = d && d.type === 'palette' && d.overCanvas ? d : null;
+      // Aim handle of the selected camera, in front of it.
+      const selectedItem = sel && sel.kind === 'entity' ? plan.items[sel.index] : null;
+      const aim =
+        selectedItem && selectedItem.camera
+          ? { item: selectedItem, x: selectedItem.x + selectedItem.camera.dx * AIM_HANDLE, y: selectedItem.y + selectedItem.camera.dy * AIM_HANDLE }
+          : null;
 
       return b`
       <div
@@ -3651,10 +4752,11 @@
             <pattern id="grid" width="1" height="1" patternUnits="userSpaceOnUse">
               <path d="M 1 0 L 0 0 0 1" class="grid-line"></path>
             </pattern>
+            ${plan.rooms.map((r, i) => w`<clipPath id="eclip-${i}"><rect x=${r.x} y=${r.y} width=${r.w} height=${r.h}></rect></clipPath>`)}
           </defs>
           <rect x=${ext.x} y=${ext.y} width=${ext.w} height=${ext.h} fill="url(#grid)"></rect>
           ${plan.rooms.map(
-            (r, i) => w`<rect class="e-room ${selectedRoom && selectedRoom.index === i ? 'selected' : ''} ${overlapping.has(i) ? 'overlap' : ''}"
+            (r, i) => w`<rect class="e-room ${r.outdoor ? 'outdoor' : ''} ${selectedRoom && selectedRoom.index === i ? 'selected' : ''} ${overlapping.has(i) ? 'overlap' : ''}"
               x=${r.x} y=${r.y} width=${r.w} height=${r.h}></rect>`
           )}
           ${plan.rooms.map((r, i) => {
@@ -3668,6 +4770,13 @@
               ? w`<line class="e-outer" x1=${s.a} y1=${s.at} x2=${s.b} y2=${s.at}></line>`
               : w`<line class="e-outer" x1=${s.at} y1=${s.a} x2=${s.at} y2=${s.b}></line>`
           )}
+          ${plan.items
+            .filter((it) => it.camera)
+            .map(
+              (it) => w`<path class="e-cone" d=${conePath(it)}
+                clip-path=${it.camera.indoor && it.roomIndex >= 0 ? `url(#eclip-${it.roomIndex})` : A}></path>`
+            )}
+          ${aim ? w`<line class="e-aim" x1=${aim.item.x} y1=${aim.item.y} x2=${aim.x} y2=${aim.y}></line>` : A}
         </svg>
         <div class="overlay">
           ${plan.rooms.map(
@@ -3691,6 +4800,10 @@
               ${this._entityIcon(it.id, it.icon)}
             </div>`;
           })}
+          ${aim
+            ? b`<div class="handle aim" data-kind="aim" title="Drag to aim the camera"
+                style="left: ${px(aim.x)}%; top: ${py(aim.y)}%;"></div>`
+            : A}
           ${ghost
             ? b`<div class="e-entity ghost" style="left: ${px(ghost.pos.x)}%; top: ${py(ghost.pos.y)}%;">
                 ${this._entityIcon(ghost.id)}
@@ -3726,6 +4839,7 @@
           .schema=${[
             { name: 'name', label: 'Name', selector: { text: {} } },
             { name: 'icon', label: 'Icon', selector: { icon: {} } },
+            { name: 'outdoor', label: 'Outdoor (garden, terrace): no walls nor roof', selector: { boolean: {} } },
           ]}
           .computeLabel=${(s) => s.label || s.name}
           @value-changed=${(ev) => this._selectionChanged(ev, 'rooms')}
@@ -3735,6 +4849,7 @@
       if (sel && sel.kind === 'entity' && floor.entities && floor.entities[sel.index]) {
         const ent = floor.entities[sel.index];
         const isCover = domainOf(ent.entity) === 'cover';
+        const isCamera = domainOf(ent.entity) === 'camera';
         const schema = [
           { name: 'entity', label: 'Entity', selector: { entity: {} } },
           {
@@ -3749,6 +4864,24 @@
         if (isCover) {
           schema.push({ name: 'length', label: 'Window length', selector: { number: { min: 0.5, max: 8, step: 0.25, mode: 'box' } } });
         }
+        if (isCamera) {
+          schema.push(
+            {
+              name: 'direction',
+              label: 'Direction (°, clockwise from the top of the plan; or drag the handle on the plan)',
+              selector: { number: { min: 0, max: 355, step: 5, mode: 'slider' } },
+            },
+            {
+              type: 'grid',
+              name: '',
+              schema: [
+                { name: 'fov', label: 'Field of view (°)', selector: { number: { min: 20, max: 170, step: 5, mode: 'box' } } },
+                { name: 'tilt', label: 'Tilt down (°)', selector: { number: { min: -45, max: 89, step: 5, mode: 'box' } } },
+                { name: 'height', label: 'Height above the floor', selector: { number: { min: 0, max: 10, step: 0.1, mode: 'box' } } },
+              ],
+            }
+          );
+        }
         return b`<div class="selection">
         <div class="selection-header">
           ${this._entityIcon(ent.entity, ent.icon)}
@@ -3757,7 +4890,7 @@
         </div>
         <ha-form
           .hass=${this.hass}
-          .data=${{ length: WINDOW_LENGTH, ...ent }}
+          .data=${{ length: WINDOW_LENGTH, ...(isCamera ? this._cameraDefaults(floor, sel.index) : {}), ...ent }}
           .schema=${schema}
           .computeLabel=${(s) => s.label || s.name}
           @value-changed=${(ev) => this._selectionChanged(ev, 'entities')}
@@ -3813,6 +4946,7 @@
           suggested: isSuggested(id, st),
           lights: domain === 'light',
           covers: domain === 'cover',
+          cameras: domain === 'camera',
           sensors: domain === 'sensor' || domain === 'binary_sensor',
           switches: ['switch', 'input_boolean', 'fan'].includes(domain),
           all: true,
@@ -3916,6 +5050,10 @@
         const index = Number(target.dataset.index);
         const e = floor.entities[index];
         this._drag = { ...base, type: 'entity', index, id: e.entity, orig: { x: num(e.x), y: num(e.y) }, pos: { x: num(e.x), y: num(e.y) } };
+      } else if (kind === 'aim' && this._selection && this._selection.kind === 'entity') {
+        const index = this._selection.index;
+        const e = floor.entities[index];
+        this._drag = { ...base, type: 'aim', index, center: { x: num(e.x), y: num(e.y) }, direction: num(e.direction) };
       } else if (kind === 'handle' && this._selection && this._selection.kind === 'room') {
         const index = this._selection.index;
         const r = normalizeRoom(floor.rooms[index], index);
@@ -3967,6 +5105,8 @@
         if (d.corner.includes('n')) top = Math.min(inY(snap(o.y + dy, ROOM_SNAP)), bottom - ROOM_SNAP);
         if (d.corner.includes('s')) bottom = Math.max(inY(snap(bottom + dy, ROOM_SNAP)), top + ROOM_SNAP);
         next.rect = { x: left, y: top, w: right - left, h: bottom - top };
+      } else if (d.type === 'aim') {
+        next.direction = directionOf(p.x - d.center.x, p.y - d.center.y);
       } else if (d.type === 'entity') {
         next.outside = !p.inside;
         const floor = this._floors()[this._currentFloorIndex()];
@@ -3982,7 +5122,7 @@
 
       if (!d.moved) {
         // A plain click selects what is under the pointer.
-        if (d.type === 'entity') this._selection = { kind: 'entity', index: d.index };
+        if (d.type === 'entity' || d.type === 'aim') this._selection = { kind: 'entity', index: d.index };
         else if (d.type === 'move' || d.type === 'resize') this._selection = { kind: 'room', index: d.index };
         else this._selection = null;
         return;
@@ -4007,6 +5147,10 @@
           }
         });
         this._selection = { kind: 'room', index: d.index };
+      } else if (d.type === 'aim') {
+        this._editFloor((floor) => {
+          floor.entities[d.index] = { ...floor.entities[d.index], direction: d.direction };
+        });
       } else if (d.type === 'entity') {
         if (d.outside) {
           this._editFloor((floor) => floor.entities.splice(d.index, 1));
@@ -4097,7 +5241,12 @@
       if (!pos) return;
       let newIndex = 0;
       this._editFloor((floor) => {
-        floor.entities.push({ entity: d.id, ...pos });
+        const entity = { entity: d.id, ...pos };
+        if (domainOf(d.id) === 'camera') {
+          const rooms = floor.rooms.map(normalizeRoom);
+          entity.direction = defaultCameraDirection(rooms, rooms.filter((r) => !r.outdoor), pos.x, pos.y);
+        }
+        floor.entities.push(entity);
         newIndex = floor.entities.length - 1;
       });
       this._selection = { kind: 'entity', index: newIndex };
@@ -4132,8 +5281,11 @@
 
     _formChanged(ev) {
       const value = { ...ev.detail.value };
-      for (const key of ['temp_min', 'temp_max', 'title']) {
+      for (const key of ['temp_min', 'temp_max', 'title', 'wall_height', 'refresh_interval']) {
         if (value[key] === '' || value[key] === undefined || value[key] === null) delete value[key];
+      }
+      for (const [key, def] of Object.entries(CARD_DEFAULTS)) {
+        if (value[key] === def) delete value[key];
       }
       // ha-form gives back the whole data object: keep the floors untouched.
       const config = { ...value, floors: this._config.floors };
@@ -4150,9 +5302,28 @@
       }
       if (listKey === 'entities' && num(value.length, WINDOW_LENGTH) === WINDOW_LENGTH) delete value.length;
       if (listKey === 'entities' && !value.entity) return;
+      if (listKey === 'entities') {
+        const defaults = domainOf(value.entity) === 'camera' ? this._cameraDefaults(this._floors()[this._currentFloorIndex()], sel.index) : {};
+        // The direction is always kept: it would otherwise change when the camera is moved.
+        for (const key of ['fov', 'tilt', 'height']) if (key in defaults && num(value[key]) === defaults[key]) delete value[key];
+        if (domainOf(value.entity) !== 'camera') for (const key of ['direction', 'fov', 'tilt', 'height']) delete value[key];
+      }
+      if (listKey === 'rooms' && !value.outdoor) delete value.outdoor;
       this._editFloor((floor) => {
         floor[listKey][sel.index] = value;
       }, `${this._currentFloorIndex()}:${listKey}:${sel.index}`);
+    }
+
+    // Values a camera's form shows when they are not set.
+    _cameraDefaults(floor, index) {
+      const item = resolveFloor(this.hass, floor).items[index];
+      const wallHeight = Math.max(1, num(this._config.wall_height, WALL_HEIGHT));
+      return {
+        direction: item && item.camera ? item.camera.direction : 0,
+        fov: CAMERA_FOV,
+        tilt: CAMERA_TILT,
+        height: round2(Math.min(CAMERA_HEIGHT, wallHeight - 0.3)),
+      };
     }
 
     _floorNameChanged(ev) {
@@ -4211,7 +5382,7 @@
     }
 
     static get styles() {
-      return i$3`
+      return i$5`
       :host {
         display: block;
         container-type: inline-size;
@@ -4408,6 +5579,31 @@
         stroke: var(--primary-color);
         stroke-opacity: 1;
         stroke-width: 2px;
+      }
+      .e-room.outdoor {
+        fill: rgba(102, 160, 90, 0.18);
+        stroke-dasharray: 4 3;
+      }
+      .e-cone {
+        fill: var(--primary-color);
+        fill-opacity: 0.12;
+        stroke: var(--primary-color);
+        stroke-opacity: 0.4;
+        stroke-width: 1px;
+        vector-effect: non-scaling-stroke;
+        pointer-events: none;
+      }
+      .e-aim {
+        stroke: var(--primary-color);
+        stroke-width: 2px;
+        stroke-dasharray: 3 3;
+        vector-effect: non-scaling-stroke;
+        pointer-events: none;
+      }
+      .handle.aim {
+        cursor: grab;
+        width: 16px;
+        height: 16px;
       }
       .e-room.overlap {
         stroke: var(--error-color, #db4437);
@@ -4638,7 +5834,7 @@
   /* ==========================================================================
      MAIN CARD : ha-plooum-gridicons-card
      ========================================================================== */
-  class HaPlooumGridIconsCard extends i {
+  class HaPlooumGridIconsCard extends i$2 {
     static get properties() {
       return {
         hass: { type: Object },
@@ -5004,7 +6200,7 @@
     }
 
     static get styles() {
-      return i$3`
+      return i$5`
       .plooum-grid-card {
         background: rgba(0, 0, 0, 0.35);
         border-radius: 20px;
@@ -5046,7 +6242,7 @@
   /* ==========================================================================
      CARD EDITOR
      ========================================================================== */
-  class HaPlooumGridIconsCardEditor extends i {
+  class HaPlooumGridIconsCardEditor extends i$2 {
     static get properties() {
       return {
         hass: { type: Object },
@@ -5435,7 +6631,7 @@
     }
 
     static get styles() {
-      return i$3`
+      return i$5`
       .card-config {
         display: flex;
         flex-direction: column;
@@ -5635,7 +6831,7 @@
   const DEFAULT_COLOR_OFF = '#757575';
   const DEFAULT_COLOR_UNAVAILABLE = '#ef5350';
 
-  class HaPlooumMultiStatusCard extends i {
+  class HaPlooumMultiStatusCard extends i$2 {
     static get properties() {
       return {
         hass: { type: Object },
@@ -5807,7 +7003,7 @@
     }
 
     static get styles() {
-      return i$3`
+      return i$5`
       :host {
         display: block;
       }
@@ -5849,7 +7045,7 @@
   // -------------------------------------------------------------------------
   // Visual editor
   // -------------------------------------------------------------------------
-  class HaPlooumMultiStatusCardEditor extends i {
+  class HaPlooumMultiStatusCardEditor extends i$2 {
     static get properties() {
       return {
         hass: { type: Object },
@@ -6105,7 +7301,7 @@
     }
 
     static get styles() {
-      return i$3`
+      return i$5`
       .editor {
         display: flex;
         flex-direction: column;
@@ -6228,7 +7424,7 @@
   /* ==========================================================================
      MAIN CARD : ha-plooum-tabs-card
      ========================================================================== */
-  class HaPlooumTabsCard extends i {
+  class HaPlooumTabsCard extends i$2 {
     static get properties() {
       return {
         hass: { type: Object },
@@ -6349,7 +7545,7 @@
     }
 
     static get styles() {
-      return i$3`
+      return i$5`
       .plooum-tabs-card {
         background: transparent; border: none; box-shadow: none;
         display: flex; flex-direction: column; width: 100%; overflow: hidden;
@@ -6378,7 +7574,7 @@
   /* ==========================================================================
      CARD EDITOR
      ========================================================================== */
-  class HaPlooumTabsCardEditor extends i {
+  class HaPlooumTabsCardEditor extends i$2 {
     static get properties() {
       return {
         hass: { type: Object },
@@ -6902,7 +8098,7 @@
     }
 
     static get styles() {
-      return i$3`
+      return i$5`
       .global-settings { margin-bottom: 16px; }
       h3 { margin: 0; font-size: 1.1em; color: var(--primary-text-color); }
       .header-nav { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; border-bottom: 1px solid var(--divider-color); padding-bottom: 8px; }
@@ -7017,7 +8213,7 @@
   /* ==========================================================================
      MAIN CARD : ha-plooum-temp-humidity-card
      ========================================================================== */
-  class HaPlooumTempHumidityCard extends i {
+  class HaPlooumTempHumidityCard extends i$2 {
     static get properties() {
       return {
         hass: { type: Object },
@@ -7378,7 +8574,7 @@
     }
 
     static get styles() {
-      return i$3`
+      return i$5`
       .plooum-th-card {
         background: rgba(0, 0, 0, 0.35);
         border-radius: 20px;
@@ -7458,7 +8654,7 @@
   /* ==========================================================================
      CARD EDITOR : ha-plooum-temp-humidity-card-editor
      ========================================================================== */
-  class HaPlooumTempHumidityCardEditor extends i {
+  class HaPlooumTempHumidityCardEditor extends i$2 {
     static get properties() {
       return {
         hass: { type: Object },
@@ -7892,7 +9088,7 @@
     }
 
     static get styles() {
-      return i$3`
+      return i$5`
       .card-config {
         display: flex;
         flex-direction: column;

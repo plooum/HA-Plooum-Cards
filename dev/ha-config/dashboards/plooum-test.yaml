@@ -156,12 +156,15 @@ views:
         cards:
           - type: custom:ha-plooum-floorplan-card
             title: Home
-            floors:
+            # Anchor: the 3D card below shows the same plan.
+            floors: &home_floors
               - name: Ground floor
                 rooms:
                   - { name: Living Room, icon: "mdi:sofa", x: 0, y: 0, w: 7, h: 5 }
                   - { name: Kitchen, icon: "mdi:stove", x: 7, y: 0, w: 4, h: 3 }
                   - { name: Hallway, icon: "mdi:door", x: 7, y: 3, w: 4, h: 2 }
+                  # Outdoor: no walls, no roof.
+                  - { name: Terrace, icon: "mdi:flower", x: 0, y: 5, w: 7, h: 2.5, outdoor: true }
                 entities:
                   - { entity: light.living_room_light, x: 3, y: 2.5 }
                   - { entity: switch.tv_plug, x: 5.5, y: 4 }
@@ -177,6 +180,14 @@ views:
                   - { entity: switch.does_not_exist, x: 1, y: 4 }
                   # Outside any room: shown as a badge.
                   - { entity: counter.ptz_presses, x: 12, y: 2 }
+                  # Cameras on an outer wall looking out (outdoors), and indoors.
+                  - { entity: camera.garden_camera, x: 3.5, y: 5, direction: 180 }
+                  - { entity: camera.driveway_camera, x: 11, y: 1.5, direction: 90, fov: 70 }
+                  - { entity: camera.living_room_camera, x: 0.25, y: 0.25, direction: 135, fov: 100 }
+                  # No direction: looks at the middle of its room.
+                  - { entity: camera.kitchen_camera, x: 10.75, y: 2.75 }
+                  # Missing camera entity.
+                  - { entity: camera.does_not_exist, x: 13, y: 5, direction: 225 }
               - name: Upstairs
                 rooms:
                   - { name: Bedroom, icon: "mdi:bed", x: 0, y: 0, w: 5, h: 4 }
@@ -186,6 +197,12 @@ views:
                   - { entity: sensor.bedroom_temperature, x: 4.5, y: 0.5 }
                   # Left wall: vertical window.
                   - { entity: cover.bedroom_cover, x: 0, y: 2 }
+                  # Unavailable when input_boolean.garage_camera_available is off.
+                  - { entity: camera.garage_camera, x: 4.75, y: 3.75, direction: 315 }
+          - type: custom:ha-plooum-floorplan-card
+            title: Home in 3D
+            view: 3d
+            floors: *home_floors
           - type: horizontal-stack
             cards:
               - type: custom:ha-plooum-floorplan-card
@@ -197,6 +214,8 @@ views:
                   - input_boolean.kitchen_light
                   - input_boolean.bedroom_light
                   - input_boolean.tv_plug_available
+                  - input_boolean.garage_camera_available
+                  - input_number.living_room_cover_position
                   - input_boolean.front_door_open
                   - input_boolean.hallway_motion
                   - input_number.living_room_temperature

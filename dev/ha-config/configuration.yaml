@@ -92,6 +92,10 @@ input_boolean:
     name: Front door open (backing)
   hallway_motion:
     name: Hallway motion (backing)
+  # camera.garage_camera (fake camera from plooum_dev) is unavailable when off.
+  garage_camera_available:
+    name: Garage camera available
+    initial: true
 
 input_number:
   living_room_temperature:

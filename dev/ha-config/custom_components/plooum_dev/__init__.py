@@ -4,6 +4,8 @@ Serves the compiled bundle (and its sourcemap) straight from the repo root with
 `Cache-Control: no-store`; configuration.yaml declares it as a Lovelace resource.
 After `npm run build`, a plain page reload picks up the new code — no copy into
 `www/`, no resource version bump, no browser cache to fight.
+
+Also sets up fake cameras (camera.py) for the floorplan card's 3D view.
 """
 
 from pathlib import Path
@@ -13,6 +15,7 @@ from aiohttp import web
 
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import discovery
 from homeassistant.helpers.typing import ConfigType
 
 DOMAIN = "plooum_dev"
@@ -56,4 +59,5 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     repo_root = Path(hass.config.path(conf.get("repo_root", "../.."))).resolve()
     hass.http.register_view(BundleView(hass, repo_root))
     _LOGGER.info("Serving %s/ha-plooum-cards.js at %s", repo_root, BASE_URL)
+    hass.async_create_task(discovery.async_load_platform(hass, "camera", DOMAIN, {}, config))
     return True

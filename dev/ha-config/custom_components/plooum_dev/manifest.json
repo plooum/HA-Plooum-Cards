@@ -3,7 +3,10 @@
   "name": "Plooum Dev",
   "version": "0.1.0",
   "documentation": "https://github.com/plooum/HA-Plooum-Cards",
-  "dependencies": ["http"],
+  "dependencies": [
+    "http",
+    "camera"
+  ],
   "codeowners": [],
   "requirements": [],
   "iot_class": "local_push"
