@@ -181,9 +181,12 @@ views:
                   # Outside any room: shown as a badge.
                   - { entity: counter.ptz_presses, x: 12, y: 2 }
                   # Cameras on an outer wall looking out (outdoors), and indoors.
-                  - { entity: camera.garden_camera, x: 3.5, y: 5, direction: 180 }
+                  # Projected onto the ground and the terrace.
+                  - { entity: camera.garden_camera, x: 3.5, y: 5, direction: 180, projection: true }
                   - { entity: camera.driveway_camera, x: 11, y: 1.5, direction: 90, fov: 70 }
-                  - { entity: camera.living_room_camera, x: 0.25, y: 0.25, direction: 135, fov: 100 }
+                  # Films the Living Room for real (ROOM_VIEW in plooum_dev/camera.py: keep in sync):
+                  # projected, its picture must fall exactly on the floor and walls.
+                  - { entity: camera.living_room_camera, x: 0.25, y: 0.25, direction: 135, fov: 100, projection: true }
                   # No direction: looks at the middle of its room.
                   - { entity: camera.kitchen_camera, x: 10.75, y: 2.75 }
                   # Missing camera entity.
@@ -202,6 +205,12 @@ views:
           - type: custom:ha-plooum-floorplan-card
             title: Home in 3D
             view: 3d
+            floors: *home_floors
+          - type: custom:ha-plooum-floorplan-card
+            title: Home in 3D, floating screens
+            view: 3d
+            roof: false
+            screen_mode: billboard
             floors: *home_floors
           - type: horizontal-stack
             cards:

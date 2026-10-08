@@ -2062,7 +2062,10 @@
   ];
 
   // Card options shown in the editor with their default value, and left out of the config when unchanged.
-  const CARD_DEFAULTS = { view: '2d', camera_view: 'snapshot', roof: true };
+  const CARD_DEFAULTS = { view: '2d', camera_view: 'snapshot', screen_mode: 'world', roof: true };
+  // Where camera screens are shown in 3D: in the scene in front of their camera, floating flat on the
+  // view next to it, or nowhere (the camera bar still flies to them).
+  const SCREEN_MODES = ['world', 'billboard', 'none'];
 
   // Cameras (2D cone and 3D screen). Angles in degrees; `direction` is clockwise from the top of the plan.
   const CAMERA_FOV = 90;
@@ -2072,8 +2075,15 @@
   const SCREEN_SIZE = 2.4; // max screen width in 3D (grid units)
   const SCREEN_DISTANCE = 2.5; // max distance from the camera to its screen in 3D (grid units)
   const SCREEN_PX = 480; // raster width of a screen: keeps the image sharp when zoomed in
+  const SHORT_BEAM = 0.7; // beam length when the screen isn't in the scene (grid units)
+  const STRIP_HEIGHT = 44; // px kept free at the bottom of the 3D view for the camera bar
+  const PROJ_PX = 640; // raster width of a picture projected onto the floor and walls
+  const PROJ_REACH = 25; // projected pictures stop this far from their camera (grid units)
   const REFRESH_INTERVAL = 3; // s between two snapshots of a camera
   const AIM_HANDLE = 1.25; // distance from a camera to its aim handle in the editor (grid units)
+  const CALIB_COLORS = ['#ff5252', '#ffd740', '#69f0ae', '#40c4ff']; // numbered points of the camera point matching
+  // Camera options left out of the config when they keep their default value.
+  const CAMERA_KEYS = ['fov', 'tilt', 'height', 'screen_size', 'screen_distance'];
 
   // 3D view. Grid units are meant as meters: walls are 2.5 units high by default.
   const U3 = 100; // px per grid unit in the 3D scene
@@ -2598,6 +2608,236 @@
     return orient(p1, p2, q1) * orient(p1, p2, q2) < 0 && orient(q1, q2, p1) * orient(q1, q2, p2) < 0;
   }
 
+  // --- Camera model ------------------------------------------------------------
+  // A pinhole camera without lens distortion. Picture coordinates are in picture widths: the picture
+  // is 1 wide and 1 / aspect high, (0, 0) at its top-left corner, y downwards.
+
+  function cameraHeight(cam, wallHeight) {
+    return cam.height !== null && cam.height !== undefined ? cam.height : Math.min(CAMERA_HEIGHT, wallHeight - 0.3);
+  }
+
+  // Camera standing at C (world): the picture's x follows `right`, its y follows -`up`, and `f` is the
+  // focal length in picture widths. `cam` needs dx, dy (plan direction), tilt and fov.
+  function cameraPose(cam, C) {
+    const t = toRad(cam.tilt);
+    const fwd = [cam.dx * Math.cos(t), cam.dy * Math.cos(t), -Math.sin(t)];
+    const right = [-cam.dy, cam.dx, 0];
+    return { C, fwd, right, up: cross3(fwd, right), f: 0.5 / Math.tan(toRad(cam.fov) / 2) };
+  }
+
+  const poseOf = (direction, tilt, fov, C) => cameraPose({ dx: Math.sin(toRad(direction)), dy: -Math.cos(toRad(direction)), tilt, fov }, C);
+
+  // Where a world point shows in the picture, or null when it is behind the camera.
+  function toPicture(pose, P, aspect) {
+    const d = sub3(P, pose.C);
+    const z = dot3(d, pose.fwd);
+    if (z < 1e-3) return null;
+    return [0.5 + (dot3(d, pose.right) / z) * pose.f, 0.5 / aspect - (dot3(d, pose.up) / z) * pose.f];
+  }
+
+  // The point of the horizontal plane z = planeZ seen at a point of the picture, or null.
+  function fromPicture(pose, uv, aspect, planeZ) {
+    const dir = add3(add3(pose.fwd, mul3(pose.right, (uv[0] - 0.5) / pose.f)), mul3(pose.up, (0.5 / aspect - uv[1]) / pose.f));
+    const s = (planeZ - pose.C[2]) / dir[2];
+    return s > 0 ? add3(pose.C, mul3(dir, s)) : null;
+  }
+
+  // Keeps the part of a convex polygon where g(p) >= 0.
+  function clipPolygon(poly, g) {
+    const out = [];
+    poly.forEach((p, i) => {
+      const q = poly[(i + 1) % poly.length];
+      const gp = g(p);
+      const gq = g(q);
+      if (gp >= 0) out.push(p);
+      if (gp >= 0 !== gq >= 0) {
+        const t = gp / (gp - gq);
+        out.push([p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]);
+      }
+    });
+    return out;
+  }
+
+  const mul33 = (A, B) => A.map((row) => [0, 1, 2].map((j) => row[0] * B[0][j] + row[1] * B[1][j] + row[2] * B[2][j]));
+  const cssNum = (v) => +v.toPrecision(8);
+
+  // A camera's picture as projected onto a plane, the way a projector standing where the camera is
+  // would light it. The plane is a face whose top-left corner is `o` and whose edges follow the
+  // orthonormal vectors `a` and `b` (U3 px per grid unit). Returns an element of `w` x `h` px placed
+  // in the face with `transform`, holding the picture (`iw` x `ih` px) placed with `img`; or null when
+  // the camera doesn't see the plane.
+  //
+  // The picture-to-face mapping is a homography, which matrix3d() can express. It is only valid where
+  // the camera's rays hit the plane in front of it (w > 0): the element is cut to that part of the
+  // picture (and to PROJ_REACH), along the line where it ends, so that none of its corners is past it.
+  function projectedPicture(pose, aspect, o, a, b) {
+    const iw = PROJ_PX;
+    const ih = PROJ_PX / aspect;
+    const { C, fwd, right, up, f } = pose;
+    // Ray through the picture pixel (x, y): c0 x + c1 y + c2.
+    const c0 = mul3(right, 1 / (f * iw));
+    const c1 = mul3(up, -1 / (f * iw));
+    const c2 = add3(sub3(fwd, mul3(right, 0.5 / f)), mul3(up, 0.5 / (aspect * f)));
+    const row = (n) => [dot3(n, c0), dot3(n, c1), dot3(n, c2)];
+    const n = cross3(a, b);
+    const k = dot3(sub3(o, C), n); // signed distance from the camera to the plane
+    if (Math.abs(k) < 1e-6) return null;
+    // The ray (x, y) hits the plane at s = |k| / W(x, y): in front of the camera when W > 0.
+    const W = row(n).map((v) => v * Math.sign(k));
+    const ra = row(a);
+    const rb = row(b);
+    const ca = dot3(sub3(C, o), a);
+    const cb = dot3(sub3(C, o), b);
+    const ak = Math.abs(k);
+    const Hm = [
+      [0, 1, 2].map((i) => U3 * (ca * W[i] + ak * ra[i])),
+      [0, 1, 2].map((i) => U3 * (cb * W[i] + ak * rb[i])),
+      W,
+    ];
+
+    const wmin = ak / PROJ_REACH;
+    const rect = [[0, 0], [iw, 0], [iw, ih], [0, ih]];
+    const poly = clipPolygon(rect, (p) => W[0] * p[0] + W[1] * p[1] + W[2] - wmin);
+    if (poly.length < 3) return null;
+    // Element axes: e2 points away from the cut line (towards the camera), e1 along it.
+    const gl = Math.hypot(W[0], W[1]);
+    const e2 = gl > 1e-12 ? [W[0] / gl, W[1] / gl] : [0, 1];
+    const e1 = [e2[1], -e2[0]];
+    const s = poly.map((p) => p[0] * e1[0] + p[1] * e1[1]);
+    const t = poly.map((p) => p[0] * e2[0] + p[1] * e2[1]);
+    const s0 = Math.min(...s);
+    const t0 = Math.min(...t);
+    const w = Math.max(...s) - s0;
+    const h = Math.max(...t) - t0;
+    if (w < 1 || h < 1) return null;
+    const O = [s0 * e1[0] + t0 * e2[0], s0 * e1[1] + t0 * e2[1]];
+    // Element (x, y) -> picture O + x e1 + y e2 -> face.
+    const M = mul33(Hm, [[e1[0], e2[0], O[0]], [e1[1], e2[1], O[1]], [0, 0, 1]]);
+    const scale = Math.max(...M.flat().map(Math.abs));
+    const m = M.map((r) => r.map((v) => cssNum(v / scale)));
+    return {
+      w: round2(w),
+      h: round2(h),
+      iw,
+      ih: round2(ih),
+      transform: `matrix3d(${m[0][0]},${m[1][0]},0,${m[2][0]},${m[0][1]},${m[1][1]},0,${m[2][1]},0,0,1,0,${m[0][2]},${m[1][2]},0,${m[2][2]})`,
+      img: `matrix(${cssNum(e1[0])},${cssNum(e2[0])},${cssNum(e1[1])},${cssNum(e2[1])},${cssNum(-(O[0] * e1[0] + O[1] * e1[1]))},${cssNum(-(O[0] * e2[0] + O[1] * e2[1]))})`,
+      // Cut before the end of the picture: fade out towards the cut.
+      fade: poly.length !== 4 || poly.some((p, i) => p[0] !== rect[i][0] || p[1] !== rect[i][1]),
+    };
+  }
+
+  // Solves A x = b (Gaussian elimination), or null when A is singular.
+  function solveLinear(A, b) {
+    const n = b.length;
+    const M = A.map((row, i) => [...row, b[i]]);
+    for (let c = 0; c < n; c++) {
+      let p = c;
+      for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+      if (Math.abs(M[p][c]) < 1e-14) return null;
+      [M[c], M[p]] = [M[p], M[c]];
+      for (let r = 0; r < n; r++) {
+        if (r === c) continue;
+        const k = M[r][c] / M[c][c];
+        for (let j = c; j <= n; j++) M[r][j] -= k * M[c][j];
+      }
+    }
+    return M.map((row, i) => row[n] / row[i]);
+  }
+
+  // Direction, tilt, field of view and height of a camera standing at (x, y) that best show each
+  // floor point `p` (plan) at `uv` (picture): Levenberg-Marquardt least squares, from a few starts.
+  // `rms` is the remaining error, in picture widths.
+  function solveCamera(start, x, y, pairs, aspect) {
+    const lo = [-Infinity, -45, 10, 0.1];
+    const hi = [Infinity, 89, 170, 10];
+    const residuals = (q) => {
+      const pose = poseOf(q[0], q[1], q[2], [x, y, q[3]]);
+      return pairs.flatMap(({ p, uv }) => {
+        const s = toPicture(pose, [p[0], p[1], 0], aspect);
+        return s ? [s[0] - uv[0], s[1] - uv[1]] : [3, 3];
+      });
+    };
+    const cost = (r) => r.reduce((sum, v) => sum + v * v, 0);
+    const fit = (q0) => {
+      let q = q0.map((v, j) => clamp(v, lo[j], hi[j]));
+      let r = residuals(q);
+      let c = cost(r);
+      let lambda = 1e-3;
+      for (let iter = 0; iter < 200 && c > 1e-14; iter++) {
+        // J[j][i]: derivative of residual i by parameter j.
+        const J = q.map((_, j) => {
+          const h = j === 3 ? 1e-4 : 1e-3;
+          const rp = residuals(q.map((v, l) => (l === j ? v + h : v)));
+          const rm = residuals(q.map((v, l) => (l === j ? v - h : v)));
+          return rp.map((v, i) => (v - rm[i]) / (2 * h));
+        });
+        const A = J.map((Jj) => J.map((Jl) => Jj.reduce((sum, v, i) => sum + v * Jl[i], 0)));
+        const g = J.map((Jj) => -Jj.reduce((sum, v, i) => sum + v * r[i], 0));
+        let next = null;
+        while (lambda < 1e10) {
+          const step = solveLinear(A.map((row, j) => row.map((v, l) => (j === l ? v + lambda * (v || 1e-9) : v))), g);
+          if (step) {
+            const qn = q.map((v, j) => clamp(v + step[j], lo[j], hi[j]));
+            const rn = residuals(qn);
+            if (cost(rn) < c) {
+              next = { q: qn, r: rn };
+              break;
+            }
+          }
+          lambda *= 4;
+        }
+        if (!next) break;
+        const gain = c - cost(next.r);
+        ({ q, r } = next);
+        c = cost(r);
+        lambda = Math.max(lambda / 3, 1e-12);
+        if (gain < 1e-14) break;
+      }
+      return { q, c };
+    };
+    // Starts: the current setting, and the camera looking at the points.
+    const cx = pairs.reduce((sum, pr) => sum + pr.p[0], 0) / pairs.length - x;
+    const cy = pairs.reduce((sum, pr) => sum + pr.p[1], 0) / pairs.length - y;
+    const toward = (Math.atan2(cx, -cy) * 180) / Math.PI;
+    const tilt = (Math.atan2(start.height, Math.hypot(cx, cy)) * 180) / Math.PI;
+    const starts = [
+      [start.direction, start.tilt, start.fov, start.height],
+      ...[60, 90, 120].map((fov) => [toward, tilt, fov, start.height]),
+    ];
+    const best = starts.map(fit).reduce((a, b) => (b.c < a.c ? b : a));
+    const [direction, t, fov, height] = best.q;
+    return { direction: ((direction % 360) + 360) % 360, tilt: t, fov, height, rms: Math.sqrt(best.c / pairs.length) };
+  }
+
+  // Lines of a floor's rooms, as seen by its cameras: floor outlines, and the corners and tops of the walls.
+  function planLines(rooms, wallHeight) {
+    const lines = [];
+    for (const r of rooms) {
+      const c = [[r.x, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h], [r.x, r.y + r.h]];
+      c.forEach((p, i) => {
+        const q = c[(i + 1) % 4];
+        lines.push({ P: [...p, 0], Q: [...q, 0], outdoor: r.outdoor });
+        if (r.outdoor) return;
+        lines.push({ P: [...p, 0], Q: [...p, wallHeight] });
+        lines.push({ P: [...p, wallHeight], Q: [...q, wallHeight] });
+      });
+    }
+    return lines;
+  }
+
+  // A world segment in the picture (cut where it passes behind the camera), or null.
+  function segmentToPicture(pose, P, Q, aspect) {
+    const near = 0.05;
+    const dP = dot3(sub3(P, pose.C), pose.fwd);
+    const dQ = dot3(sub3(Q, pose.C), pose.fwd);
+    if (dP < near && dQ < near) return null;
+    const cut = (A, B, dA, dB) => (dA >= near ? A : add3(A, mul3(sub3(B, A), (near - dA) / (dB - dA))));
+    const a = toPicture(pose, cut(P, Q, dP, dQ), aspect);
+    const b = toPicture(pose, cut(Q, P, dQ, dP), aspect);
+    return a && b ? [a, b] : null;
+  }
+
   // --- "Generate from my areas" ---------------------------------------------
 
   // Entities suggested by default: the ones that make sense on a floor plan.
@@ -2774,10 +3014,15 @@
       this._tick = 0; // bumps every refresh_interval: reloads camera snapshots
       this._wheelListener = { handleEvent: (ev) => this._wheel3d(ev), passive: false };
       this._onKeyDown = (ev) => {
-        // Escape also closes dialogs (the more-info of a camera): leave the view as it is then.
-        if (ev.key !== 'Escape' || ev.composedPath().some((n) => n.localName && n.localName.includes('dialog'))) return;
-        if (this._selectedRoom !== null) this._selectedRoom = null;
-        if (this._view === '3d') this._resetView();
+        // Keys meant for dialogs (the more-info of a camera) or fields: leave the view as it is then.
+        if (ev.composedPath().some((n) => n.localName && (n.localName.includes('dialog') || ['input', 'textarea'].includes(n.localName)))) return;
+        if (ev.key === 'Escape') {
+          if (this._selectedRoom !== null) this._selectedRoom = null;
+          if (this._view === '3d') this._resetView();
+        } else if ((ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') && this._view === '3d' && this._focus) {
+          ev.preventDefault();
+          this._cycleFocus(ev.key === 'ArrowLeft' ? -1 : 1);
+        }
       };
     }
 
@@ -2791,6 +3036,15 @@
       window.addEventListener('keydown', this._onKeyDown);
       this._resizeObserver.observe(this);
       this._startRefresh();
+    }
+
+    updated(changed) {
+      // Keep the camera zoomed on visible in the camera bar.
+      if (changed.has('_focus') && this._focus) {
+        const bar = this.renderRoot.querySelector('.cambar');
+        const chip = bar && bar.querySelector('.camchip.active');
+        if (chip) bar.scrollTo({ left: chip.offsetLeft - (bar.clientWidth - chip.offsetWidth) / 2, behavior: 'smooth' });
+      }
     }
 
     disconnectedCallback() {
@@ -2809,6 +3063,9 @@
       if (config.view !== undefined && !['2d', '3d'].includes(config.view)) {
         throw new Error('view must be 2d or 3d');
       }
+      if (config.screen_mode !== undefined && !SCREEN_MODES.includes(config.screen_mode)) {
+        throw new Error(`screen_mode must be one of ${SCREEN_MODES.join(', ')}`);
+      }
       // A new `view` or `roof` in the config (editor) is applied; otherwise the user's choice stays.
       if (!this.config || this.config.view !== config.view) this._view = config.view || '2d';
       if (!this.config || this.config.roof !== config.roof) this._level3d = null;
@@ -2817,13 +3074,14 @@
       if (refreshChanged && this.isConnected) this._startRefresh();
     }
 
-    // Camera snapshots are reloaded periodically, only while the 3D view is shown.
+    // Camera snapshots are reloaded periodically, only while the 3D view is shown. Projected pictures
+    // are snapshots even with `camera_view: live`.
     _startRefresh() {
       clearInterval(this._refreshTimer);
       if (!this.config) return;
       const seconds = Math.max(1, num(this.config.refresh_interval, REFRESH_INTERVAL));
       this._refreshTimer = setInterval(() => {
-        if (this._view === '3d' && !document.hidden && this.config.camera_view !== 'live') this._tick++;
+        if (this._view === '3d' && !document.hidden) this._tick++;
       }, seconds * 1000);
     }
 
@@ -3304,8 +3562,12 @@
         orbit.target[1] + Math.sin(t) * Math.cos(a) * d,
         orbit.target[2] + Math.cos(t) * d,
       ];
-      const { faces, screens } = this._buildScene(s, eye, [Math.sin(a), Math.cos(a)]);
-      this._scene3dState = { vp, home, screens, floors: floors.length };
+      const mode = this.config.screen_mode || 'world';
+      const { faces, screens } = this._buildScene(s, eye, [Math.sin(a), Math.cos(a)], mode);
+      // Every camera of the home, for the camera bar, even those whose floor isn't shown.
+      const cameras = s.all.flatMap((p) => p.items.filter((it) => it.role === 'camera').map((it) => ({ id: it.id, item: it, k: p.k })));
+      this._scene3dState = { vp, home, screens, cameras, floors: floors.length };
+      const boards = mode === 'billboard' && !this._focus ? this._layoutBillboards(screens, orbit, vp) : [];
 
       const [tx, ty, tz] = orbit.target.map((v) => round2(-v * U3));
       const world = `translateZ(${round2(vp.p - orbit.dist)}px) rotateX(${round2(orbit.tilt)}deg) rotateZ(${round2(orbit.az)}deg) translate3d(${tx}px, ${ty}px, ${tz}px)`;
@@ -3324,14 +3586,16 @@
       >
         <div class="world" style="transform: ${world};">
           <div class="group">${faces.map((x) => this._face3d(x))}</div>
-          <div class="group">${c(screens, (sc) => sc.id, (sc) => this._renderScreen(sc))}</div>
+          <div class="group">${c(screens.filter((sc) => sc.inWorld), (sc) => sc.id, (sc) => this._renderScreen(sc))}</div>
         </div>
+        ${boards.length ? this._renderBillboards(boards) : A}
+        ${this._renderCameraBar()}
         <div class="tools">
           <button class="tool" title="Zoom in" @click=${() => this._zoom3d(1 / 1.3)}><ha-icon icon="mdi:plus"></ha-icon></button>
           <button class="tool" title="Zoom out" @click=${() => this._zoom3d(1.3)}><ha-icon icon="mdi:minus"></ha-icon></button>
           <button class="tool" title="Whole home (Escape)" @click=${this._resetView}><ha-icon icon="mdi:home-outline"></ha-icon></button>
         </div>
-        ${this._focus ? b`<div class="hint3d">Tap the screen again for the live view</div>` : A}
+        ${this._focus ? b`<div class="hint3d">Tap the screen again for the camera's details</div>` : A}
       </div>
     `;
     }
@@ -3345,12 +3609,39 @@
 
     // Faces of the scene for a point of view: `eye` is the viewer's position, `toViewer` the
     // horizontal direction from the scene towards the viewer (walls facing it are cut away).
-    _buildScene(s, eye, toViewer) {
+    _buildScene(s, eye, toViewer, mode) {
       const H = s.H;
       const faces = [];
       const screens = [];
       const { min, max } = this._tempRange();
       const wallColor = (n) => `background: color-mix(in srgb, var(--fp3-wall) ${shade(n)}%, #000);`;
+      const X = [1, 0, 0];
+      const Y = [0, 1, 0];
+      // Room names on the floor turn by quarter turns, so that they read upright from the viewer.
+      const labelTurn = (((Math.round(-Math.atan2(toViewer[0], toViewer[1]) / (Math.PI / 2)) * 90) % 360) + 360) % 360;
+
+      // Cameras first: the walls between the viewer and the screen zoomed on are cut away.
+      let sight = null;
+      const projectors = [];
+      for (const p of s.shown) {
+        for (const it of p.items) {
+          if (it.role !== 'camera') continue;
+          const indoor = it.camera.indoor;
+          // Hidden inside the home (under the roof or a floor above): not rendered, no snapshot loaded.
+          if (indoor && (s.roof || p.k < s.top)) continue;
+          // The screen zoomed on is always in the scene, whatever the screen mode.
+          const sc = this._camera3d(it, p, indoor, H, eye, faces, mode === 'world' || this._focus === it.id);
+          screens.push(sc);
+          if (this._focus === it.id) sight = [[eye[0], eye[1]], [sc.center[0], sc.center[1]]];
+          if (it.conf.projection && it.st && !isUnavailable(it.st) && it.st.attributes.entity_picture) {
+            projectors.push({ it, k: p.k, indoor, pose: sc.pose, room: indoor ? p.indoor[roomAt(p.indoor, it.x, it.y)] : null });
+          }
+        }
+      }
+      // A projected picture goes onto the floor and walls of the camera's room, or outdoors onto the
+      // ground and the outdoor rooms of its floor.
+      const indoorProjectors = (k, room = null) => projectors.filter((pr) => pr.indoor && pr.room && pr.k === k && (!room || pr.room === room));
+      const outdoorProjectors = (k) => projectors.filter((pr) => !pr.indoor && (k === null || pr.k === k));
 
       // Lawn around the home.
       const g = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
@@ -3360,28 +3651,20 @@
         g.maxX = Math.max(g.maxX, p.bounds.maxX + GROUND_MARGIN);
         g.maxY = Math.max(g.maxY, p.bounds.maxY + GROUND_MARGIN);
       }
-      faces.push({ f: face([g.minX, g.minY, -0.02], [g.maxX - g.minX, 0, 0], [0, g.maxY - g.minY, 0]), cls: 'ground' });
-
-      // Cameras first: the walls between the viewer and the screen zoomed on are cut away.
-      let sight = null;
-      for (const p of s.shown) {
-        for (const it of p.items) {
-          if (it.role !== 'camera') continue;
-          const indoor = it.camera.indoor;
-          // Hidden inside the home (under the roof or a floor above): not rendered, no snapshot loaded.
-          if (indoor && (s.roof || p.k < s.top)) continue;
-          const sc = this._camera3d(it, p, indoor, H, eye, faces);
-          screens.push(sc);
-          if (this._focus === it.id) sight = [[eye[0], eye[1]], [sc.center[0], sc.center[1]]];
-        }
-      }
+      const ground = face([g.minX, g.minY, -0.02], [g.maxX - g.minX, 0, 0], [0, g.maxY - g.minY, 0]);
+      faces.push({
+        f: ground,
+        cls: 'ground',
+        content: this._projections(outdoorProjectors(null), [g.minX, g.minY, -0.02], X, Y, [0, 0, ground.w, ground.h], 'on-ground'),
+      });
 
       for (const p of s.shown) {
         const isTop = p.k === s.top;
         const cutaway = isTop && !s.roof;
 
         for (const room of p.rooms) {
-          const f = face([room.x, room.y, p.z0 + (room.outdoor ? 0.005 : 0.01)], [room.w, 0, 0], [0, room.h, 0]);
+          const f0z = p.z0 + (room.outdoor ? 0.005 : 0.01);
+          const f = face([room.x, room.y, f0z], [room.w, 0, 0], [0, room.h, 0]);
           const layers = [];
           for (const it of room.lights) {
             if (!isActive(it.st)) continue;
@@ -3398,10 +3681,9 @@
             f,
             cls: room.outdoor ? 'floor3d outdoor' : 'floor3d',
             style: `background: ${layers.join(', ')};`,
-            content:
-              cutaway && room.name
-                ? b`<div class="label3d">${room.icon ? b`<ha-icon icon=${room.icon}></ha-icon>` : A}<span>${room.name}</span></div>`
-                : A,
+            content: b`${this._projections(room.outdoor ? outdoorProjectors(p.k) : indoorProjectors(p.k, room), [room.x, room.y, f0z], X, Y, [0, 0, f.w, f.h])}${
+            cutaway && room.name ? this._label3d(room, labelTurn) : A
+          }`,
           });
         }
 
@@ -3420,7 +3702,19 @@
           const len = seg.b - seg.a;
           const u = seg.o === 'h' ? [len, 0, 0] : [0, len, 0];
           const f = face([...ends[0], top], u, [0, 0, bottom - top]);
-          faces.push({ f, cls: outer ? 'wall' : 'wall inner', style: wallColor(f.n) });
+          // Pictures of the cameras of the rooms along this wall, above their floor.
+          const pictures = indoorProjectors(p.k).map((pr) => {
+            const r = pr.room;
+            const edge = roomEdges(r).find((e) => e.o === seg.o && Math.abs(e.at - seg.at) < ON_WALL_EPS);
+            const a = edge ? Math.max(seg.a, edge.a) : 0;
+            const b = edge ? Math.min(seg.b, edge.b) : 0;
+            if (b - a < ON_WALL_EPS) return A;
+            // Seen from the room only: from the other side, the wall hides what the camera sees.
+            const roomSide = (seg.o === 'h' ? r.y + r.h / 2 : r.x + r.w / 2) - seg.at;
+            if (roomSide * ((seg.o === 'h' ? eye[1] : eye[0]) - seg.at) <= 0) return A;
+            return this._projections([pr], [...ends[0], top], seg.o === 'h' ? X : Y, [0, 0, -1], [(a - seg.a) * U3, 0, (b - a) * U3, (top - p.z0) * U3]);
+          });
+          faces.push({ f, cls: outer ? 'wall' : 'wall inner', style: wallColor(f.n), content: pictures.length ? pictures : A });
           const capOrigin = seg.o === 'h' ? [seg.a, seg.at - WALL_CAP / 2, top] : [seg.at - WALL_CAP / 2, seg.a, top];
           faces.push({ f: face(capOrigin, u, seg.o === 'h' ? [0, WALL_CAP, 0] : [WALL_CAP, 0, 0]), cls: 'cap' });
         }
@@ -3462,15 +3756,13 @@
     }
 
     // A camera in 3D: its body, its screen in front of it (up to the first wall), and the beam between them.
-    _camera3d(it, p, indoor, H, eye, faces) {
+    // `inWorld` false: the screen is shown elsewhere (or not at all), and a short beam shows where it looks.
+    _camera3d(it, p, indoor, H, eye, faces, inWorld) {
       const cam = it.camera;
       const conf = it.conf;
-      const height = cam.height !== null ? cam.height : Math.min(CAMERA_HEIGHT, H - 0.3);
-      const C = [it.x, it.y, p.z0 + height];
+      const pose = cameraPose(cam, [it.x, it.y, p.z0 + cameraHeight(cam, H)]);
+      const { C, fwd, right, up } = pose;
       const t = toRad(cam.tilt);
-      const fwd = [cam.dx * Math.cos(t), cam.dy * Math.cos(t), -Math.sin(t)];
-      const right = [-cam.dy, cam.dx, 0];
-      const up = cross3(fwd, right);
 
       const maxDistance = Math.max(0.5, num(conf.screen_distance, SCREEN_DISTANCE));
       const flat = Math.max(0.4, cam.hit !== null ? Math.min(cam.hit - 0.2, maxDistance) : maxDistance);
@@ -3499,12 +3791,13 @@
       const f = face(tl, u, v, SCREEN_PX, SCREEN_PX / aspect);
 
       // From the other side (in front of the camera), the image is flipped so that it stays readable.
-      const screen = { id: it.id, item: it, f, back: dot3(sub3(eye, center), f.n) < 0, center, w, h, cam, k: p.k, indoor };
+      const screen = { id: it.id, item: it, f, back: dot3(sub3(eye, center), f.n) < 0, center, w, h, cam, k: p.k, indoor, pose, inWorld };
       // Zoomed on: the view stands right behind the camera, whose body and beam would hide the screen.
       if (this._focus === it.id) return screen;
 
       const lens = add3(C, mul3(fwd, 0.17));
-      const corners = [tl, add3(tl, u), add3(add3(tl, u), v), add3(tl, v)];
+      let corners = [tl, add3(tl, u), add3(add3(tl, u), v), add3(tl, v)];
+      if (!inWorld) corners = corners.map((c) => add3(C, mul3(sub3(c, C), SHORT_BEAM / dist)));
       corners.forEach((c, i) => {
         const next = corners[(i + 1) % 4];
         faces.push({ f: face(c, sub3(next, c), sub3(lens, c), 100, 100), cls: 'beam', clip: 'polygon(0 0, 100% 0, 0 100%)' });
@@ -3517,15 +3810,6 @@
 
     _renderScreen(sc) {
       const st = sc.item.st;
-      const name = sc.item.name || (st ? friendlyName(this.hass, sc.id) : sc.id);
-      let content;
-      if (!st) {
-        content = b`<div class="screen-msg"><ha-icon icon="mdi:help-circle-outline"></ha-icon><span>${sc.id}: entity not found</span></div>`;
-      } else if (isUnavailable(st)) {
-        content = b`<div class="screen-msg"><ha-icon icon="mdi:cctv-off"></ha-icon><span>${formatState(this.hass, st)}</span></div>`;
-      } else {
-        content = this._cameraImage(st);
-      }
       const classes = [
         'f',
         'screen',
@@ -3533,17 +3817,172 @@
         this._focus === sc.id ? 'focused' : '',
         !st ? 'missing' : isUnavailable(st) ? 'unavailable' : '',
       ].join(' ');
-      return b`<div class=${classes} data-id=${sc.id} title=${name}
+      return b`<div class=${classes} data-id=${sc.id} title=${this._cameraName(sc.item)}
       style="width: ${sc.f.w}px; height: ${sc.f.h}px; transform: ${sc.f.transform};">
-      <div class="screen-inner">${content}<div class="screen-name">${name}</div></div>
+      ${this._screenContent(sc.item, this._focus === sc.id)}
     </div>`;
     }
 
-    // Snapshot reloaded every refresh_interval, or the live stream with `camera_view: live`.
-    _cameraImage(st) {
+    _cameraName(item) {
+      return item.name || (item.st ? friendlyName(this.hass, item.id) : item.id);
+    }
+
+    // What a camera's screen shows: its picture (`live`: its live stream) and its name, or why it can't.
+    _screenContent(item, live = false) {
+      const st = item.st;
+      let content;
+      if (!st) {
+        content = b`<div class="screen-msg"><ha-icon icon="mdi:help-circle-outline"></ha-icon><span>${item.id}: entity not found</span></div>`;
+      } else if (isUnavailable(st)) {
+        content = b`<div class="screen-msg"><ha-icon icon="mdi:cctv-off"></ha-icon><span>${formatState(this.hass, st)}</span></div>`;
+      } else {
+        content = this._cameraImage(st, live);
+      }
+      return b`<div class="screen-inner">${content}<div class="screen-name">${this._cameraName(item)}</div></div>`;
+    }
+
+    // Floating screens (`screen_mode: billboard`): flat on the view, next to their camera, always readable.
+    _renderBillboards(boards) {
+      const vp = this._scene3dState.vp;
+      return b`<div class="boards">
+      <svg class="leaders" width=${vp.w} height=${vp.h}>
+        ${boards.map(
+          (b) => w`<line x1=${b.ax} y1=${b.ay} x2=${clamp(b.ax, b.x, b.x + b.w)} y2=${clamp(b.ay, b.y, b.y + b.h)}></line>
+            <circle cx=${b.ax} cy=${b.ay} r="3.5"></circle>`
+        )}
+      </svg>
+      ${c(
+        boards,
+        (b) => b.sc.id,
+        (b$1) => {
+          const st = b$1.sc.item.st;
+          return b`<div class="board screen ${!st ? 'missing' : isUnavailable(st) ? 'unavailable' : ''}" data-id=${b$1.sc.id}
+            title=${this._cameraName(b$1.sc.item)} style="left: ${b$1.x}px; top: ${b$1.y}px; width: ${b$1.w}px; height: ${b$1.h}px;">
+            ${this._screenContent(b$1.sc.item)}
+          </div>`;
+        }
+      )}
+    </div>`;
+    }
+
+    // Where each billboard goes: next to its camera (above it when there is room), avoiding the others.
+    _layoutBillboards(screens, orbit, vp) {
+      const w = Math.round(clamp(vp.w * 0.2, 120, 220));
+      const bottom = vp.h - STRIP_HEIGHT;
+      const anchored = screens
+        .map((sc) => ({ sc, at: this._project(orbit, vp, sc.pose.C) }))
+        .filter((b) => b.at && b.at[0] >= 0 && b.at[0] <= vp.w && b.at[1] >= 0 && b.at[1] <= vp.h)
+        .sort((a, b) => a.at[1] - b.at[1]);
+      const placed = [];
+      for (const { sc, at } of anchored) {
+        const h = Math.round(w / (this._aspects[sc.id] || 16 / 9));
+        const [ax, ay] = at;
+        const gap = 16;
+        const spots = [
+          [ax - w / 2, ay - gap - h],
+          [ax - w / 2, ay + gap],
+          [ax + gap, ay - h / 2],
+          [ax - gap - w, ay - h / 2],
+        ].map(([x, y]) => ({ x: Math.round(clamp(x, 6, vp.w - w - 6)), y: Math.round(clamp(y, 6, Math.max(6, bottom - h))), w, h }));
+        const overlap = (r) =>
+          placed.reduce((s, o) => s + Math.max(0, Math.min(r.x + w, o.x + o.w) - Math.max(r.x, o.x)) * Math.max(0, Math.min(r.y + h, o.y + o.h) - Math.max(r.y, o.y)), 0);
+        let best = spots[0];
+        let bestOverlap = overlap(best);
+        for (const spot of spots.slice(1)) {
+          if (!bestOverlap) break;
+          const o = overlap(spot);
+          if (o < bestOverlap) [best, bestOverlap] = [spot, o];
+        }
+        placed.push({ sc, ax: Math.round(ax), ay: Math.round(ay), ...best });
+      }
+      return placed;
+    }
+
+    // Screen position (px, from the top-left corner of the view) of a world point, or null behind the viewer.
+    // Mirrors the transform of `.world` and the perspective of `.view3d`.
+    _project(orbit, vp, P) {
+      const a = toRad(orbit.az);
+      const t = toRad(orbit.tilt);
+      const [x, y, z] = sub3(P, orbit.target).map((v) => v * U3);
+      const x1 = x * Math.cos(a) - y * Math.sin(a);
+      const y1 = x * Math.sin(a) + y * Math.cos(a);
+      const y2 = y1 * Math.cos(t) - z * Math.sin(t);
+      const z2 = y1 * Math.sin(t) + z * Math.cos(t) + vp.p - orbit.dist;
+      if (z2 > vp.p - 1) return null;
+      const k = vp.p / (vp.p - z2);
+      return [vp.w / 2 + x1 * k, vp.h / 2 + y2 * k];
+    }
+
+    // Bar of the home's cameras: a tap flies to a camera (opening its floor if needed).
+    _renderCameraBar() {
+      const cams = this._scene3dState.cameras;
+      if (!cams.length) return A;
+      return b`<div class="cambar">
+      ${cams.map((c) => {
+        const st = c.item.st;
+        const state = !st ? 'missing' : isUnavailable(st) ? 'unavailable' : '';
+        return b`<button class="camchip ${this._focus === c.id ? 'active' : ''} ${state}" title=${this._cameraName(c.item)}
+          @click=${() => this._focusCamera(c.id)}>
+          <ha-icon icon=${state ? 'mdi:cctv-off' : 'mdi:cctv'}></ha-icon><span>${this._cameraName(c.item)}</span>
+        </button>`;
+      })}
+    </div>`;
+    }
+
+    async _focusCamera(id) {
+      if (!this._scene3dState.screens.some((sc) => sc.id === id)) {
+        // Not in the scene: open its floor first (indoor cameras only show on an open floor).
+        const cam = this._scene3dState.cameras.find((c) => c.id === id);
+        if (!cam) return;
+        this._setLevel(cam.k);
+        await this.updateComplete;
+      }
+      this._screenTap(id);
+    }
+
+    // Next or previous camera of the bar, while zoomed on one.
+    _cycleFocus(step) {
+      const cams = this._scene3dState.cameras;
+      const i = cams.findIndex((c) => c.id === this._focus);
+      if (i < 0) return;
+      this._focusCamera(cams[(i + step + cams.length) % cams.length].id);
+    }
+
+    // Name of a room on its floor in 3D, turned by `turn` degrees (a multiple of 90) around the room.
+    _label3d(room, turn) {
+      const w = room.w * U3;
+      const h = room.h * U3;
+      const corner = { 0: [0, 0], 90: [w, 0], 180: [w, h], 270: [0, h] }[turn];
+      return b`<div class="label3d" style="transform: translate(${corner[0]}px, ${corner[1]}px) rotate(${turn}deg) translate(16px, 12px);
+      max-width: ${Math.max(0, (turn % 180 ? h : w) - 32)}px;">
+      ${room.icon ? b`<ha-icon icon=${room.icon}></ha-icon>` : A}<span>${room.name}</span>
+    </div>`;
+    }
+
+    // Pictures of `projectors` cast onto a face whose top-left corner is `o` and whose edges follow the
+    // unit vectors `a` and `b`, kept within `box` ([left, top, width, height], px of the face).
+    _projections(projectors, o, a, b$1, box, cls = '') {
+      if (!projectors.length) return A;
+      const origin = add3(add3(o, mul3(a, box[0] / U3)), mul3(b$1, box[1] / U3));
+      return projectors.map(({ it, pose }) => {
+        const st = it.st;
+        const pr = projectedPicture(pose, this._aspects[it.id] || 16 / 9, origin, a, b$1);
+        if (!pr) return A;
+        const pic = st.attributes.entity_picture;
+        return b`<div class="proj ${cls}" style="left: ${round2(box[0])}px; top: ${round2(box[1])}px; width: ${round2(box[2])}px; height: ${round2(box[3])}px;">
+        <div class="proj-e ${pr.fade ? 'fade' : ''}" style="width: ${pr.w}px; height: ${pr.h}px; transform: ${pr.transform};">
+          <img alt="" src="${pic}${pic.includes('?') ? '&' : '?'}t=${this._tick}" style="width: ${pr.iw}px; height: ${pr.ih}px; transform: ${pr.img};"
+            @load=${(ev) => this._learnAspect(it.id, ev.target)} />
+        </div>
+      </div>`;
+      });
+    }
+
+    // Snapshot reloaded every refresh_interval, or the live stream (`camera_view: live`, or `live`).
+    _cameraImage(st, live = false) {
       const id = st.entity_id;
       const learn = (ev) => this._learnAspect(id, ev.target);
-      if (this.config.camera_view === 'live') {
+      if (live || this.config.camera_view === 'live') {
         if (customElements.get('ha-camera-stream')) {
           return b`<ha-camera-stream .hass=${this.hass} .stateObj=${st} muted></ha-camera-stream>`;
         }
@@ -3566,7 +4005,7 @@
     // Drag: orbit (right button or Shift: pan); two fingers: zoom and pan; tap on a screen: zoom on it.
     _down3d(ev) {
       const path = ev.composedPath();
-      if (path.some((n) => n.classList && n.classList.contains('tools'))) return;
+      if (path.some((n) => n.classList && (n.classList.contains('tools') || n.classList.contains('cambar')))) return;
       ev.currentTarget.setPointerCapture(ev.pointerId);
       this._pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
       const screen = path.find((n) => n.classList && n.classList.contains('screen'));
@@ -4345,8 +4784,9 @@
       }
       .label3d {
         position: absolute;
-        left: 16px;
-        top: 12px;
+        left: 0;
+        top: 0;
+        transform-origin: 0 0;
         display: flex;
         align-items: center;
         gap: 8px;
@@ -4355,6 +4795,41 @@
         white-space: nowrap;
         color: rgba(40, 30, 20, 0.75);
         --mdc-icon-size: 30px;
+      }
+      .label3d ha-icon {
+        flex: none;
+      }
+      .label3d span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      /* Camera pictures projected onto the floor and walls. */
+      .proj {
+        position: absolute;
+        overflow: hidden;
+        opacity: 0.92;
+      }
+      .proj.on-ground {
+        -webkit-mask-image: radial-gradient(closest-side, #000 70%, transparent);
+        mask-image: radial-gradient(closest-side, #000 70%, transparent);
+      }
+      .proj-e {
+        position: absolute;
+        left: 0;
+        top: 0;
+        overflow: hidden;
+        transform-origin: 0 0;
+      }
+      .proj-e.fade {
+        -webkit-mask-image: linear-gradient(to bottom, transparent, #000 30%);
+        mask-image: linear-gradient(to bottom, transparent, #000 30%);
+      }
+      .proj-e img {
+        position: absolute;
+        left: 0;
+        top: 0;
+        display: block;
+        transform-origin: 0 0;
       }
       .f.wall.inner {
         opacity: 0.55;
@@ -4469,10 +4944,121 @@
         cursor: pointer;
         --mdc-icon-size: 20px;
       }
+      /* Billboards: camera screens flat on the view, linked to their camera. */
+      .boards {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+      .leaders {
+        position: absolute;
+        left: 0;
+        top: 0;
+        overflow: visible;
+      }
+      .leaders line {
+        stroke: rgba(var(--fp3-beam), 0.85);
+        stroke-width: 1.5px;
+      }
+      .leaders circle {
+        fill: rgb(var(--fp3-beam));
+        stroke: #fff;
+        stroke-width: 1.5px;
+      }
+      .leaders line,
+      .leaders circle,
+      .board {
+        transition: all 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+      .view3d.dragging .leaders line,
+      .view3d.dragging .leaders circle,
+      .view3d.dragging .board {
+        transition: none;
+      }
+      .board {
+        position: absolute;
+        box-sizing: border-box;
+        pointer-events: auto;
+        cursor: pointer;
+        background: #000;
+        border: 3px solid #1b1e22;
+        border-radius: 6px;
+        overflow: hidden;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+      }
+      .board:hover {
+        border-color: var(--primary-color);
+      }
+      .board.missing {
+        border: 2px dashed var(--warning-color, #ffa600);
+        background: #222;
+      }
+      .board.unavailable {
+        animation: blink 1.6s ease-in-out infinite;
+      }
+      .board .screen-name {
+        left: 4px;
+        bottom: 4px;
+        max-width: calc(100% - 8px);
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: 11px;
+      }
+      .board .screen-msg {
+        font-size: 11px;
+        gap: 2px;
+        padding: 0 6px;
+        --mdc-icon-size: 26px;
+      }
+      .board.missing .screen-msg {
+        color: var(--warning-color, #ffa600);
+      }
+      .cambar {
+        position: absolute;
+        left: 8px;
+        right: 52px;
+        bottom: 8px;
+        display: flex;
+        gap: 6px;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+      .camchip {
+        flex: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        max-width: 160px;
+        padding: 4px 10px 4px 7px;
+        border: none;
+        border-radius: 14px;
+        background: rgba(0, 0, 0, 0.55);
+        color: #fff;
+        font: inherit;
+        font-size: 12px;
+        cursor: pointer;
+        --mdc-icon-size: 16px;
+      }
+      .camchip span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .camchip.active {
+        background: var(--primary-color);
+        color: var(--text-primary-color, #fff);
+      }
+      .camchip.unavailable,
+      .camchip.missing {
+        color: #9aa0a6;
+      }
+      .camchip.missing ha-icon {
+        color: var(--warning-color, #ffa600);
+      }
       .hint3d {
         position: absolute;
         left: 50%;
-        bottom: 10px;
+        top: 10px;
         transform: translateX(-50%);
         padding: 4px 12px;
         border-radius: 12px;
@@ -4500,11 +5086,17 @@
         _search: { state: true },
         _filter: { state: true },
         _history: { state: true },
+        _calib: { state: true },
+        _snapTick: { state: true },
       };
     }
 
     constructor() {
       super();
+      this._calib = null; // point matching of the selected camera: { index, id, img: [[u, v]], plan: [[x, y]], solution }
+      this._snapTick = 0; // bumps to reload the camera view's snapshot
+      this._aspects = {}; // camera id -> picture aspect ratio
+      this._picWidths = {}; // camera id -> picture width (px), to show the matching error in pixels
       this._floorIndex = 0;
       this._selection = null; // { kind: 'room' | 'entity', index }
       this._drag = null;
@@ -4604,6 +5196,20 @@
               },
             },
             { name: 'refresh_interval', label: 'Snapshot refresh (s)', selector: { number: { min: 1, max: 60, step: 1, mode: 'box' } } },
+            {
+              name: 'screen_mode',
+              label: 'Camera screens placement (3D)',
+              selector: {
+                select: {
+                  mode: 'dropdown',
+                  options: [
+                    { value: 'world', label: 'In the scene, in front of the camera' },
+                    { value: 'billboard', label: 'Floating next to the camera' },
+                    { value: 'none', label: 'Hidden (camera bar only)' },
+                  ],
+                },
+              },
+            },
           ],
         },
         { name: 'roof', label: 'Show the roof when the 3D view opens', selector: { boolean: {} } },
@@ -4735,6 +5341,7 @@
         selectedItem && selectedItem.camera
           ? { item: selectedItem, x: selectedItem.x + selectedItem.camera.dx * AIM_HANDLE, y: selectedItem.y + selectedItem.camera.dy * AIM_HANDLE }
           : null;
+      const calib = selectedItem ? this._activeCalib(selectedItem) : null;
 
       return b`
       <div
@@ -4803,6 +5410,12 @@
           ${aim
             ? b`<div class="handle aim" data-kind="aim" title="Drag to aim the camera"
                 style="left: ${px(aim.x)}%; top: ${py(aim.y)}%;"></div>`
+            : A}
+          ${calib
+            ? calib.plan.map(
+                (p, i) => b`<div class="calib-pt" data-kind="calib" data-i=${i} title="Drag onto the spot of point ${i + 1} in the picture"
+                  style="left: ${px(p[0])}%; top: ${py(p[1])}%; --c: ${CALIB_COLORS[i]};">${i + 1}</div>`
+              )
             : A}
           ${ghost
             ? b`<div class="e-entity ghost" style="left: ${px(ghost.pos.x)}%; top: ${py(ghost.pos.y)}%;">
@@ -4878,8 +5491,11 @@
                 { name: 'fov', label: 'Field of view (°)', selector: { number: { min: 20, max: 170, step: 5, mode: 'box' } } },
                 { name: 'tilt', label: 'Tilt down (°)', selector: { number: { min: -45, max: 89, step: 5, mode: 'box' } } },
                 { name: 'height', label: 'Height above the floor', selector: { number: { min: 0, max: 10, step: 0.1, mode: 'box' } } },
+                { name: 'screen_size', label: 'Screen width (3D)', selector: { number: { min: 0.3, max: 10, step: 0.1, mode: 'box' } } },
+                { name: 'screen_distance', label: 'Screen distance (3D)', selector: { number: { min: 0.5, max: 15, step: 0.1, mode: 'box' } } },
               ],
-            }
+            },
+            { name: 'projection', label: 'Project the picture onto the floor and walls it sees (3D)', selector: { boolean: {} } }
           );
         }
         return b`<div class="selection">
@@ -4895,6 +5511,7 @@
           .computeLabel=${(s) => s.label || s.name}
           @value-changed=${(ev) => this._selectionChanged(ev, 'entities')}
         ></ha-form>
+        ${isCamera ? this._renderCameraView(this._applyDrag(floor), sel.index) : A}
       </div>`;
       }
       const floors = this._floors();
@@ -4912,6 +5529,216 @@
         @value-changed=${this._floorNameChanged}
       ></ha-form>
     </div>`;
+    }
+
+    _wallHeight() {
+      return Math.max(1, num(this._config.wall_height, WALL_HEIGHT));
+    }
+
+    // The selected camera's picture with the plan drawn over it, as the camera sees it with its current
+    // settings: they are right when the lines follow the room in the picture. Point matching computes
+    // them from points of the floor found both in the picture and on the plan.
+    _renderCameraView(floor, index) {
+      const plan = resolveFloor(this.hass, floor);
+      const item = plan.items[index];
+      if (!item || !item.camera) return A;
+      const st = item.st;
+      const pic = st && !isUnavailable(st) ? st.attributes.entity_picture : null;
+      const aspect = this._aspects[item.id] || 16 / 9;
+      const wallHeight = this._wallHeight();
+      const pose = cameraPose(item.camera, [item.x, item.y, cameraHeight(item.camera, wallHeight)]);
+      const calib = this._activeCalib(item);
+      const header = b`<div class="cv-header">
+      <span>Camera view</span>
+      ${pic
+        ? b`<button class="btn flat" title="Reload the picture" @click=${() => this._snapTick++}><ha-icon icon="mdi:refresh"></ha-icon></button>
+            <button class="btn ${calib ? '' : 'flat'}" @click=${() => this._toggleCalib(item, pose, aspect)}>
+              <ha-icon icon="mdi:target"></ha-icon> ${calib ? 'Stop matching' : 'Match points'}
+            </button>`
+        : A}
+    </div>`;
+      if (!pic) return b`<div class="cv-section">${header}<div class="muted">No picture: the camera is unavailable.</div></div>`;
+
+      const sol = calib && calib.solution;
+      const solPose = sol ? poseOf(sol.direction, sol.tilt, sol.fov, [item.x, item.y, sol.height]) : null;
+      // An indoor camera only sees its room: the lines of the others would show through its walls.
+      const ownRoom = item.camera.indoor ? plan.indoor[roomAt(plan.indoor, item.x, item.y)] : null;
+      const lines = planLines(ownRoom ? [ownRoom] : plan.rooms, wallHeight);
+      const draw = (ps, cls) =>
+        lines.map((l) => {
+          const seg = segmentToPicture(ps, l.P, l.Q, aspect);
+          return seg
+            ? w`<line class="${cls} ${l.outdoor ? 'outdoor' : ''}" x1=${seg[0][0]} y1=${seg[0][1]} x2=${seg[1][0]} y2=${seg[1][1]}></line>`
+            : A;
+        });
+      // Where the plan points land in the picture: on their picture points when the settings are right.
+      const landed = calib ? calib.plan.map((p) => toPicture(solPose || pose, [p[0], p[1], 0], aspect)) : [];
+      const at = (uv) => `left: ${round2(uv[0] * 100)}%; top: ${round2(uv[1] * aspect * 100)}%;`;
+      const pxError = sol ? Math.round(sol.rms * (this._picWidths[item.id] || PROJ_PX)) : 0;
+
+      return b`<div class="cv-section">
+      ${header}
+      <div class="cv" style="aspect-ratio: ${aspect};" @pointerdown=${this._cvDown} @pointermove=${this._cvMove}
+        @pointerup=${this._cvUp} @pointercancel=${this._cvUp}>
+        <img alt="" src="${pic}${pic.includes('?') ? '&' : '?'}t=${this._snapTick}" @load=${(ev) => this._learnAspect(item.id, ev.target)} />
+        <svg viewBox="0 0 1 ${1 / aspect}" preserveAspectRatio="none">
+          ${draw(pose, 'cv-line')} ${solPose ? draw(solPose, 'cv-line solution') : A}
+        </svg>
+        ${landed.map((uv, i) => (uv ? b`<div class="cv-ring" style="${at(uv)} --c: ${CALIB_COLORS[i]};"></div>` : A))}
+        ${calib
+          ? calib.img.map((uv, i) => b`<div class="cv-pt" data-i=${i} style="${at(uv)} --c: ${CALIB_COLORS[i]};">${i + 1}</div>`)
+          : A}
+      </div>
+      ${calib ? this._renderMatchPlan(plan, item, calib) : A}
+      <div class="hint">
+        <ha-icon icon="mdi:information-outline"></ha-icon>
+        <span>${calib
+          ? 'Drag each numbered point onto a spot of the floor you can recognize in the picture (a corner of the room, of a rug…), then the same number onto that spot on the plan. The rings show where the plan points land with the computed settings: apply them when each ring sits on its point.'
+          : 'The lines are your plan as this camera sees it with the settings above: floor outlines, wall corners and tops. Change the settings until the lines follow the picture, or match points to compute them.'}</span>
+      </div>
+      ${sol
+        ? b`<div class="cv-solution">
+            <span>Direction ${Math.round(sol.direction)}°, tilt ${Math.round(sol.tilt)}°, field of view ${Math.round(sol.fov)}°,
+              height ${round2(sol.height)} · error ${pxError} px</span>
+            <button class="btn" @click=${this._applyCalib}>Apply</button>
+          </div>`
+        : A}
+    </div>`;
+    }
+
+    // The floor with the numbered points, right under the picture, so that both are in view while
+    // matching (the editor's plan may be far above, past the entity list).
+    _renderMatchPlan(plan, item, calib) {
+      const xs = [item.x, ...plan.rooms.flatMap((r) => [r.x, r.x + r.w])];
+      const ys = [item.y, ...plan.rooms.flatMap((r) => [r.y, r.y + r.h])];
+      const pad = 0.5;
+      const vb = { x: Math.min(...xs) - pad, y: Math.min(...ys) - pad };
+      vb.w = Math.max(...xs) + pad - vb.x;
+      vb.h = Math.max(...ys) + pad - vb.y;
+      this._matchView = vb;
+      const at = (x, y) => `left: ${round2(((x - vb.x) / vb.w) * 100)}%; top: ${round2(((y - vb.y) / vb.h) * 100)}%;`;
+      return b`<div class="cv-plan" style="aspect-ratio: ${round2(vb.w)} / ${round2(vb.h)}; width: min(100%, ${round2((260 * vb.w) / vb.h)}px);"
+      @pointerdown=${this._mpDown} @pointermove=${this._mpMove} @pointerup=${this._mpUp} @pointercancel=${this._mpUp}>
+      <svg viewBox="${vb.x} ${vb.y} ${vb.w} ${vb.h}" preserveAspectRatio="none">
+        ${plan.rooms.map((r) => w`<rect class="mp-room ${r.outdoor ? 'outdoor' : ''}" x=${r.x} y=${r.y} width=${r.w} height=${r.h}></rect>`)}
+        <path class="e-cone" d=${conePath(item)}></path>
+      </svg>
+      <div class="mp-cam" style=${at(item.x, item.y)}></div>
+      ${calib.plan.map((p, i) => b`<div class="cv-pt" data-i=${i} style="${at(p[0], p[1])} --c: ${CALIB_COLORS[i]};">${i + 1}</div>`)}
+    </div>`;
+    }
+
+    _mpDown(ev) {
+      const pt = ev.target.closest ? ev.target.closest('.cv-pt') : null;
+      if (!pt || !this._calib) return;
+      ev.preventDefault();
+      ev.currentTarget.setPointerCapture(ev.pointerId);
+      this._mpDrag = { i: Number(pt.dataset.i), el: ev.currentTarget, pointerId: ev.pointerId, vb: this._matchView };
+    }
+
+    _mpMove(ev) {
+      const d = this._mpDrag;
+      if (!d || ev.pointerId !== d.pointerId || !this._calib) return;
+      const r = d.el.getBoundingClientRect();
+      const plan = [...this._calib.plan];
+      plan[d.i] = [
+        round2(d.vb.x + clamp((ev.clientX - r.left) / r.width, 0, 1) * d.vb.w),
+        round2(d.vb.y + clamp((ev.clientY - r.top) / r.height, 0, 1) * d.vb.h),
+      ];
+      this._calib = { ...this._calib, plan };
+    }
+
+    _mpUp(ev) {
+      const d = this._mpDrag;
+      if (!d || ev.pointerId !== d.pointerId) return;
+      this._mpDrag = null;
+      this._solveCalib();
+    }
+
+    _learnAspect(id, img) {
+      if (!img.naturalWidth || !img.naturalHeight) return;
+      this._picWidths[id] = img.naturalWidth;
+      const aspect = img.naturalWidth / img.naturalHeight;
+      if (Math.abs(aspect - (this._aspects[id] || 16 / 9)) > 0.01) {
+        this._aspects[id] = aspect;
+        this.requestUpdate();
+      }
+    }
+
+    // Point matching of a camera, if it is the one in progress.
+    _activeCalib(item) {
+      const c = this._calib;
+      return c && c.index === item.index && c.id === item.id ? c : null;
+    }
+
+    // Starts with points the camera sees on the floor with its current settings, so that the points
+    // match until the user moves them.
+    _toggleCalib(item, pose, aspect) {
+      if (this._activeCalib(item)) {
+        this._calib = null;
+        return;
+      }
+      const cam = item.camera;
+      const guess = [[0.3, 0.6], [0.7, 0.6], [0.3, 0.9], [0.7, 0.9]];
+      const plan = guess.map(([u, v], i) => {
+        const P = fromPicture(pose, [u, v / aspect], aspect, 0);
+        if (P && Math.hypot(P[0] - item.x, P[1] - item.y) < 12) return [round2(P[0]), round2(P[1])];
+        // Not on the floor (the camera looks too high): points ahead of the camera instead.
+        const d = i < 2 ? 3 : 1.5;
+        const l = i % 2 ? 0.75 : -0.75;
+        return [round2(item.x + cam.dx * d - cam.dy * l), round2(item.y + cam.dy * d + cam.dx * l)];
+      });
+      const img = plan.map((p, i) => {
+        const uv = toPicture(pose, [p[0], p[1], 0], aspect) || [guess[i][0], guess[i][1] / aspect];
+        return [clamp(uv[0], 0, 1), clamp(uv[1], 0, 1 / aspect)];
+      });
+      this._calib = { index: item.index, id: item.id, plan, img, solution: null };
+    }
+
+    _solveCalib() {
+      const c = this._calib;
+      const item = c && resolveFloor(this.hass, this._floors()[this._currentFloorIndex()]).items[c.index];
+      if (!item || !item.camera || item.id !== c.id) return;
+      const cam = item.camera;
+      const start = { direction: cam.direction, tilt: cam.tilt, fov: cam.fov, height: cameraHeight(cam, this._wallHeight()) };
+      const pairs = c.plan.map((p, i) => ({ p, uv: c.img[i] }));
+      this._calib = { ...c, solution: solveCamera(start, item.x, item.y, pairs, this._aspects[item.id] || 16 / 9) };
+    }
+
+    _applyCalib() {
+      const c = this._calib;
+      const s = c && c.solution;
+      if (!s) return;
+      const r1 = (v) => Math.round(v * 10) / 10;
+      this._editFloor((floor) => {
+        Object.assign(floor.entities[c.index], { direction: r1(s.direction), tilt: r1(s.tilt), fov: r1(s.fov), height: round2(s.height) });
+      });
+      this._calib = { ...c, solution: null };
+    }
+
+    // Dragging a numbered point on the camera's picture.
+    _cvDown(ev) {
+      const pt = ev.target.closest ? ev.target.closest('.cv-pt') : null;
+      if (!pt || !this._calib) return;
+      ev.preventDefault();
+      ev.currentTarget.setPointerCapture(ev.pointerId);
+      this._cvDrag = { i: Number(pt.dataset.i), el: ev.currentTarget, pointerId: ev.pointerId };
+    }
+
+    _cvMove(ev) {
+      const d = this._cvDrag;
+      if (!d || ev.pointerId !== d.pointerId || !this._calib) return;
+      const r = d.el.getBoundingClientRect();
+      const img = [...this._calib.img];
+      img[d.i] = [clamp((ev.clientX - r.left) / r.width, 0, 1), clamp((ev.clientY - r.top) / r.width, 0, r.height / r.width)];
+      this._calib = { ...this._calib, img };
+    }
+
+    _cvUp(ev) {
+      const d = this._cvDrag;
+      if (!d || ev.pointerId !== d.pointerId) return;
+      this._cvDrag = null;
+      this._solveCalib();
     }
 
     // Cached: the editor re-renders on every pointer move while dragging.
@@ -5046,7 +5873,10 @@
       ev.currentTarget.setPointerCapture(ev.pointerId);
       ev.currentTarget.focus();
 
-      if (kind === 'entity') {
+      if (kind === 'calib' && this._calib) {
+        const i = Number(target.dataset.i);
+        this._drag = { ...base, type: 'calib', i, orig: this._calib.plan[i] };
+      } else if (kind === 'entity') {
         const index = Number(target.dataset.index);
         const e = floor.entities[index];
         this._drag = { ...base, type: 'entity', index, id: e.entity, orig: { x: num(e.x), y: num(e.y) }, pos: { x: num(e.x), y: num(e.y) } };
@@ -5107,6 +5937,10 @@
         next.rect = { x: left, y: top, w: right - left, h: bottom - top };
       } else if (d.type === 'aim') {
         next.direction = directionOf(p.x - d.center.x, p.y - d.center.y);
+      } else if (d.type === 'calib' && this._calib) {
+        const plan = [...this._calib.plan];
+        plan[d.i] = [round2(inX(d.orig[0] + dx)), round2(inY(d.orig[1] + dy))];
+        this._calib = { ...this._calib, plan };
       } else if (d.type === 'entity') {
         next.outside = !p.inside;
         const floor = this._floors()[this._currentFloorIndex()];
@@ -5120,6 +5954,10 @@
       if (!d || d.type === 'palette' || ev.pointerId !== d.pointerId) return;
       this._drag = null;
 
+      if (d.type === 'calib') {
+        if (d.moved) this._solveCalib();
+        return;
+      }
       if (!d.moved) {
         // A plain click selects what is under the pointer.
         if (d.type === 'entity' || d.type === 'aim') this._selection = { kind: 'entity', index: d.index };
@@ -5305,8 +6143,9 @@
       if (listKey === 'entities') {
         const defaults = domainOf(value.entity) === 'camera' ? this._cameraDefaults(this._floors()[this._currentFloorIndex()], sel.index) : {};
         // The direction is always kept: it would otherwise change when the camera is moved.
-        for (const key of ['fov', 'tilt', 'height']) if (key in defaults && num(value[key]) === defaults[key]) delete value[key];
-        if (domainOf(value.entity) !== 'camera') for (const key of ['direction', 'fov', 'tilt', 'height']) delete value[key];
+        for (const key of CAMERA_KEYS) if (key in defaults && num(value[key]) === defaults[key]) delete value[key];
+        if (!value.projection) delete value.projection;
+        if (domainOf(value.entity) !== 'camera') for (const key of ['direction', 'projection', ...CAMERA_KEYS]) delete value[key];
       }
       if (listKey === 'rooms' && !value.outdoor) delete value.outdoor;
       this._editFloor((floor) => {
@@ -5323,6 +6162,8 @@
         fov: CAMERA_FOV,
         tilt: CAMERA_TILT,
         height: round2(Math.min(CAMERA_HEIGHT, wallHeight - 0.3)),
+        screen_size: SCREEN_SIZE,
+        screen_distance: SCREEN_DISTANCE,
       };
     }
 
@@ -5604,6 +6445,136 @@
         cursor: grab;
         width: 16px;
         height: 16px;
+      }
+      .calib-pt,
+      .cv-pt {
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        box-sizing: border-box;
+        border-radius: 50%;
+        border: 2px solid #fff;
+        background: var(--c);
+        color: #000;
+        font-size: 11px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transform: translate(-50%, -50%);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+        pointer-events: auto;
+        cursor: grab;
+        touch-action: none;
+      }
+      .cv-section {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        border-top: 1px solid var(--divider-color);
+        padding-top: 8px;
+      }
+      .cv-header {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--primary-text-color);
+      }
+      .cv-header > span {
+        flex: 1;
+      }
+      .cv {
+        position: relative;
+        width: 100%;
+        border-radius: 6px;
+        overflow: hidden;
+        background: #000;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      .cv img,
+      .cv svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      .cv svg {
+        pointer-events: none;
+      }
+      .cv-line {
+        stroke: #fff;
+        stroke-opacity: 0.85;
+        stroke-width: 1.5px;
+        vector-effect: non-scaling-stroke;
+      }
+      .cv-line.outdoor {
+        stroke-dasharray: 4 3;
+      }
+      .cv-line.solution {
+        stroke: #69f0ae;
+        stroke-width: 2px;
+        stroke-dasharray: 6 3;
+      }
+      .cv-ring {
+        position: absolute;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 2px solid var(--c);
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+      }
+      .cv-plan {
+        position: relative;
+        align-self: center;
+        border-radius: 6px;
+        background: var(--secondary-background-color, rgba(127, 127, 127, 0.05));
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      .cv-plan svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+      }
+      .mp-room {
+        fill: rgba(var(--rgb-primary-color, 3, 169, 244), 0.08);
+        stroke: var(--fp-wall);
+        stroke-opacity: 0.5;
+        stroke-width: 1.5px;
+        vector-effect: non-scaling-stroke;
+      }
+      .mp-room.outdoor {
+        fill: rgba(102, 160, 90, 0.18);
+        stroke-dasharray: 4 3;
+      }
+      .mp-cam {
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--primary-color);
+        border: 2px solid var(--card-background-color, #fff);
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+      }
+      .cv-solution {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        color: var(--primary-text-color);
+      }
+      .cv-solution span {
+        flex: 1;
       }
       .e-room.overlap {
         stroke: var(--error-color, #db4437);

@@ -3,6 +3,11 @@
 Each camera draws a simple scene (sky and lawn outdoors, wall and floor indoors) with its
 name and the current time, so that image refreshes are visible. Availability can follow an
 input_boolean, for the `unavailable` case.
+
+The living room camera films its room for real: the room of the test dashboard's plan, seen from
+where the camera is placed on it (ROOM_VIEW). Its picture, projected onto the room in the card's 3D
+view, must fall exactly on the floor and walls, and its checkerboard corners are known points for
+the editor's point matching.
 """
 
 from __future__ import annotations
@@ -23,11 +28,84 @@ from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 CAMERAS = [
     ("Garden Camera", "outdoor", ((120, 170, 230), (70, 140, 70)), None),
     ("Driveway Camera", "outdoor", ((150, 180, 220), (110, 110, 115)), None),
-    ("Living Room Camera", "indoor", ((205, 190, 170), (140, 100, 70)), None),
+    ("Living Room Camera", "room", ((205, 190, 170), (140, 100, 70)), None),
     ("Kitchen Camera", "indoor", ((225, 225, 215), (170, 160, 150)), None),
     ("Garage Camera", "indoor", ((180, 180, 185), (90, 90, 95)), "input_boolean.garage_camera_available"),
 ]
 WIDTH, HEIGHT = 640, 360
+
+# The Living Room of plooum-test.yaml (x, y, w, h; 2.5 high) and its camera: position, height,
+# direction (clockwise from the top of the plan), tilt (down) and horizontal field of view.
+# Keep them in sync with the dashboard.
+ROOM_VIEW = {
+    "room": (0, 0, 7, 5, 2.5),
+    "camera": (0.25, 0.25, 2.2),
+    "direction": 135,
+    "tilt": 15,
+    "fov": 100,
+}
+WALL_COLORS = [(222, 120, 110), (110, 170, 222), (130, 200, 130), (230, 200, 110)]  # top, right, bottom, left
+
+
+def _room_polygons() -> list[tuple[list[tuple[float, float, float]], tuple[int, int, int]]]:
+    """Faces of the room seen from inside: a checkerboard floor and striped walls (1-unit tiles)."""
+    x0, y0, w, h, wall = ROOM_VIEW["room"]
+    faces = []
+    for i in range(int(w)):
+        for j in range(int(h)):
+            dark = (i + j) % 2 == 0
+            color = (95, 80, 70) if dark else (215, 205, 190)
+            x, y = x0 + i, y0 + j
+            faces.append(([(x, y, 0), (x + 1, y, 0), (x + 1, y + 1, 0), (x, y + 1, 0)], color))
+    # Walls: top (y = y0), right (x = x0 + w), bottom (y = y0 + h), left (x = x0).
+    walls = [
+        ([(x0 + t, y0) for t in range(int(w) + 1)]),
+        ([(x0 + w, y0 + t) for t in range(int(h) + 1)]),
+        ([(x0 + w - t, y0 + h) for t in range(int(w) + 1)]),
+        ([(x0, y0 + h - t) for t in range(int(h) + 1)]),
+    ]
+    for side, points in enumerate(walls):
+        base = WALL_COLORS[side]
+        for k in range(len(points) - 1):
+            (ax, ay), (bx, by) = points[k], points[k + 1]
+            shade = 1.0 if k % 2 == 0 else 0.82
+            color = tuple(int(c * shade) for c in base)
+            faces.append(([(ax, ay, 0), (bx, by, 0), (bx, by, wall), (ax, ay, wall)], color))
+    faces.append(([(x0, y0, wall), (x0 + w, y0, wall), (x0 + w, y0 + h, wall), (x0, y0 + h, wall)], (240, 240, 236)))
+    return faces
+
+
+def draw_room(draw: ImageDraw.ImageDraw) -> None:
+    """Pinhole view of the room, with the same camera model as the floorplan card."""
+    cx, cy, cz = ROOM_VIEW["camera"]
+    d = math.radians(ROOM_VIEW["direction"])
+    t = math.radians(ROOM_VIEW["tilt"])
+    dx, dy = math.sin(d), -math.cos(d)
+    fwd = (dx * math.cos(t), dy * math.cos(t), -math.sin(t))
+    right = (-dy, dx, 0.0)
+    up = (fwd[1] * right[2] - fwd[2] * right[1], fwd[2] * right[0] - fwd[0] * right[2], fwd[0] * right[1] - fwd[1] * right[0])
+    focal = (WIDTH / 2) / math.tan(math.radians(ROOM_VIEW["fov"]) / 2)
+    dot = lambda a, b: a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+    near = 0.05
+    for poly, color in _room_polygons():
+        cam = [tuple(p[i] - c for i, c in enumerate((cx, cy, cz))) for p in poly]
+        # Clip against the near plane (depth along fwd >= near).
+        clipped = []
+        for k, a in enumerate(cam):
+            b = cam[(k + 1) % len(cam)]
+            da, db = dot(a, fwd) - near, dot(b, fwd) - near
+            if da >= 0:
+                clipped.append(a)
+            if (da >= 0) != (db >= 0):
+                s = da / (da - db)
+                clipped.append(tuple(a[i] + (b[i] - a[i]) * s for i in range(3)))
+        if len(clipped) < 3:
+            continue
+        pts = []
+        for p in clipped:
+            z = dot(p, fwd)
+            pts.append((WIDTH / 2 + dot(p, right) / z * focal, HEIGHT / 2 - dot(p, up) / z * focal))
+        draw.polygon(pts, fill=color, outline=(60, 50, 45))
 
 
 def draw_frame(name: str, scene: str, colors: tuple, width: int, height: int) -> bytes:
@@ -40,7 +118,9 @@ def draw_frame(name: str, scene: str, colors: tuple, width: int, height: int) ->
         draw.line([(0, y), (WIDTH, y)], fill=tuple(int(c * (0.8 + 0.2 * k)) for c in top))
     draw.rectangle([0, horizon, WIDTH, HEIGHT], fill=bottom)
     now = time.time()
-    if scene == "outdoor":
+    if scene == "room":
+        draw_room(draw)
+    elif scene == "outdoor":
         # A sun that crosses the sky once a minute.
         x = (now % 60) / 60 * WIDTH
         y = horizon - 40 - 80 * math.sin(math.pi * (now % 60) / 60)
@@ -57,9 +137,14 @@ def draw_frame(name: str, scene: str, colors: tuple, width: int, height: int) ->
         draw.ellipse([x - 20, 100, x + 20, 140], fill=(255, 210, 120))
     font = ImageFont.load_default(size=30)
     small = ImageFont.load_default(size=22)
-    draw.rectangle([0, 0, WIDTH, 44], fill=(0, 0, 0))
-    draw.text((12, 6), name, fill=(255, 255, 255), font=font)
-    draw.text((WIDTH - 110, 10), time.strftime("%H:%M:%S"), fill=(255, 255, 0), font=small)
+    if scene == "room":
+        # A small label, to keep most of the room visible.
+        draw.rectangle([0, HEIGHT - 30, 330, HEIGHT], fill=(0, 0, 0))
+        draw.text((8, HEIGHT - 27), f"{name} {time.strftime('%H:%M:%S')}", fill=(255, 255, 255), font=small)
+    else:
+        draw.rectangle([0, 0, WIDTH, 44], fill=(0, 0, 0))
+        draw.text((12, 6), name, fill=(255, 255, 255), font=font)
+        draw.text((WIDTH - 110, 10), time.strftime("%H:%M:%S"), fill=(255, 255, 0), font=small)
     if width and height and (width, height) != (WIDTH, HEIGHT):
         img = img.resize((width, height))
     out = io.BytesIO()

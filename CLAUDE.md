@@ -62,7 +62,7 @@ HA listens on http://127.0.0.1:8123 only. Check whether it is already running (`
 
 ### Dashboards
 
-- `/plooum-test/<view>`: YAML dashboard ([plooum-test.yaml](dev/ha-config/dashboards/plooum-test.yaml)) with an `all` view showing every card, and one view per card for focused cases (`/plooum-test/multistatus` covers on, off, unavailable, missing entity and SVG items; `/plooum-test/floorplan` is a full-width panel view with a hand-written two-floor plan with cameras and a terrace, the same plan in 3D, and a plan generated from the areas). Put regression cases for a card in its view.
+- `/plooum-test/<view>`: YAML dashboard ([plooum-test.yaml](dev/ha-config/dashboards/plooum-test.yaml)) with an `all` view showing every card, and one view per card for focused cases (`/plooum-test/multistatus` covers on, off, unavailable, missing entity and SVG items; `/plooum-test/floorplan` is a full-width panel view with a hand-written two-floor plan with cameras and a terrace, the same plan in 3D, in 3D with floating screens (`screen_mode: billboard`), and a plan generated from the areas; the garden and living room cameras project their picture). Put regression cases for a card in its view.
 - `/plooum-edit/<view>?edit=1`: storage-mode copy of the same dashboard, the only kind where **card editors** can be opened (click "Modifier" on a card). It is seeded from the YAML file only when it doesn't exist; to re-seed it, `dev/ha.sh reset`.
 
 ### Browser: use the built-in browser pane
@@ -89,7 +89,7 @@ dev/.venv/bin/python dev/shot.py /plooum-test/multistatus -e ha-plooum-multi-sta
 | `light.kitchen_light` / `light.bedroom_light` | toggle targets | `input_boolean.kitchen_light` / `input_boolean.bedroom_light` |
 | `sensor.kitchen_temperature` / `sensor.bedroom_temperature` | numeric values (°C) | `input_number.kitchen_temperature` / `input_number.bedroom_temperature` |
 | `binary_sensor.front_door` (door) / `binary_sensor.hallway_motion` (motion) | binary sensors with a device class | `input_boolean.front_door_open` / `input_boolean.hallway_motion` |
-| `camera.garden_camera`, `camera.driveway_camera` (outdoor scenes), `camera.living_room_camera`, `camera.kitchen_camera`, `camera.garage_camera` (indoor scenes) | fake cameras ([camera.py](dev/ha-config/custom_components/plooum_dev/camera.py)): name and clock drawn on each image; `camera.garage_camera` **becomes `unavailable`** | availability: `input_boolean.garage_camera_available` |
+| `camera.garden_camera`, `camera.driveway_camera` (outdoor scenes), `camera.living_room_camera`, `camera.kitchen_camera`, `camera.garage_camera` (indoor scenes) | fake cameras ([camera.py](dev/ha-config/custom_components/plooum_dev/camera.py)): name and clock drawn on each image; `camera.living_room_camera` films the Living Room for real (checkerboard floor, striped walls, from its pose on the floorplan view): projected in 3D it must fall exactly on the room, and its tile corners are known points for the editor's point matching; `camera.garage_camera` **becomes `unavailable`** | availability: `input_boolean.garage_camera_available` |
 
 `switch.does_not_exist` and `camera.does_not_exist` are referenced on purpose but don't exist (missing-entity case).
 
