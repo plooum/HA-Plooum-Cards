@@ -11,9 +11,9 @@ Une collection de cartes Lovelace personnalisées pour Home Assistant, packagée
 | :--- | :--- | :--- |
 | Ha Plooum Button Badge Card | `custom:ha-plooum-buttonbadge-card` | [docs/button-badge.md](docs/button-badge.md) |
 | Ha Plooum Cover Card | `custom:ha-plooum-cover-card` | [docs/cover.md](docs/cover.md) |
+| Ha Plooum D-Pad Card | `custom:ha-plooum-dpad-card` | [docs/dpad.md](docs/dpad.md) |
 | HA Plooum GridIcons Card | `custom:ha-plooum-gridicons-card` | [docs/gridicons.md](docs/gridicons.md) |
 | HA Plooum Multi Status Card | `custom:ha-plooum-multi-status-card` | [docs/multistatus.md](docs/multistatus.md) |
-| Ha Plooum Remote Cam Card | `custom:ha-plooum-remotecam-card` | [docs/remotecam.md](docs/remotecam.md) |
 | Ha Plooum Tabs Card | `custom:ha-plooum-tabs-card` | [docs/tabbed.md](docs/tabbed.md) |
 | Ha Plooum Room Temp & Humidity Card | `custom:ha-plooum-temp-humidity-card` | [docs/temp-humidity.md](docs/temp-humidity.md) |
 
@@ -29,6 +29,11 @@ Contrôle de plusieurs volets roulants côte à côte avec sliders verticaux, ic
 
 ![Cover preview](docs/previews/cover.png)
 
+### Ha Plooum D-Pad Card
+Pavé directionnel façon télécommande, idéal pour le contrôle PTZ de caméras.
+
+![D-Pad preview](docs/previews/dpad.png)
+
 ### HA Plooum GridIcons Card
 Rangée compacte d'icônes d'entités dans un pill container, avec couleurs d'état et actions tap/hold.
 
@@ -38,11 +43,6 @@ Rangée compacte d'icônes d'entités dans un pill container, avec couleurs d'é
 Carte compacte pour suivre plusieurs entités booléennes (lumière, pompe, CO2...) autour d'une valeur principale (ex. température).
 
 ![Multi Status preview](docs/previews/multistatus.png)
-
-### Ha Plooum Remote Cam Card
-Pavé directionnel façon télécommande, idéal pour le contrôle PTZ de caméras.
-
-![Remote Cam preview](docs/previews/remotecam.png)
 
 ### Ha Plooum Tabs Card
 Organise d'autres cartes en onglets, en gardant leur état en mémoire (idéal pour les flux caméra).
@@ -90,9 +90,9 @@ src/
 └── cards/
     ├── button-badge/
     ├── cover/
+    ├── dpad/
     ├── gridicons/
     ├── multistatus/
-    ├── remotecam/
     ├── tabbed/
     └── temp-humidity/
 ```

@@ -1,6 +1,6 @@
-# Ha Plooum Remote Cam Card
+# Ha Plooum D-Pad Card
 
-`type: custom:ha-plooum-remotecam-card`
+`type: custom:ha-plooum-dpad-card`
 
 A D-pad style remote control card for Home Assistant, optimized for camera PTZ navigation and other directional controls.
 
@@ -17,7 +17,7 @@ A D-pad style remote control card for Home Assistant, optimized for camera PTZ n
 ### Global Settings
 | Name | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `type` | string | **Required** | `custom:ha-plooum-remotecam-card` |
+| `type` | string | **Required** | `custom:ha-plooum-dpad-card` |
 | `theme` | string | `round` | Visual theme style (`round`, `square`, or `minimal`). |
 | `card_size` | string | `200px` | Total width and height of the remote container. |
 | `icon_size` | string | `44px` | Size of the icons inside the buttons. |
@@ -39,7 +39,7 @@ For each button (replace `<btn>` with `up`, `down`, `left`, `right`, or `center`
 ## Examples
 
 ```yaml
-type: custom:ha-plooum-remotecam-card
+type: custom:ha-plooum-dpad-card
 theme: round
 card_size: "220px"
 icon_size: "40px"

@@ -1,9 +1,9 @@
 import { LitElement, html, css } from "lit";
 
 /* ==========================================================================
-   MAIN CARD : ha-plooum-remotecam-card
+   MAIN CARD : ha-plooum-dpad-card
    ========================================================================== */
-class HaPlooumRemoteCamCard extends LitElement {
+class HaPlooumDpadCard extends LitElement {
   static get properties() {
     return {
       hass: { type: Object },
@@ -12,7 +12,7 @@ class HaPlooumRemoteCamCard extends LitElement {
   }
 
   static getConfigElement() {
-    return document.createElement("ha-plooum-remotecam-card-editor");
+    return document.createElement("ha-plooum-dpad-card-editor");
   }
 
   static getStubConfig() {
@@ -200,7 +200,7 @@ class HaPlooumRemoteCamCard extends LitElement {
 /* ==========================================================================
    CARD EDITOR
    ========================================================================== */
-class HaPlooumRemoteCamCardEditor extends LitElement {
+class HaPlooumDpadCardEditor extends LitElement {
   static get properties() {
     return {
       hass: { type: Object },
@@ -454,18 +454,18 @@ class HaPlooumRemoteCamCardEditor extends LitElement {
 /* ==========================================================================
    HOME ASSISTANT REGISTRATION
    ========================================================================== */
-if (!customElements.get('ha-plooum-remotecam-card')) {
-  customElements.define('ha-plooum-remotecam-card', HaPlooumRemoteCamCard);
+if (!customElements.get('ha-plooum-dpad-card')) {
+  customElements.define('ha-plooum-dpad-card', HaPlooumDpadCard);
 }
-if (!customElements.get('ha-plooum-remotecam-card-editor')) {
-  customElements.define('ha-plooum-remotecam-card-editor', HaPlooumRemoteCamCardEditor);
+if (!customElements.get('ha-plooum-dpad-card-editor')) {
+  customElements.define('ha-plooum-dpad-card-editor', HaPlooumDpadCardEditor);
 }
 
 window.customCards = window.customCards || [];
-if (!window.customCards.some(card => card.type === 'ha-plooum-remotecam-card')) {
+if (!window.customCards.some(card => card.type === 'ha-plooum-dpad-card')) {
   window.customCards.push({
-    type: 'ha-plooum-remotecam-card',
-    name: 'Ha Plooum Remote Cam Card',
+    type: 'ha-plooum-dpad-card',
+    name: 'Ha Plooum D-Pad Card',
     description: 'A customizable D-Pad style remote control card for cameras and more.',
     preview: true,
   });
