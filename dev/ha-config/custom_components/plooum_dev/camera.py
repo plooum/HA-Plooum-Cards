@@ -7,7 +7,8 @@ input_boolean, for the `unavailable` case.
 The living room camera films its room for real, and the garden camera the house: as seen from where
 they are placed on the test dashboard's plan (ROOM_VIEW, HOUSE_VIEW). Their pictures, projected in
 the card's 3D view, must fall exactly on the floor, walls and ground, and their checkerboard corners
-are known points for the editor's point matching.
+are known points for the editor's point matching. The garden camera has a wide-angle lens with a
+known barrel distortion (the card's `distortion`), for the editor's fit of it.
 """
 
 from __future__ import annotations
@@ -35,8 +36,9 @@ CAMERAS = [
 WIDTH, HEIGHT = 640, 360
 
 # Scenes filmed for real, as the cameras placed on the test dashboard's floorplan view see them:
-# camera position (x, y, height), direction (clockwise from the top of the plan), tilt (down) and
-# horizontal field of view. Keep them in sync with plooum-test.yaml.
+# camera position (x, y, height), direction (clockwise from the top of the plan), tilt (down),
+# horizontal field of view (of the undistorted picture) and lens distortion (the card's division
+# model, see cameraPose() in the floorplan card). Keep them in sync with plooum-test.yaml.
 #
 # The Living Room (x, y, w, h; 2.5 high), filmed from inside.
 ROOM_VIEW = {
@@ -56,6 +58,7 @@ HOUSE_VIEW = {
     "direction": 310,
     "tilt": 12,
     "fov": 90,
+    "distortion": -0.25,
 }
 # Wall colors by the side they face: north (-y), east (+x), south (+y), west (-x).
 WALL_COLORS = [(222, 120, 110), (110, 170, 222), (130, 200, 130), (230, 200, 110)]
@@ -111,8 +114,9 @@ def _house_polygons() -> list[Polygon]:
 
 
 def draw_view(draw: ImageDraw.ImageDraw, view: dict, polygons: list[Polygon]) -> None:
-    """Pinhole view of polygons, with the same camera model as the floorplan card. Polygons with a
-    normal are culled when facing away and drawn far to near, after those without (the ground)."""
+    """View of polygons, with the same camera model as the floorplan card (a pinhole, and its lens
+    distortion: edges are then drawn curved). Polygons with a normal are culled when facing away and
+    drawn far to near, after those without (the ground)."""
     cx, cy, cz = view["camera"]
     d = math.radians(view["direction"])
     t = math.radians(view["tilt"])
@@ -124,6 +128,16 @@ def draw_view(draw: ImageDraw.ImageDraw, view: dict, polygons: list[Polygon]) ->
     dot = lambda a, b: a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
     near = 0.05
     cam_pos = (cx, cy, cz)
+    lens = view.get("distortion", 0)
+    # Points along each edge: straight lines come out curved.
+    steps = 12 if lens else 1
+
+    def to_picture(p):
+        z = dot(p, fwd)
+        # Undistorted, then distorted point, in half picture widths from the center.
+        ux, uy = dot(p, right) / z * focal / (WIDTH / 2), dot(p, up) / z * focal / (WIDTH / 2)
+        g = 2 / (1 + math.sqrt(max(0.0, 1 - 4 * lens * (ux * ux + uy * uy))))
+        return (WIDTH / 2 * (1 + ux * g), HEIGHT / 2 - WIDTH / 2 * uy * g)
 
     def distance(poly):
         n = len(poly[0])
@@ -146,9 +160,10 @@ def draw_view(draw: ImageDraw.ImageDraw, view: dict, polygons: list[Polygon]) ->
         if len(clipped) < 3:
             continue
         pts = []
-        for p in clipped:
-            z = dot(p, fwd)
-            pts.append((WIDTH / 2 + dot(p, right) / z * focal, HEIGHT / 2 - dot(p, up) / z * focal))
+        for i, a in enumerate(clipped):
+            b = clipped[(i + 1) % len(clipped)]
+            for s in range(steps):
+                pts.append(to_picture(tuple(a[j] + (b[j] - a[j]) * s / steps for j in range(3))))
         draw.polygon(pts, fill=color, outline=(60, 50, 45))
 
 

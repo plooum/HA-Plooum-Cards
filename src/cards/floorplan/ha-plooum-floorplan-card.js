@@ -92,6 +92,15 @@ const MOVED_MESSAGE = 'Camera moved? Re-align it';
 const AIM_HANDLE = 1.25; // distance from a camera to its aim handle in the editor (grid units)
 // Camera options left out of the config when they keep their default value.
 const CAMERA_KEYS = ['fov', 'tilt', 'height', 'screen_size', 'screen_distance'];
+const DISTORTION_RANGE = [-0.9, 0.3]; // lens distortion (`distortion`, see cameraPose())
+// Correction of the plan as a camera sees it (see cameraPose()): its settings, their default
+// values and ranges (stretches, then shifts in grid units).
+const CORRECTION_KEYS = ['stretch_x', 'stretch_y', 'stretch_z', 'shift_x', 'shift_y'];
+const CORRECTION_NONE = [1, 1, 1, 0, 0];
+const CORRECTION_LO = [0.7, 0.7, 0.7, -2, -2];
+const CORRECTION_HI = [1.3, 1.3, 1.3, 2, 2];
+const LENS_PINS = 5; // pinned corners from which the editor's fit also sets the lens distortion
+const CORRECTION_PINS = 6; // … and the plan's correction, when asked
 
 // 3D view. Grid units are meant as meters: walls are 2.5 units high by default.
 const U3 = 100; // px per grid unit of the 3D view (orbit distances, perspective, overlays)
@@ -568,6 +577,16 @@ function defaultCameraDirection(rooms, indoor, x, y) {
   return Math.hypot(tx, ty) < 0.01 ? 180 : directionOf(tx, ty);
 }
 
+// Middle of the rooms' bounding box ([x, y]), or [0, 0] without rooms.
+function planCenter(rooms) {
+  if (!rooms.length) return [0, 0];
+  const x0 = Math.min(...rooms.map((r) => r.x));
+  const y0 = Math.min(...rooms.map((r) => r.y));
+  const x1 = Math.max(...rooms.map((r) => r.x + r.w));
+  const y1 = Math.max(...rooms.map((r) => r.y + r.h));
+  return [(x0 + x1) / 2, (y0 + y1) / 2];
+}
+
 // Orientation of a placed camera and how far it sees on the plan (up to the first wall).
 function cameraSetup(item, rooms, indoor) {
   const c = item.conf || {};
@@ -585,6 +604,9 @@ function cameraSetup(item, rooms, indoor) {
     fov: clamp(num(c.fov, CAMERA_FOV), 10, 170),
     height: isNum(c.height) ? num(c.height) : null, // default depends on the wall height (3D only)
     tilt: clamp(num(c.tilt, CAMERA_TILT), -45, 89),
+    distortion: clamp(num(c.distortion, 0), ...DISTORTION_RANGE),
+    correction: CORRECTION_KEYS.map((key, i) => clamp(num(c[key], CORRECTION_NONE[i]), CORRECTION_LO[i], CORRECTION_HI[i])),
+    center: planCenter(indoor),
     hit: raycast(indoor, item.x, item.y, dx, dy),
   };
 }
@@ -834,30 +856,93 @@ function segmentsCross(p1, p2, q1, q2) {
 }
 
 // --- Camera model ------------------------------------------------------------
-// A pinhole camera without lens distortion. Picture coordinates are in picture widths: the picture
-// is 1 wide and 1 / aspect high, (0, 0) at its top-left corner, y downwards.
+// A pinhole camera, with an optional lens distortion and a correction of the plan. Picture coordinates
+// are in picture widths: the picture is 1 wide and 1 / aspect high, (0, 0) at its top-left corner,
+// y downwards.
+//
+// Lens distortion (`distortion`, k): the division model, around the picture's center, in half
+// picture widths: a picture point d shows the undistorted (pinhole) point u = d / (1 + k |d|²), so
+// d = u · 2 / (1 + sqrt(1 - 4 k |u|²)). k < 0 is a barrel distortion (wide-angle lenses: straight
+// lines bulge out from the center; the whole field in front of the camera fits in a disk of radius
+// 1 / sqrt(-k), like a fisheye), k > 0 a pincushion one. One parameter, never folding back, and
+// both ways in closed form.
+//
+// Correction of the plan (`stretch_x`, `stretch_y`, `stretch_z`, `shift_x`, `shift_y`): makes up
+// for a plan measured a little wrong (or a camera placed a little off on it), as this camera sees
+// it: the camera sees the plan's point P at base + (P - base) · stretch + shift, the base being the
+// middle of its floor's indoor rooms, on the floor (the camera itself doesn't move). Only its
+// picture (projection, editor) follows it.
 
 function cameraHeight(cam, wallHeight) {
   return cam.height !== null && cam.height !== undefined ? cam.height : Math.min(CAMERA_HEIGHT, wallHeight - 0.3);
 }
 
-// Camera standing at C (world): the picture's x follows `right`, its y follows -`up`, and `f` is the
-// focal length in picture widths. `cam` needs dx, dy (plan direction), tilt and fov.
-function cameraPose(cam, C) {
+// Camera standing at C (world), on a floor at height z0: the picture's x follows `right`, its y
+// follows -`up`, and `f` is the focal length in picture widths. `cam` needs dx, dy (plan direction),
+// tilt and fov; `distortion`, `correction` (values of CORRECTION_KEYS) and its base (`center`,
+// [x, y]) are optional.
+function cameraPose(cam, C, z0 = 0) {
   const t = toRad(cam.tilt);
   const fwd = [cam.dx * Math.cos(t), cam.dy * Math.cos(t), -Math.sin(t)];
   const right = [-cam.dy, cam.dx, 0];
-  return { C, fwd, right, up: cross3(fwd, right), f: 0.5 / Math.tan(toRad(cam.fov) / 2) };
+  return {
+    C,
+    fwd,
+    right,
+    up: cross3(fwd, right),
+    f: 0.5 / Math.tan(toRad(cam.fov) / 2),
+    k: cam.distortion || 0,
+    base: [...(cam.center || C.slice(0, 2)), z0],
+    stretch: (cam.correction || CORRECTION_NONE).slice(0, 3),
+    shift: [...(cam.correction || CORRECTION_NONE).slice(3, 5), 0],
+  };
 }
 
-const poseOf = (direction, tilt, fov, C) => cameraPose({ dx: Math.sin(toRad(direction)), dy: -Math.cos(toRad(direction)), tilt, fov }, C);
+const poseOf = (direction, tilt, fov, C, more = {}) =>
+  cameraPose({ dx: Math.sin(toRad(direction)), dy: -Math.cos(toRad(direction)), tilt, fov, ...more }, C);
 
-// Where a world point shows in the picture, or null when it is behind the camera.
+// A plan's point as the camera sees it (see the correction above), and back.
+const stretched = (pose, P) => P.map((v, i) => pose.base[i] + (v - pose.base[i]) * pose.stretch[i] + pose.shift[i]);
+const unstretched = (pose, P) => P.map((v, i) => pose.base[i] + (v - pose.shift[i] - pose.base[i]) / pose.stretch[i]);
+
+// Where a world point shows in the picture, or null when it is behind the camera (or out of the
+// field of a pincushion lens).
 function toPicture(pose, P, aspect) {
-  const d = sub3(P, pose.C);
+  const d = sub3(stretched(pose, P), pose.C);
   const z = dot3(d, pose.fwd);
   if (z < 1e-3) return null;
-  return [0.5 + (dot3(d, pose.right) / z) * pose.f, 0.5 / aspect - (dot3(d, pose.up) / z) * pose.f];
+  // Undistorted point, in half picture widths from the center (y up).
+  const ux = (2 * pose.f * dot3(d, pose.right)) / z;
+  const uy = (2 * pose.f * dot3(d, pose.up)) / z;
+  const s = 1 - 4 * pose.k * (ux * ux + uy * uy);
+  if (s < 0) return null;
+  const g = 2 / (1 + Math.sqrt(s));
+  return [0.5 + 0.5 * ux * g, 0.5 / aspect - 0.5 * uy * g];
+}
+
+// Direction (world, not normalized) of the line of sight through the picture point `uv`.
+function fromPicture(pose, uv, aspect) {
+  const dx = 2 * (uv[0] - 0.5);
+  const dy = 2 * (0.5 / aspect - uv[1]);
+  const g = 1 / Math.max(0.05, 1 + pose.k * (dx * dx + dy * dy));
+  return add3(add3(pose.fwd, mul3(pose.right, (dx * g) / (2 * pose.f))), mul3(pose.up, (dy * g) / (2 * pose.f)));
+}
+
+// How much wider than the picture (undistorted, in each direction) the field of a camera with a
+// barrel distortion is: the shadow map must cover all of it. Capped for fisheye-like lenses.
+function fieldScale(k, aspect) {
+  if (k >= 0) return 1;
+  let m = 1;
+  for (let i = 0; i <= 16; i++) {
+    const t = i / 16;
+    // Points along the picture's edges (half widths): its right edge, then its bottom edge.
+    for (const [x, y] of [[1, t / aspect], [t, 1 / aspect]]) {
+      const den = 1 + k * (x * x + y * y);
+      if (den <= 0.25) return 4;
+      m = Math.max(m, x / den, (y / den) * aspect);
+    }
+  }
+  return Math.min(4, m * 1.02);
 }
 
 // --- WebGL renderer ------------------------------------------------------------
@@ -904,8 +989,13 @@ uniform vec3 uUp;
 uniform float uF;
 uniform float uAspect;
 uniform float uReach;
+uniform float uK;
+uniform vec3 uBase;
+uniform vec3 uStretch;
+uniform vec3 uShift;
 uniform sampler2D uShadow;
 uniform int uShadowOn;
+uniform float uShadowScale;
 varying vec3 vPos;
 varying vec4 vColor;
 varying vec4 vUV;
@@ -922,14 +1012,22 @@ void main() {
     if (d < 0.2) c.rgb = vec3(0.62, 0.85, 1.0);
     else if (d < 0.44) c.rgb = vec3(0.063, 0.086, 0.11);
   } else if (uMode == 5) {
-    vec3 d = vPos - uC;
+    // Same as toPicture(): the corrected point, undistorted (u) then distorted (q) in half picture
+    // widths, then in texture coordinates (p, from the top-left corner).
+    vec3 d = uBase + (vPos - uBase) * uStretch + uShift - uC;
     float z = dot(d, uFwd);
     if (z < 0.001) discard;
-    vec2 p = vec2(0.5 + dot(d, uRight) / z * uF, (0.5 / uAspect - dot(d, uUp) / z * uF) * uAspect);
+    vec2 u = vec2(dot(d, uRight), dot(d, uUp)) * (2.0 * uF / z);
+    float s = 1.0 - 4.0 * uK * dot(u, u);
+    if (s < 0.0) discard;
+    vec2 q = u * (2.0 / (1.0 + sqrt(s)));
+    vec2 p = vec2(0.5 + 0.5 * q.x, 0.5 - 0.5 * q.y * uAspect);
     if (p.x < 0.0 || p.x > 1.0 || p.y < 0.0 || p.y > 1.0) discard;
-    // Hidden from the camera by something nearer to it (see GL_DEPTH_FRAGMENT).
+    // Hidden from the camera by something nearer to it (see GL_DEPTH_FRAGMENT). The shadow map is
+    // undistorted, and as much wider than the picture as its distortion needs (uShadowScale).
     if (uShadowOn == 1) {
-      float near = dot(texture2D(uShadow, vec2(p.x, 1.0 - p.y)), vec4(1.0, 1.0 / 255.0, 1.0 / 65025.0, 1.0 / 16581375.0)) * uReach;
+      vec2 sp = 0.5 + 0.5 * vec2(u.x, u.y * uAspect) / uShadowScale;
+      float near = dot(texture2D(uShadow, sp), vec4(1.0, 1.0 / 255.0, 1.0 / 65025.0, 1.0 / 16581375.0)) * uReach;
       if (z > near + 0.08 + 0.01 * z) discard;
     }
     c *= texture2D(uTex, p);
@@ -944,10 +1042,13 @@ void main() {
 const GL_DEPTH_VERTEX = `
 attribute vec3 aPos;
 uniform mat4 uView;
+uniform vec3 uBase;
+uniform vec3 uStretch;
+uniform vec3 uShift;
 varying vec3 vPos;
 void main() {
-  vPos = aPos;
-  gl_Position = uView * vec4(aPos, 1.0);
+  vPos = uBase + (aPos - uBase) * uStretch + uShift;
+  gl_Position = uView * vec4(vPos, 1.0);
 }`;
 
 const GL_DEPTH_FRAGMENT = `
@@ -968,11 +1069,13 @@ void main() {
 
 const SHADOW_PX = 1024; // width of a shadow map
 
-// Matrix (column-major) from world to clip coordinates for a camera's picture (`proj`), with depths
-// from 30 cm (the wall a camera is mounted on doesn't hide what it films) to its reach: the shadow
-// map's x follows the picture's, its y is upside down (rows of a WebGL texture go up).
+// Matrix (column-major) from world to clip coordinates for a camera's picture (`proj`, undistorted
+// and widened by its fieldScale()), with depths from 30 cm (the wall a camera is mounted on doesn't
+// hide what it films) to its reach: the shadow map's x follows the picture's, its y is upside down
+// (rows of a WebGL texture go up).
 function pictureMatrix(proj) {
-  const { C, fwd, right, up, f, aspect, reach } = proj;
+  const { C, fwd, right, up, aspect, reach } = proj;
+  const f = proj.f / fieldScale(proj.k, aspect);
   const near = 0.3;
   const A = (reach + near) / (reach - near);
   const B = (-2 * reach * near) / (reach - near);
@@ -1104,8 +1207,10 @@ class GlScene {
       for (const name of uniforms) u[name] = gl.getUniformLocation(prog, name);
       return u;
     };
-    this.depth = program(GL_DEPTH_VERTEX, GL_DEPTH_FRAGMENT, ['uView', 'uC', 'uFwd', 'uReach']);
-    this.u = program(GL_VERTEX, GL_FRAGMENT, ['uView', 'uMode', 'uTex', 'uC', 'uFwd', 'uRight', 'uUp', 'uF', 'uAspect', 'uReach', 'uShadow', 'uShadowOn']);
+    this.depth = program(GL_DEPTH_VERTEX, GL_DEPTH_FRAGMENT, ['uView', 'uC', 'uFwd', 'uReach', 'uBase', 'uStretch', 'uShift']);
+    this.u = program(GL_VERTEX, GL_FRAGMENT, [
+      'uView', 'uMode', 'uTex', 'uC', 'uFwd', 'uRight', 'uUp', 'uF', 'uAspect', 'uReach', 'uK', 'uBase', 'uStretch', 'uShift', 'uShadow', 'uShadowOn', 'uShadowScale',
+    ]);
     gl.useProgram(this.u.prog);
     this.buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
@@ -1199,6 +1304,9 @@ class GlScene {
     gl.uniform3fv(this.depth.uC, proj.C);
     gl.uniform3fv(this.depth.uFwd, proj.fwd);
     gl.uniform1f(this.depth.uReach, proj.reach);
+    gl.uniform3fv(this.depth.uBase, proj.base);
+    gl.uniform3fv(this.depth.uStretch, proj.stretch);
+    gl.uniform3fv(this.depth.uShift, proj.shift);
     gl.disable(gl.BLEND);
     gl.disable(gl.POLYGON_OFFSET_FILL);
     gl.drawArrays(gl.TRIANGLES, first, count);
@@ -1283,6 +1391,11 @@ class GlScene {
         gl.uniform1f(this.u.uF, p.f);
         gl.uniform1f(this.u.uAspect, p.aspect);
         gl.uniform1f(this.u.uReach, p.reach);
+        gl.uniform1f(this.u.uK, p.k);
+        gl.uniform3fv(this.u.uBase, p.base);
+        gl.uniform3fv(this.u.uStretch, p.stretch);
+        gl.uniform3fv(this.u.uShift, p.shift);
+        gl.uniform1f(this.u.uShadowScale, fieldScale(p.k, p.aspect));
         const shadow = p.shadow ? shadows.get(p.key) : null;
         gl.uniform1i(this.u.uShadowOn, shadow ? 1 : 0);
         if (shadow) {
@@ -1419,37 +1532,46 @@ function solveLinear(A, b) {
   return M.map((row, i) => row[n] / row[i]);
 }
 
-// Direction, tilt, field of view and height of a camera standing at (x, y) that best show each world
-// point `P` at `uv` (picture), with weight `w` (default 1): Levenberg-Marquardt least squares from
-// `start` ([direction, tilt, fov, height]). Only the parameters whose indexes are in `free` change,
-// and a slight pull towards `start` keeps them steady where the points leave them undetermined.
+// Settings of a camera standing at (x, y) that best show each world point `P` at `uv` (picture),
+// with weight `w` (default 1): Levenberg-Marquardt least squares from `start`, the settings
+// [direction, tilt, fov, height, distortion, ...the plan's correction]. Only the settings whose indexes are
+// in `free` change. A slight pull towards `start` keeps the camera's angles and height steady where
+// the points leave them undetermined; the lens distortion and the plan's correction are pulled
+// towards none, so that a few points can't bend or stretch the picture wildly.
 // `rms` is the remaining error of the points, in picture widths.
-function solveCamera(start, x, y, pairs, aspect, free = [0, 1, 2, 3]) {
-  const lo = [-Infinity, -45, 20, 0.1];
-  const hi = [Infinity, 89, 170, 10];
-  const pull = [1e-4, 1e-4, 1e-4, 1e-3]; // per degree, per meter
+const SOLVE_LO = [-Infinity, -45, 20, 0.1, DISTORTION_RANGE[0], ...CORRECTION_LO];
+const SOLVE_HI = [Infinity, 89, 170, 10, DISTORTION_RANGE[1], ...CORRECTION_HI];
+const SOLVE_PULL = [1e-4, 1e-4, 1e-4, 1e-3, 0.01, 0.05, 0.05, 0.05, 0.01, 0.01]; // per degree, per unit
+const SOLVE_REST = [null, null, null, null, 0, ...CORRECTION_NONE]; // what each setting is pulled to (null: its start)
+const SOLVE_STEP = [1e-3, 1e-3, 1e-3, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4]; // for the derivatives
+
+const solvedPose = (q, x, y, center) => poseOf(q[0], q[1], q[2], [x, y, q[3]], { distortion: q[4], correction: q.slice(5), center });
+
+// `center`: the base of the plan's correction (see cameraPose()).
+function solveCamera(start, x, y, center, pairs, aspect, free = [0, 1, 2, 3]) {
   const full = (p) => {
     const q = [...start];
     free.forEach((j, k) => (q[j] = p[k]));
     return q;
   };
   const errors = (q) => {
-    const pose = poseOf(q[0], q[1], q[2], [x, y, q[3]]);
+    const pose = solvedPose(q, x, y, center);
     return pairs.flatMap(({ P, uv, w = 1 }) => {
       const s = toPicture(pose, P, aspect);
       return s ? [(s[0] - uv[0]) * w, (s[1] - uv[1]) * w] : [3 * w, 3 * w];
     });
   };
-  const residuals = (p) => [...errors(full(p)), ...free.map((j, k) => (p[k] - start[j]) * pull[j])];
+  const rest = (j) => (SOLVE_REST[j] === null ? start[j] : SOLVE_REST[j]);
+  const residuals = (p) => [...errors(full(p)), ...free.map((j, k) => (p[k] - rest(j)) * SOLVE_PULL[j])];
   const cost = (r) => r.reduce((sum, v) => sum + v * v, 0);
-  let p = free.map((j) => clamp(start[j], lo[j], hi[j]));
+  let p = free.map((j) => clamp(start[j], SOLVE_LO[j], SOLVE_HI[j]));
   let r = residuals(p);
   let c = cost(r);
   let lambda = 1e-3;
   for (let iter = 0; iter < 100 && c > 1e-14; iter++) {
     // J[k][i]: derivative of residual i by free parameter k.
     const J = p.map((_, k) => {
-      const h = free[k] === 3 ? 1e-4 : 1e-3;
+      const h = SOLVE_STEP[free[k]];
       const rp = residuals(p.map((v, l) => (l === k ? v + h : v)));
       const rm = residuals(p.map((v, l) => (l === k ? v - h : v)));
       return rp.map((v, i) => (v - rm[i]) / (2 * h));
@@ -1460,7 +1582,7 @@ function solveCamera(start, x, y, pairs, aspect, free = [0, 1, 2, 3]) {
     while (lambda < 1e10) {
       const step = solveLinear(A.map((row, k) => row.map((v, l) => (k === l ? v + lambda * (v || 1e-9) : v))), g);
       if (step) {
-        const pn = p.map((v, k) => clamp(v + step[k], lo[free[k]], hi[free[k]]));
+        const pn = p.map((v, k) => clamp(v + step[k], SOLVE_LO[free[k]], SOLVE_HI[free[k]]));
         const rn = residuals(pn);
         if (cost(rn) < c) {
           next = { p: pn, r: rn };
@@ -1476,9 +1598,9 @@ function solveCamera(start, x, y, pairs, aspect, free = [0, 1, 2, 3]) {
     lambda = Math.max(lambda / 3, 1e-12);
     if (gain < 1e-16) break;
   }
-  const [direction, tilt, fov, height] = full(p);
-  const e = errors([direction, tilt, fov, height]).map((v, i) => v / (pairs[i >> 1].w || 1));
-  return { direction: ((direction % 360) + 360) % 360, tilt, fov, height, rms: Math.sqrt(cost(e) / pairs.length) };
+  const q = full(p);
+  const e = errors(q).map((v, i) => v / (pairs[i >> 1].w || 1));
+  return { q: [((q[0] % 360) + 360) % 360, ...q.slice(1)], rms: Math.sqrt(cost(e) / pairs.length) };
 }
 
 // How far points `P` show from their place `uv` in the picture with a pose (rms, in picture widths).
@@ -1528,16 +1650,104 @@ function planLines(rooms, wallHeight) {
   return lines;
 }
 
-// A world segment in the picture (cut where it passes behind the camera), or null.
-function segmentToPicture(pose, P, Q, aspect) {
+// Lines of a floor as an outdoor camera standing at C sees them: the outer walls facing it (outward
+// normal towards it, as for its projection), their foot, top and ends; and the outlines of the
+// outdoor rooms, on the ground.
+function facingLines(rooms, wallHeight, C) {
+  const lines = [];
+  for (const seg of wallSegments(rooms.filter((r) => !r.outdoor))) {
+    const k = seg.o === 'h' ? 1 : 0;
+    if (!seg.normal || (C[k] - seg.at) * seg.normal[k] <= 0.05) continue;
+    const at = (t, z) => (seg.o === 'h' ? [t, seg.at, z] : [seg.at, t, z]);
+    lines.push(
+      { P: at(seg.a, 0), Q: at(seg.b, 0) },
+      { P: at(seg.a, wallHeight), Q: at(seg.b, wallHeight) },
+      { P: at(seg.a, 0), Q: at(seg.a, wallHeight) },
+      { P: at(seg.b, 0), Q: at(seg.b, wallHeight) }
+    );
+  }
+  for (const r of rooms) {
+    if (!r.outdoor) continue;
+    const c = [[r.x, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h], [r.x, r.y + r.h]];
+    c.forEach((p, i) => lines.push({ P: [...p, 0], Q: [...c[(i + 1) % 4], 0], outdoor: true }));
+  }
+  return lines;
+}
+
+// What hides a floor from its outdoor cameras: its indoor rooms and those of the floors above
+// (`above`: [{ rooms, z0 }], z0 from this floor's), as boxes slightly smaller than them (their walls
+// don't hide what lies on them), and their roofs.
+function planOccluders(rooms, above, wallHeight) {
+  const e = 0.02;
+  const floors = [{ rooms: rooms.filter((r) => !r.outdoor), z0: 0 }, ...above];
+  const boxes = [];
+  const slopes = [];
+  floors.forEach(({ rooms: fr, z0 }, i) => {
+    const bottom = i ? z0 - SLAB : 0;
+    for (const r of fr) boxes.push([r.x + e, r.y + e, bottom + e, r.x + r.w - e, r.y + r.h - e, z0 + wallHeight - e]);
+    slopes.push(...floorRoof(fr, floors.slice(i + 1).flatMap((f) => f.rooms), z0 + wallHeight));
+  });
+  return { boxes, slopes };
+}
+
+// Whether the occluders (see planOccluders()) hide the point P from a camera standing at C. A roof
+// close to P doesn't count: the corners at the top of the walls stand right under its eaves.
+function sightBlocked(occ, C, P) {
+  const d = sub3(P, C);
+  for (const b of occ.boxes) {
+    let t0 = 0;
+    let t1 = 1;
+    for (let i = 0; i < 3 && t0 < t1; i++) {
+      if (Math.abs(d[i]) < 1e-12) {
+        if (C[i] <= b[i] || C[i] >= b[i + 3]) t1 = -1;
+        continue;
+      }
+      const ta = (b[i] - C[i]) / d[i];
+      const tb = (b[i + 3] - C[i]) / d[i];
+      t0 = Math.max(t0, Math.min(ta, tb));
+      t1 = Math.min(t1, Math.max(ta, tb));
+    }
+    if (t0 < t1) return true;
+  }
+  const L = len3(d);
+  for (const { pts, n } of occ.slopes) {
+    const den = dot3(n, d);
+    if (Math.abs(den) < 1e-9) continue;
+    const t = dot3(n, sub3(pts[0], C)) / den;
+    if (t <= 0 || t >= 1 || (1 - t) * L < 0.4) continue;
+    const X = add3(C, mul3(d, t));
+    const sides = pts.map((A, i) => Math.sign(dot3(cross3(sub3(pts[(i + 1) % pts.length], A), sub3(X, A)), n)));
+    if (sides.every((v) => v >= 0) || sides.every((v) => v <= 0)) return true;
+  }
+  return false;
+}
+
+// A world segment in the picture: polylines (curved by the lens distortion), cut where the segment
+// passes behind the camera and, with `hidden` (a world point -> whether the camera can't see it),
+// where it is hidden (to about 10 cm).
+function segmentToPicture(pose, P, Q, aspect, hidden = null) {
   const near = 0.05;
-  const dP = dot3(sub3(P, pose.C), pose.fwd);
-  const dQ = dot3(sub3(Q, pose.C), pose.fwd);
-  if (dP < near && dQ < near) return null;
+  const depth = (X) => dot3(sub3(stretched(pose, X), pose.C), pose.fwd);
+  const dP = depth(P);
+  const dQ = depth(Q);
+  if (dP < near && dQ < near) return [];
   const cut = (A, B, dA, dB) => (dA >= near ? A : add3(A, mul3(sub3(B, A), (near - dA) / (dB - dA))));
-  const a = toPicture(pose, cut(P, Q, dP, dQ), aspect);
-  const b = toPicture(pose, cut(Q, P, dQ, dP), aspect);
-  return a && b ? [a, b] : null;
+  const A = cut(P, Q, dP, dQ);
+  const B = cut(Q, P, dQ, dP);
+  const steps = hidden || pose.k ? clamp(Math.ceil(len3(sub3(B, A)) / 0.1), 1, 100) : 1;
+  const lines = [];
+  let line = null;
+  for (let i = 0; i <= steps; i++) {
+    const X = add3(A, mul3(sub3(B, A), i / steps));
+    const uv = hidden && hidden(X) ? null : toPicture(pose, X, aspect);
+    if (!uv) {
+      line = null;
+      continue;
+    }
+    if (!line) lines.push((line = []));
+    line.push(uv);
+  }
+  return lines.filter((l) => l.length > 1);
 }
 
 // --- "Generate from my areas" ---------------------------------------------
@@ -2876,7 +3086,7 @@ class HaPlooumFloorplanCard extends LitElement {
         }
         const snap = it.conf.projection ? this._projectionPicture(it) : null;
         if (snap) {
-          const { C, fwd, right, up, f } = sc.pose;
+          const { C, fwd, right, up, f, k, base, stretch, shift } = sc.pose;
           projectors.push({
             k: p.k,
             indoor,
@@ -2886,7 +3096,7 @@ class HaPlooumFloorplanCard extends LitElement {
             mesh: () =>
               new Mesh(MODE.picture, {
                 tex: { key: `picture:${snap.url}`, source: () => scaledPicture(snap.img, PICTURE_PX) },
-                proj: { C, fwd, right, up, f, aspect: snap.aspect, reach: PROJ_REACH, shadow: !indoor, key: it.id },
+                proj: { C, fwd, right, up, f, k, base, stretch, shift, aspect: snap.aspect, reach: PROJ_REACH, shadow: !indoor, key: it.id },
               }),
           });
         }
@@ -3180,7 +3390,7 @@ class HaPlooumFloorplanCard extends LitElement {
   _camera3d(it, p, indoor, H, eye, add, inWorld, colors) {
     const cam = it.camera;
     const conf = it.conf;
-    const pose = cameraPose(cam, [it.x, it.y, p.z0 + cameraHeight(cam, H)]);
+    const pose = cameraPose(cam, [it.x, it.y, p.z0 + cameraHeight(cam, H)], p.z0);
     const { C, fwd, right, up } = pose;
     const t = toRad(cam.tilt);
 
@@ -4619,6 +4829,7 @@ class HaPlooumFloorplanCardEditor extends LitElement {
       _camDrag: { state: true },
       _snapTick: { state: true },
       _capture: { state: true },
+      _fitCorrection: { state: true },
     };
   }
 
@@ -4628,6 +4839,7 @@ class HaPlooumFloorplanCardEditor extends LitElement {
     this._camDrag = null; // drag in progress on the camera's picture
     this._snapTick = 0; // bumps to reload the camera view's snapshot
     this._capture = null; // reference picture capture: { id, busy } or { id, error }
+    this._fitCorrection = false; // the camera view's fit also corrects the plan (see cameraPose())
     this._matches = {}; // `${reference url}|${snapshot url}` -> matchPicture() verdict, null while comparing
     this._aspects = {}; // camera id -> picture aspect ratio
     this._picWidths = {}; // camera id -> picture width (px), to show the pins' error in pixels
@@ -5136,6 +5348,7 @@ class HaPlooumFloorplanCardEditor extends LitElement {
     const wallHeight = this._wallHeight();
     const pose = cameraPose(item.camera, [item.x, item.y, cameraHeight(item.camera, wallHeight)]);
     const pins = this._pinsOf(item);
+    const cam = item.camera;
     // With a reference picture, the camera is aligned on it (and it is what gets projected).
     const refUrl = item.conf.reference_picture ? uploadedImageUrl(item.conf.reference_picture) : null;
     const snapUrl = pic ? `${pic}${pic.includes('?') ? '&' : '?'}t=${this._snapTick}` : null;
@@ -5175,19 +5388,21 @@ class HaPlooumFloorplanCardEditor extends LitElement {
     if (!pic && !refUrl) return html`<div class="cv-section">${header}<div class="muted">No picture: the camera is unavailable.</div></div>`;
 
     // An indoor camera only sees its room: the lines of the others would show through its walls.
+    // An outdoor one sees the outer walls facing it, and nothing the house hides from it.
     const ownRoom = item.camera.indoor ? plan.indoor[roomAt(plan.indoor, item.x, item.y)] : null;
     const rooms = ownRoom ? [ownRoom] : plan.rooms;
-    const lines = planLines(rooms, wallHeight).map((l) => {
-      const seg = segmentToPicture(pose, l.P, l.Q, aspect);
-      return seg
-        ? svg`<line class="cv-line ${l.outdoor ? 'outdoor' : ''}" x1=${seg[0][0]} y1=${seg[0][1]} x2=${seg[1][0]} y2=${seg[1][1]}></line>`
-        : nothing;
-    });
+    const hidden = ownRoom ? null : this._sightTest(plan, pose.C, wallHeight);
+    const lines = (ownRoom ? planLines(rooms, wallHeight) : facingLines(rooms, wallHeight, pose.C)).flatMap((l) =>
+      segmentToPicture(pose, l.P, l.Q, aspect, hidden).map(
+        (pts) => svg`<polyline class="cv-line ${l.outdoor ? 'outdoor' : ''}" points=${pts.map((q) => `${q[0]},${q[1]}`).join(' ')}></polyline>`
+      )
+    );
     // Corners a little out of the picture wait on its edge, to be dragged in.
     const pinned = new Map(pins.map((p) => [p.key, p]));
     const near = (uv) => uv && uv[0] > -1 && uv[0] < 2 && uv[1] > -1 / aspect && uv[1] < 2 / aspect;
     const edge = 0.02;
     const corners = planCorners(rooms, wallHeight, !ownRoom)
+      .filter((c) => !hidden || !hidden(c.P))
       .map((c) => ({ ...c, uv: toPicture(pose, c.P, aspect) }))
       .filter((c) => near(c.uv))
       .map((c) => {
@@ -5205,7 +5420,38 @@ class HaPlooumFloorplanCardEditor extends LitElement {
     const hint = [
       'Drag a corner of the outline (floor or top of a wall) onto the same corner in the picture: the camera turns to follow. Drag elsewhere to look around.',
       'Pinned. Now drag a second corner, far from the first, onto its place in the picture: the field of view and height adjust too.',
-    ][pins.length] || `The settings follow the pinned corners${error !== null ? ` (error ${error} px)` : ''}. Drag another corner to check them, tap a pin to remove it.`;
+    ][pins.length] ||
+      `The settings follow the pinned corners${error !== null ? ` (error ${error} px)` : ''}. Drag another corner to check them, tap a pin to remove it.` +
+        (pins.length < LENS_PINS - 1 ? ` From ${LENS_PINS} corners, the lens distortion adjusts too.` : '');
+    // The plan's correction as this camera sees it, if any.
+    const sign = (v) => (v < 0 ? '−' : '+');
+    const correction = cam.correction.some((v, i) => Math.abs(v - CORRECTION_NONE[i]) > 1e-3)
+      ? [
+          ...['width', 'depth', 'height'].map((name, i) => `${name} ${sign(cam.correction[i] - 1)}${Math.abs(Math.round((cam.correction[i] - 1) * 1000) / 10)}%`),
+          `shifted ${sign(cam.correction[3])}${Math.abs(round2(cam.correction[3]))}, ${sign(cam.correction[4])}${Math.abs(round2(cam.correction[4]))}`,
+        ].join(', ')
+      : null;
+    const lens = html`<div class="cv-lens">
+      <label>
+        <span>Lens distortion</span>
+        <input type="range" min=${DISTORTION_RANGE[0]} max=${DISTORTION_RANGE[1]} step="0.01" .value=${String(cam.distortion)}
+          title="Barrel (wide-angle lenses: straight lines bulge out) to the left, pincushion to the right"
+          @input=${(ev) => this._setCameraLens(item, { distortion: Number(ev.target.value) })} />
+        <span class="cv-value">${cam.distortion.toFixed(2)}</span>
+      </label>
+      <div class="cv-stretch">
+        <button class="chip small ${this._fitCorrection ? 'active' : ''}" @click=${() => (this._fitCorrection = !this._fitCorrection)}
+          title="With ${CORRECTION_PINS} pinned corners or more, also stretch and shift the plan (width, depth, wall height) as this camera sees it, to make up for measuring errors or a camera placed a little off. Only this camera's picture follows: the plan doesn't change.">
+          Correct the plan's proportions
+        </button>
+        ${correction
+          ? html`<span class="muted">${correction}</span>
+              <button class="btn flat" title="Back to the plan as drawn" @click=${() => this._setCameraLens(item, { correction: CORRECTION_NONE })}>
+                <ha-icon icon="mdi:restore"></ha-icon>
+              </button>`
+          : nothing}
+      </div>
+    </div>`;
 
     return html`<div class="cv-section">
       ${header}
@@ -5220,12 +5466,48 @@ class HaPlooumFloorplanCardEditor extends LitElement {
             style=${at(c.uv)}></div>`
         )}
       </div>
-      ${notes}
+      ${lens} ${notes}
       <div class="hint">
         <ha-icon icon="mdi:information-outline"></ha-icon>
         <span>${hint}</span>
       </div>
     </div>`;
+  }
+
+  // Tells whether the house hides a world point from an outdoor camera standing at C (see
+  // planOccluders()), for the current floor `plan`. Cached: the editor re-renders on every pointer
+  // move while dragging.
+  _sightTest(plan, C, wallHeight) {
+    const floors = this._floors();
+    const key = [floors, this._currentFloorIndex(), wallHeight, JSON.stringify(plan.rooms)];
+    if (!this._occKey || this._occKey.some((v, i) => v !== key[i])) {
+      this._occKey = key;
+      const above = floors.slice(this._currentFloorIndex() + 1).map((f, i) => ({
+        rooms: (f.rooms || []).map(normalizeRoom).filter((r) => !r.outdoor),
+        z0: (i + 1) * (wallHeight + SLAB),
+      }));
+      this._occ = planOccluders(plan.rooms, above, wallHeight);
+    }
+    const occ = this._occ;
+    return (P) => sightBlocked(occ, C, P);
+  }
+
+  // Sets a camera's lens distortion (`distortion`) or the plan's correction (`correction`: values
+  // of CORRECTION_KEYS); a slider's moves make one undo step.
+  _setCameraLens(item, { distortion, correction }) {
+    this._editFloor((floor) => {
+      const e = floor.entities[item.index];
+      if (distortion !== undefined) {
+        if (Math.abs(distortion) < 1e-3) delete e.distortion;
+        else e.distortion = Math.round(distortion * 1000) / 1000;
+      }
+      if (correction) {
+        CORRECTION_KEYS.forEach((key, i) => {
+          if (Math.abs(correction[i] - CORRECTION_NONE[i]) < 1e-3) delete e[key];
+          else e[key] = Math.round(correction[i] * 1000) / 1000;
+        });
+      }
+    }, distortion !== undefined ? `${this._currentFloorIndex()}:distortion:${item.index}` : null);
   }
 
   // Whether the snapshot at `snapUrl` still looks like the reference picture (see matchPicture()),
@@ -5297,7 +5579,7 @@ class HaPlooumFloorplanCardEditor extends LitElement {
   _cvDown(ev, item, aspect) {
     if (ev.button !== 0) return;
     const cam = item.camera;
-    const q = [cam.direction, cam.tilt, cam.fov, cameraHeight(cam, this._wallHeight())];
+    const q = [cam.direction, cam.tilt, cam.fov, cameraHeight(cam, this._wallHeight()), cam.distortion, ...cam.correction];
     const el = ev.currentTarget;
     const corner = ev.target.closest ? ev.target.closest('.cv-corner') : null;
     let key = null;
@@ -5307,15 +5589,14 @@ class HaPlooumFloorplanCardEditor extends LitElement {
       P = key.split(',').map(Number);
     } else {
       if (this._pinsOf(item).length) return;
-      // A point straight along the line of sight under the pointer: it stays under it.
-      const pose = poseOf(...q.slice(0, 3), [item.x, item.y, q[3]]);
-      const uv = this._cvPoint(el, ev);
-      const ray = add3(add3(pose.fwd, mul3(pose.right, (uv[0] - 0.5) / pose.f)), mul3(pose.up, (0.5 / aspect - uv[1]) / pose.f));
-      P = add3(pose.C, mul3(ray, 5));
+      // A point straight along the line of sight under the pointer (in the plan, uncorrected): it
+      // stays under it.
+      const pose = solvedPose(q, item.x, item.y, cam.center);
+      P = unstretched(pose, add3(pose.C, mul3(fromPicture(pose, this._cvPoint(el, ev), aspect), 5)));
     }
     ev.preventDefault();
     el.setPointerCapture(ev.pointerId);
-    this._camDrag = { pointerId: ev.pointerId, el, index: item.index, id: item.id, x: item.x, y: item.y, aspect, key, P, q, start: [ev.clientX, ev.clientY], moved: false };
+    this._camDrag = { pointerId: ev.pointerId, el, index: item.index, id: item.id, x: item.x, y: item.y, center: cam.center, aspect, key, P, q, start: [ev.clientX, ev.clientY], moved: false };
   }
 
   _cvMove(ev) {
@@ -5324,13 +5605,20 @@ class HaPlooumFloorplanCardEditor extends LitElement {
     if (!c.moved && Math.hypot(ev.clientX - c.start[0], ev.clientY - c.start[1]) < 4) return;
     const uv = this._cvPoint(c.el, ev);
     const pins = c.key === null ? [] : this._pinsOf(c).filter((p) => p.key !== c.key);
-    // Alone, the corner turns the camera; with pins, all settings follow, the dragged corner first.
+    // Alone, the corner turns the camera; with pins, all settings follow, the dragged corner first:
+    // the lens distortion from LENS_PINS corners, the plan's correction from CORRECTION_PINS (if asked).
     const pairs = [...pins, { P: c.P, uv, w: pins.length > 1 ? 3 : 1 }];
-    const s = solveCamera(c.q, c.x, c.y, pairs, c.aspect, pins.length ? [0, 1, 2, 3] : [0, 1]);
+    const free = pins.length ? [0, 1, 2, 3] : [0, 1];
+    if (pairs.length >= LENS_PINS) free.push(4);
+    if (this._fitCorrection && pairs.length >= CORRECTION_PINS) free.push(5, 6, 7, 8, 9);
+    const { q } = solveCamera(c.q, c.x, c.y, c.center, pairs, c.aspect, free);
     const r1 = (v) => Math.round(v * 10) / 10;
-    const settings = { direction: r1(s.direction), tilt: r1(s.tilt) };
-    if (pins.length) Object.assign(settings, { fov: r1(s.fov), height: round2(s.height) });
-    this._camDrag = { ...c, moved: true, uv, q: [s.direction, s.tilt, s.fov, s.height], settings };
+    const r3 = (v) => Math.round(v * 1000) / 1000;
+    const settings = { direction: r1(q[0]), tilt: r1(q[1]) };
+    if (pins.length) Object.assign(settings, { fov: r1(q[2]), height: round2(q[3]) });
+    if (free.includes(4)) settings.distortion = r3(q[4]);
+    if (free.includes(5)) CORRECTION_KEYS.forEach((key, i) => (settings[key] = r3(q[5 + i])));
+    this._camDrag = { ...c, moved: true, uv, q, settings };
   }
 
   _cvUp(ev) {
@@ -5348,6 +5636,10 @@ class HaPlooumFloorplanCardEditor extends LitElement {
       const e = floor.entities[c.index];
       Object.assign(e, c.settings);
       for (const key of ['tilt', 'fov', 'height']) if (num(e[key]) === defaults[key]) delete e[key];
+      if (num(e.distortion) === 0) delete e.distortion;
+      CORRECTION_KEYS.forEach((key, i) => {
+        if (num(e[key], CORRECTION_NONE[i]) === CORRECTION_NONE[i]) delete e[key];
+      });
     });
     if (c.key !== null) this._pins = { index: c.index, id: c.id, list: [...list, { key: c.key, P: c.P, uv: c.uv }] };
   }
@@ -5747,7 +6039,9 @@ class HaPlooumFloorplanCardEditor extends LitElement {
       for (const key of CAMERA_KEYS) if (key in defaults && num(value[key]) === defaults[key]) delete value[key];
       if (!value.projection) delete value.projection;
       if (value.preview_position === 'auto') delete value.preview_position;
-      if (domainOf(value.entity) !== 'camera') for (const key of ['direction', 'projection', 'preview_position', 'reference_picture', ...CAMERA_KEYS]) delete value[key];
+      if (domainOf(value.entity) !== 'camera') {
+        for (const key of ['direction', 'projection', 'preview_position', 'reference_picture', 'distortion', ...CORRECTION_KEYS, ...CAMERA_KEYS]) delete value[key];
+      }
     }
     if (listKey === 'entities') {
       // `light` is only kept when it differs from what the entity's domain gives.
@@ -6115,9 +6409,39 @@ class HaPlooumFloorplanCardEditor extends LitElement {
         stroke-opacity: 0.85;
         stroke-width: 1.5px;
         vector-effect: non-scaling-stroke;
+        fill: none;
+        stroke-linejoin: round;
       }
       .cv-line.outdoor {
         stroke-dasharray: 4 3;
+      }
+      .cv-lens {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--secondary-text-color);
+      }
+      .cv-lens label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .cv-lens input[type='range'] {
+        flex: 1;
+        min-width: 0;
+        accent-color: var(--primary-color);
+      }
+      .cv-value {
+        min-width: 3em;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .cv-stretch {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 6px;
       }
       .cv-corner {
         position: absolute;
