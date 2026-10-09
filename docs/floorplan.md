@@ -14,7 +14,7 @@ Switch it to **3D** and the same plan becomes a model of your home and garden, w
 
 - **Zero configuration to start**: with no `floors`, the plan is generated from your Home Assistant floors and areas, with each area's entities placed in its room. The card picker preview already shows your home.
 - **Visual plan editor**: draw rooms by dragging on a grid, move and resize them, and drag entities from a searchable list onto the plan. Your areas don't need to be right: an entity belongs to the room it is dropped in, wherever Home Assistant thinks it is.
-- **Roles guessed from the entity**: lights glow, `temperature` / `humidity` sensors feed the room, covers become windows, `door` / `window` / `opening` binary sensors show alerts, `motion` / `occupancy` / `presence` sensors make the room pulse. Nothing to map by hand.
+- **Roles guessed from the entity**: lights glow (and so does any plug or switch marked as a light), `temperature` / `humidity` sensors feed the room, covers become windows, `door` / `window` / `opening` binary sensors show alerts, `motion` / `occupancy` / `presence` sensors make the room pulse. Nothing to map by hand.
 - **Interactive plan**: tap a device to toggle it (hold for its details), drag a shutter along its window to set its position, tap a room to zoom on it and list its devices with their controls (the plan grows taller if the room needs it). Tap another room to switch to it; close with the panel's ✕, `Escape` or a tap outside the rooms.
 - **Several floors**, switched with chips at the top of the card.
 - **Every state stays readable**: unavailable devices blink in grey, an entity that no longer exists shows as an orange dashed `?`.
@@ -101,6 +101,7 @@ Walls shared by two rooms are drawn thin; outer walls are drawn thick.
 | `x`, `y` | number | Position. An entity belongs to the (smallest) room containing it. |
 | `name` | string | Optional name, instead of the friendly name. |
 | `icon` | string | Optional icon, instead of the state icon. |
+| `light` | boolean | Lights up its room like a light: `true` for an on/off device that isn't a `light.*` (a plug powering a lamp, a switch, an input boolean…), `false` to stop a `light.*` from glowing. Default: `true` for `light.*` only. |
 | `length` | number | Covers only: window length, default `1.5`. |
 | `direction` | number | Cameras only: where it looks, in degrees clockwise from the top of the plan (`0` up, `90` right). Default: the middle of its room, or away from the home outdoors. |
 | `fov` | number | Cameras only: horizontal field of view, default `90`. |
@@ -114,7 +115,7 @@ How each entity is shown:
 
 | Entity | On the plan |
 | :--- | :--- |
-| `light.*` | Icon; when on, a glow around it in the light's color, as bright as the light. |
+| `light.*`, or any on/off entity with `light: true` | Icon; when on, a glow around it in the light's color (warm white without one), as bright as the light. |
 | `sensor.*` with `device_class: temperature` | Room temperature (average if several) and floor color. Outside any room: a value badge. |
 | `sensor.*` with `device_class: humidity` | Room humidity. Outside any room: a value badge. |
 | other `sensor.*` | A value badge. |

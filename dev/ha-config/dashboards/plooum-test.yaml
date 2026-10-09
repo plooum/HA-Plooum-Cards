@@ -176,6 +176,8 @@ views:
                   - { entity: sensor.kitchen_temperature, x: 10.5, y: 0.5 }
                   - { entity: binary_sensor.front_door, x: 10.25, y: 4.25 }
                   - { entity: binary_sensor.hallway_motion, x: 8, y: 4 }
+                  # Not a light, but lights up the Hallway like one (light: true).
+                  - { entity: input_boolean.aquarium_uv, x: 9.5, y: 3.75, light: true }
                   # Missing entity: must stay readable without breaking the card.
                   - { entity: switch.does_not_exist, x: 1, y: 4 }
                   # Outside any room: shown as a badge.
@@ -224,6 +226,7 @@ views:
                   - input_boolean.living_room_light
                   - input_boolean.kitchen_light
                   - input_boolean.bedroom_light
+                  - input_boolean.aquarium_uv
                   - input_boolean.tv_plug_available
                   - input_boolean.garage_camera_available
                   - input_number.living_room_cover_position

@@ -2152,6 +2152,15 @@
     return 'device';
   }
 
+  // Role on the plan once the entity's `light` option is applied: `light: true` makes an on/off device
+  // (a plug powering a lamp…) light up its room like a light, `light: false` stops a light from doing so.
+  function itemRole(conf, st) {
+    const role = entityRole(conf.entity, st);
+    if (conf.light === true && role === 'device') return 'light';
+    if (conf.light === false && role === 'light') return 'device';
+    return role;
+  }
+
   function lightRgb(st) {
     const a = (st && st.attributes) || {};
     if (Array.isArray(a.rgb_color)) return a.rgb_color;
@@ -2299,7 +2308,7 @@
     const items = ((floor && floor.entities) || []).map((e, index) => {
       const id = e.entity;
       const st = hass.states[id];
-      const role = entityRole(id, st);
+      const role = itemRole(e, st);
       const x = num(e.x);
       const y = num(e.y);
       const wall = role === 'cover' ? nearestWall(indoor, x, y, ON_WALL_EPS * 2) : null;
@@ -5483,6 +5492,8 @@
         const ent = floor.entities[sel.index];
         const isCover = domainOf(ent.entity) === 'cover';
         const isCamera = domainOf(ent.entity) === 'camera';
+        const naturalRole = entityRole(ent.entity, this.hass.states[ent.entity]);
+        const canLight = naturalRole === 'light' || naturalRole === 'device';
         const schema = [
           { name: 'entity', label: 'Entity', selector: { entity: {} } },
           {
@@ -5494,6 +5505,9 @@
             ],
           },
         ];
+        if (canLight) {
+          schema.push({ name: 'light', label: 'Lights up the room (glows when on)', selector: { boolean: {} } });
+        }
         if (isCover) {
           schema.push({ name: 'length', label: 'Window length', selector: { number: { min: 0.5, max: 8, step: 0.25, mode: 'box' } } });
         }
@@ -5526,7 +5540,7 @@
         </div>
         <ha-form
           .hass=${this.hass}
-          .data=${{ length: WINDOW_LENGTH, ...(isCamera ? this._cameraDefaults(floor, sel.index) : {}), ...ent }}
+          .data=${{ length: WINDOW_LENGTH, light: naturalRole === 'light', ...(isCamera ? this._cameraDefaults(floor, sel.index) : {}), ...ent }}
           .schema=${schema}
           .computeLabel=${(s) => s.label || s.name}
           @value-changed=${(ev) => this._selectionChanged(ev, 'entities')}
@@ -6166,6 +6180,12 @@
         for (const key of CAMERA_KEYS) if (key in defaults && num(value[key]) === defaults[key]) delete value[key];
         if (!value.projection) delete value.projection;
         if (domainOf(value.entity) !== 'camera') for (const key of ['direction', 'projection', ...CAMERA_KEYS]) delete value[key];
+      }
+      if (listKey === 'entities') {
+        // `light` is only kept when it differs from what the entity's domain gives.
+        const naturalRole = entityRole(value.entity, this.hass.states[value.entity]);
+        const keep = (naturalRole === 'device' && value.light === true) || (naturalRole === 'light' && value.light === false);
+        if (!keep) delete value.light;
       }
       if (listKey === 'rooms' && !value.outdoor) delete value.outdoor;
       this._editFloor((floor) => {
