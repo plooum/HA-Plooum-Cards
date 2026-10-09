@@ -2083,7 +2083,6 @@
   const PROJ_REACH = 25; // projected pictures stop this far from their camera (grid units)
   const REFRESH_INTERVAL = 3; // s between two snapshots of a camera
   const AIM_HANDLE = 1.25; // distance from a camera to its aim handle in the editor (grid units)
-  const CALIB_COLORS = ['#ff5252', '#ffd740', '#69f0ae', '#40c4ff']; // numbered points of the camera point matching
   // Camera options left out of the config when they keep their default value.
   const CAMERA_KEYS = ['fov', 'tilt', 'height', 'screen_size', 'screen_distance'];
 
@@ -2651,13 +2650,6 @@
     return [0.5 + (dot3(d, pose.right) / z) * pose.f, 0.5 / aspect - (dot3(d, pose.up) / z) * pose.f];
   }
 
-  // The point of the horizontal plane z = planeZ seen at a point of the picture, or null.
-  function fromPicture(pose, uv, aspect, planeZ) {
-    const dir = add3(add3(pose.fwd, mul3(pose.right, (uv[0] - 0.5) / pose.f)), mul3(pose.up, (0.5 / aspect - uv[1]) / pose.f));
-    const s = (planeZ - pose.C[2]) / dir[2];
-    return s > 0 ? add3(pose.C, mul3(dir, s)) : null;
-  }
-
   // --- WebGL renderer ------------------------------------------------------------
   // The scene is a few hundred triangles in meshes, rebuilt for each frame. A depth buffer sorts
   // them; only the transparent meshes (inner walls, beams) are sorted, back to front.
@@ -2702,6 +2694,8 @@ uniform vec3 uUp;
 uniform float uF;
 uniform float uAspect;
 uniform float uReach;
+uniform sampler2D uShadow;
+uniform int uShadowOn;
 varying vec3 vPos;
 varying vec4 vColor;
 varying vec4 vUV;
@@ -2723,6 +2717,11 @@ void main() {
     if (z < 0.001) discard;
     vec2 p = vec2(0.5 + dot(d, uRight) / z * uF, (0.5 / uAspect - dot(d, uUp) / z * uF) * uAspect);
     if (p.x < 0.0 || p.x > 1.0 || p.y < 0.0 || p.y > 1.0) discard;
+    // Hidden from the camera by something nearer to it (see GL_DEPTH_FRAGMENT).
+    if (uShadowOn == 1) {
+      float near = dot(texture2D(uShadow, vec2(p.x, 1.0 - p.y)), vec4(1.0, 1.0 / 255.0, 1.0 / 65025.0, 1.0 / 16581375.0)) * uReach;
+      if (z > near + 0.08 + 0.01 * z) discard;
+    }
     c *= texture2D(uTex, p);
     c.a *= 0.92 * clamp((uReach - z) / (0.3 * uReach), 0.0, 1.0);
   }
@@ -2730,12 +2729,58 @@ void main() {
   gl_FragColor = vec4(c.rgb * c.a, c.a);
 }`;
 
+  // Shadow maps: the distance from a camera to the nearest surface it sees (in its reach, packed
+  // into the 4 bytes of a color), for each point of its picture.
+  const GL_DEPTH_VERTEX = `
+attribute vec3 aPos;
+uniform mat4 uView;
+varying vec3 vPos;
+void main() {
+  vPos = aPos;
+  gl_Position = uView * vec4(aPos, 1.0);
+}`;
+
+  const GL_DEPTH_FRAGMENT = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+uniform vec3 uC;
+uniform vec3 uFwd;
+uniform float uReach;
+varying vec3 vPos;
+void main() {
+  float v = clamp(dot(vPos - uC, uFwd) / uReach, 0.0, 0.999999);
+  vec4 e = fract(vec4(1.0, 255.0, 65025.0, 16581375.0) * v);
+  gl_FragColor = e - e.yzww * vec4(1.0 / 255.0, 1.0 / 255.0, 1.0 / 255.0, 0.0);
+}`;
+
+  const SHADOW_PX = 1024; // width of a shadow map
+
+  // Matrix (column-major) from world to clip coordinates for a camera's picture (`proj`), with depths
+  // from 30 cm (the wall a camera is mounted on doesn't hide what it films) to its reach: the shadow
+  // map's x follows the picture's, its y is upside down (rows of a WebGL texture go up).
+  function pictureMatrix(proj) {
+    const { C, fwd, right, up, f, aspect, reach } = proj;
+    const near = 0.3;
+    const A = (reach + near) / (reach - near);
+    const B = (-2 * reach * near) / (reach - near);
+    const form = (v, k) => [...mul3(v, k), -dot3(C, v) * k];
+    const depth = form(fwd, 1);
+    const rows = [form(right, 2 * f), form(up, 2 * f * aspect), depth.map((v, i) => A * v + (i === 3 ? B : 0)), depth];
+    const m = new Float32Array(16);
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) m[c * 4 + r] = rows[r][c];
+    return m;
+  }
+
   const GL_FLOATS = 11; // per vertex: position (3), color (4), uv (4)
   const UV_NONE = [0, 0, 0, 0];
 
   // Triangles drawn together. `opts`: `transparent` (sorted, doesn't hide what is behind it),
   // `tex` ({ key, source }: the texture, made from the canvas or image `source()` returns, once per key)
-  // and `proj` (for MODE.picture: the camera pose, picture aspect and reach). Overlays are drawn
+  // and `proj` (for MODE.picture: the camera pose, picture aspect and reach; with `shadow`, a `key`
+  // naming the camera, and what the occluders hide from it is left out). Overlays are drawn
   // right after it, on top of it (they lie in its plane).
   class Mesh {
     constructor(mode = MODE.flat, opts = {}) {
@@ -2803,12 +2848,14 @@ void main() {
     constructor(canvas, onRestored) {
       this.canvas = canvas;
       this.textures = new Map(); // key -> { tex, frame }
+      this.shadows = new Map(); // camera key -> { fb, tex, rb, w, h, frame }
       this.frame = 0;
       this.lost = false;
       canvas.addEventListener('webglcontextlost', (ev) => {
         ev.preventDefault();
         this.lost = true;
         this.textures.clear();
+        this.shadows.clear();
       });
       canvas.addEventListener('webglcontextrestored', () => {
         this.lost = false;
@@ -2834,25 +2881,31 @@ void main() {
         if (!gl.getShaderParameter(s, gl.COMPILE_STATUS) && !gl.isContextLost()) throw new Error(gl.getShaderInfoLog(s));
         return s;
       };
-      const prog = gl.createProgram();
-      gl.attachShader(prog, shader(gl.VERTEX_SHADER, GL_VERTEX));
-      gl.attachShader(prog, shader(gl.FRAGMENT_SHADER, GL_FRAGMENT));
-      gl.linkProgram(prog);
-      if (!gl.getProgramParameter(prog, gl.LINK_STATUS) && !gl.isContextLost()) throw new Error(gl.getProgramInfoLog(prog));
-      gl.useProgram(prog);
-      this.u = {};
-      for (const name of ['uView', 'uMode', 'uTex', 'uC', 'uFwd', 'uRight', 'uUp', 'uF', 'uAspect', 'uReach']) {
-        this.u[name] = gl.getUniformLocation(prog, name);
-      }
+      // Both programs read the same vertices: their attributes get the same locations.
+      const attributes = [['aPos', 3, 0], ['aColor', 4, 3], ['aUV', 4, 7]];
+      const program = (vertex, fragment, uniforms) => {
+        const prog = gl.createProgram();
+        gl.attachShader(prog, shader(gl.VERTEX_SHADER, vertex));
+        gl.attachShader(prog, shader(gl.FRAGMENT_SHADER, fragment));
+        attributes.forEach(([name], loc) => gl.bindAttribLocation(prog, loc, name));
+        gl.linkProgram(prog);
+        if (!gl.getProgramParameter(prog, gl.LINK_STATUS) && !gl.isContextLost()) throw new Error(gl.getProgramInfoLog(prog));
+        const u = { prog };
+        for (const name of uniforms) u[name] = gl.getUniformLocation(prog, name);
+        return u;
+      };
+      this.depth = program(GL_DEPTH_VERTEX, GL_DEPTH_FRAGMENT, ['uView', 'uC', 'uFwd', 'uReach']);
+      this.u = program(GL_VERTEX, GL_FRAGMENT, ['uView', 'uMode', 'uTex', 'uC', 'uFwd', 'uRight', 'uUp', 'uF', 'uAspect', 'uReach', 'uShadow', 'uShadowOn']);
+      gl.useProgram(this.u.prog);
       this.buffer = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
       const stride = GL_FLOATS * 4;
-      [['aPos', 3, 0], ['aColor', 4, 3], ['aUV', 4, 7]].forEach(([name, size, offset]) => {
-        const loc = gl.getAttribLocation(prog, name);
+      attributes.forEach(([, size, offset], loc) => {
         gl.enableVertexAttribArray(loc);
         gl.vertexAttribPointer(loc, size, gl.FLOAT, false, stride, offset * 4);
       });
       gl.uniform1i(this.u.uTex, 0);
+      gl.uniform1i(this.u.uShadow, 1);
       gl.enable(gl.DEPTH_TEST);
       gl.depthFunc(gl.LEQUAL);
       gl.enable(gl.BLEND);
@@ -2896,9 +2949,66 @@ void main() {
       return t.tex;
     }
 
+    // The shadow map of a camera (`proj`), drawn from the occluders' vertices (`first`, `count`
+    // in the buffer); null when it can't be made.
+    _shadow(proj, first, count) {
+      const gl = this.gl;
+      const w = SHADOW_PX;
+      const h = Math.max(1, Math.round(SHADOW_PX / proj.aspect));
+      let sm = this.shadows.get(proj.key);
+      if (sm && (sm.w !== w || sm.h !== h)) {
+        this._freeShadow(sm);
+        sm = null;
+      }
+      if (!sm) {
+        sm = { w, h, fb: gl.createFramebuffer(), tex: gl.createTexture(), rb: gl.createRenderbuffer() };
+        gl.bindTexture(gl.TEXTURE_2D, sm.tex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        // Packed distances can't be blended: no filtering.
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.bindRenderbuffer(gl.RENDERBUFFER, sm.rb);
+        gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, w, h);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, sm.fb);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, sm.tex, 0);
+        gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, sm.rb);
+        sm.ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+        this.shadows.set(proj.key, sm);
+      }
+      sm.frame = this.frame;
+      if (!sm.ok) return null;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, sm.fb);
+      gl.viewport(0, 0, w, h);
+      gl.clearColor(1, 1, 1, 1); // farther than anything
+      gl.depthMask(true);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      gl.useProgram(this.depth.prog);
+      gl.uniformMatrix4fv(this.depth.uView, false, pictureMatrix(proj));
+      gl.uniform3fv(this.depth.uC, proj.C);
+      gl.uniform3fv(this.depth.uFwd, proj.fwd);
+      gl.uniform1f(this.depth.uReach, proj.reach);
+      gl.disable(gl.BLEND);
+      gl.disable(gl.POLYGON_OFFSET_FILL);
+      gl.drawArrays(gl.TRIANGLES, first, count);
+      gl.enable(gl.BLEND);
+      gl.useProgram(this.u.prog);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      return sm.tex;
+    }
+
+    _freeShadow(sm) {
+      const gl = this.gl;
+      gl.deleteFramebuffer(sm.fb);
+      gl.deleteTexture(sm.tex);
+      gl.deleteRenderbuffer(sm.rb);
+    }
+
     // Draws `meshes` (opaque ones in their order, then the transparent ones from the farthest from
-    // `eye`) on a canvas of `w` x `h` CSS px, with the `view` matrix.
-    draw(meshes, view, w, h, eye) {
+    // `eye`) on a canvas of `w` x `h` CSS px, with the `view` matrix. `occluders` (a mesh) hide
+    // from the cameras the parts of the scene their pictures don't reach.
+    draw(meshes, view, w, h, eye, occluders = null) {
       const gl = this.gl;
       this.frame++;
       const dpr = Math.min(window.devicePixelRatio || 1, 3);
@@ -2908,11 +3018,6 @@ void main() {
         this.canvas.width = cw;
         this.canvas.height = ch;
       }
-      gl.viewport(0, 0, cw, ch);
-      gl.clearColor(0, 0, 0, 0);
-      gl.depthMask(true);
-      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
       const opaque = meshes.filter((m) => !m.transparent);
       const far = meshes
         .filter((m) => m.transparent)
@@ -2924,11 +3029,12 @@ void main() {
         list.push({ m, over: false });
         for (const o of m.overlays) list.push({ m: o, over: true, transparent: m.transparent });
       }
-      let total = 0;
+      const occ = { m: occluders || new Mesh() };
+      let total = occ.m.data.length;
       for (const x of list) total += x.m.data.length;
       const data = new Float32Array(total);
       let at = 0;
-      for (const x of list) {
+      for (const x of [...list, occ]) {
         x.first = at / GL_FLOATS;
         x.count = x.m.data.length / GL_FLOATS;
         data.set(x.m.data, at);
@@ -2936,6 +3042,18 @@ void main() {
       }
       gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
       gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
+
+      // Shadow maps first: they use the framebuffer.
+      const shadows = new Map();
+      for (const x of list) {
+        const p = x.m.proj;
+        if (p && p.shadow && occ.count && !shadows.has(p.key)) shadows.set(p.key, this._shadow(p, occ.first, occ.count));
+      }
+
+      gl.viewport(0, 0, cw, ch);
+      gl.clearColor(0, 0, 0, 0);
+      gl.depthMask(true);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       gl.uniformMatrix4fv(this.u.uView, false, view);
 
       for (const x of list) {
@@ -2955,6 +3073,13 @@ void main() {
           gl.uniform1f(this.u.uF, p.f);
           gl.uniform1f(this.u.uAspect, p.aspect);
           gl.uniform1f(this.u.uReach, p.reach);
+          const shadow = p.shadow ? shadows.get(p.key) : null;
+          gl.uniform1i(this.u.uShadowOn, shadow ? 1 : 0);
+          if (shadow) {
+            gl.activeTexture(gl.TEXTURE1);
+            gl.bindTexture(gl.TEXTURE_2D, shadow);
+            gl.activeTexture(gl.TEXTURE0);
+          }
         }
         gl.uniform1i(this.u.uMode, m.mode);
         // Overlays and transparent meshes don't hide what is drawn after them.
@@ -2971,6 +3096,15 @@ void main() {
           this.textures.delete(key);
         }
       }
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+      gl.activeTexture(gl.TEXTURE0);
+      for (const [key, sm] of this.shadows) {
+        if (sm.frame !== this.frame) {
+          this._freeShadow(sm);
+          this.shadows.delete(key);
+        }
+      }
     }
 
     // Frees the context right away (browsers only keep a few of them).
@@ -2980,6 +3114,7 @@ void main() {
       if (ext) ext.loseContext();
       this.gl = null;
       this.textures.clear();
+      this.shadows.clear();
     }
   }
 
@@ -3074,69 +3209,97 @@ void main() {
     return M.map((row, i) => row[n] / row[i]);
   }
 
-  // Direction, tilt, field of view and height of a camera standing at (x, y) that best show each
-  // floor point `p` (plan) at `uv` (picture): Levenberg-Marquardt least squares, from a few starts.
-  // `rms` is the remaining error, in picture widths.
-  function solveCamera(start, x, y, pairs, aspect) {
-    const lo = [-Infinity, -45, 10, 0.1];
+  // Direction, tilt, field of view and height of a camera standing at (x, y) that best show each world
+  // point `P` at `uv` (picture), with weight `w` (default 1): Levenberg-Marquardt least squares from
+  // `start` ([direction, tilt, fov, height]). Only the parameters whose indexes are in `free` change,
+  // and a slight pull towards `start` keeps them steady where the points leave them undetermined.
+  // `rms` is the remaining error of the points, in picture widths.
+  function solveCamera(start, x, y, pairs, aspect, free = [0, 1, 2, 3]) {
+    const lo = [-Infinity, -45, 20, 0.1];
     const hi = [Infinity, 89, 170, 10];
-    const residuals = (q) => {
+    const pull = [1e-4, 1e-4, 1e-4, 1e-3]; // per degree, per meter
+    const full = (p) => {
+      const q = [...start];
+      free.forEach((j, k) => (q[j] = p[k]));
+      return q;
+    };
+    const errors = (q) => {
       const pose = poseOf(q[0], q[1], q[2], [x, y, q[3]]);
-      return pairs.flatMap(({ p, uv }) => {
-        const s = toPicture(pose, [p[0], p[1], 0], aspect);
-        return s ? [s[0] - uv[0], s[1] - uv[1]] : [3, 3];
+      return pairs.flatMap(({ P, uv, w = 1 }) => {
+        const s = toPicture(pose, P, aspect);
+        return s ? [(s[0] - uv[0]) * w, (s[1] - uv[1]) * w] : [3 * w, 3 * w];
       });
     };
+    const residuals = (p) => [...errors(full(p)), ...free.map((j, k) => (p[k] - start[j]) * pull[j])];
     const cost = (r) => r.reduce((sum, v) => sum + v * v, 0);
-    const fit = (q0) => {
-      let q = q0.map((v, j) => clamp(v, lo[j], hi[j]));
-      let r = residuals(q);
-      let c = cost(r);
-      let lambda = 1e-3;
-      for (let iter = 0; iter < 200 && c > 1e-14; iter++) {
-        // J[j][i]: derivative of residual i by parameter j.
-        const J = q.map((_, j) => {
-          const h = j === 3 ? 1e-4 : 1e-3;
-          const rp = residuals(q.map((v, l) => (l === j ? v + h : v)));
-          const rm = residuals(q.map((v, l) => (l === j ? v - h : v)));
-          return rp.map((v, i) => (v - rm[i]) / (2 * h));
-        });
-        const A = J.map((Jj) => J.map((Jl) => Jj.reduce((sum, v, i) => sum + v * Jl[i], 0)));
-        const g = J.map((Jj) => -Jj.reduce((sum, v, i) => sum + v * r[i], 0));
-        let next = null;
-        while (lambda < 1e10) {
-          const step = solveLinear(A.map((row, j) => row.map((v, l) => (j === l ? v + lambda * (v || 1e-9) : v))), g);
-          if (step) {
-            const qn = q.map((v, j) => clamp(v + step[j], lo[j], hi[j]));
-            const rn = residuals(qn);
-            if (cost(rn) < c) {
-              next = { q: qn, r: rn };
-              break;
-            }
+    let p = free.map((j) => clamp(start[j], lo[j], hi[j]));
+    let r = residuals(p);
+    let c = cost(r);
+    let lambda = 1e-3;
+    for (let iter = 0; iter < 100 && c > 1e-14; iter++) {
+      // J[k][i]: derivative of residual i by free parameter k.
+      const J = p.map((_, k) => {
+        const h = free[k] === 3 ? 1e-4 : 1e-3;
+        const rp = residuals(p.map((v, l) => (l === k ? v + h : v)));
+        const rm = residuals(p.map((v, l) => (l === k ? v - h : v)));
+        return rp.map((v, i) => (v - rm[i]) / (2 * h));
+      });
+      const A = J.map((Jk) => J.map((Jl) => Jk.reduce((sum, v, i) => sum + v * Jl[i], 0)));
+      const g = J.map((Jk) => -Jk.reduce((sum, v, i) => sum + v * r[i], 0));
+      let next = null;
+      while (lambda < 1e10) {
+        const step = solveLinear(A.map((row, k) => row.map((v, l) => (k === l ? v + lambda * (v || 1e-9) : v))), g);
+        if (step) {
+          const pn = p.map((v, k) => clamp(v + step[k], lo[free[k]], hi[free[k]]));
+          const rn = residuals(pn);
+          if (cost(rn) < c) {
+            next = { p: pn, r: rn };
+            break;
           }
-          lambda *= 4;
         }
-        if (!next) break;
-        const gain = c - cost(next.r);
-        ({ q, r } = next);
-        c = cost(r);
-        lambda = Math.max(lambda / 3, 1e-12);
-        if (gain < 1e-14) break;
+        lambda *= 4;
       }
-      return { q, c };
+      if (!next) break;
+      const gain = c - cost(next.r);
+      ({ p, r } = next);
+      c = cost(r);
+      lambda = Math.max(lambda / 3, 1e-12);
+      if (gain < 1e-16) break;
+    }
+    const [direction, tilt, fov, height] = full(p);
+    const e = errors([direction, tilt, fov, height]).map((v, i) => v / (pairs[i >> 1].w || 1));
+    return { direction: ((direction % 360) + 360) % 360, tilt, fov, height, rms: Math.sqrt(cost(e) / pairs.length) };
+  }
+
+  // How far points `P` show from their place `uv` in the picture with a pose (rms, in picture widths).
+  function matchError(pose, pairs, aspect) {
+    const d2 = pairs.map(({ P, uv }) => {
+      const s = toPicture(pose, P, aspect);
+      return s ? (s[0] - uv[0]) ** 2 + (s[1] - uv[1]) ** 2 : 1;
+    });
+    return Math.sqrt(d2.reduce((a, b) => a + b, 0) / pairs.length);
+  }
+
+  // Corners of rooms to line the camera's picture up with: floor corners, and the tops of the walls
+  // indoors. Rooms sharing a corner give it once. With `outline` (an outdoor camera), only the corners
+  // where the outline of the indoor rooms turns, the ones seen from outside.
+  function planCorners(rooms, wallHeight, outline = false) {
+    const indoor = rooms.filter((r) => !r.outdoor);
+    const turns = (x, y) => {
+      const inside = [[-1, -1], [1, -1], [1, 1], [-1, 1]].filter(([sx, sy]) => indoor.some((r) => roomContains(r, x + sx * 0.05, y + sy * 0.05, 0))).length;
+      return inside === 1 || inside === 3;
     };
-    // Starts: the current setting, and the camera looking at the points.
-    const cx = pairs.reduce((sum, pr) => sum + pr.p[0], 0) / pairs.length - x;
-    const cy = pairs.reduce((sum, pr) => sum + pr.p[1], 0) / pairs.length - y;
-    const toward = (Math.atan2(cx, -cy) * 180) / Math.PI;
-    const tilt = (Math.atan2(start.height, Math.hypot(cx, cy)) * 180) / Math.PI;
-    const starts = [
-      [start.direction, start.tilt, start.fov, start.height],
-      ...[60, 90, 120].map((fov) => [toward, tilt, fov, start.height]),
-    ];
-    const best = starts.map(fit).reduce((a, b) => (b.c < a.c ? b : a));
-    const [direction, t, fov, height] = best.q;
-    return { direction: ((direction % 360) + 360) % 360, tilt: t, fov, height, rms: Math.sqrt(best.c / pairs.length) };
+    const corners = new Map();
+    for (const r of rooms) {
+      for (const [x, y] of [[r.x, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h], [r.x, r.y + r.h]]) {
+        if (outline && !r.outdoor && !turns(x, y)) continue;
+        for (const z of r.outdoor ? [0] : [0, wallHeight]) {
+          const P = [round2(x), round2(y), z];
+          corners.set(P.join(','), P);
+        }
+      }
+    }
+    return [...corners].map(([key, P]) => ({ key, P }));
   }
 
   // Lines of a floor's rooms, as seen by its cameras: floor outlines, and the corners and tops of the walls.
@@ -4025,12 +4188,12 @@ void main() {
       ];
       const mode = this.config.screen_mode || 'world';
       const dark = !!(this.hass.themes && this.hass.themes.darkMode);
-      const { meshes, screens, radius } = this._buildScene(s, eye, [Math.sin(a), Math.cos(a)], mode, this._colors3d(dark));
+      const { meshes, occluders, screens, radius } = this._buildScene(s, eye, [Math.sin(a), Math.cos(a)], mode, this._colors3d(dark));
       // Every camera of the home, for the camera bar, even those whose floor isn't shown.
       const cameras = s.all.flatMap((p) => p.items.filter((it) => it.role === 'camera').map((it) => ({ id: it.id, item: it, k: p.k })));
       this._scene3dState = { vp, home, screens, cameras, floors: floors.length, orbit };
       const near = Math.max(1, orbit.dist * 0.01);
-      this._frame3d = { meshes, view: viewMatrix(orbit, vp, near, orbit.dist + 2 * radius * U3 + 100), vp, eye };
+      this._frame3d = { meshes, occluders, view: viewMatrix(orbit, vp, near, orbit.dist + 2 * radius * U3 + 100), vp, eye };
       // Billboards are laid out for where the view goes: they slide there (CSS transition).
       const boards = mode === 'billboard' && !this._focus ? this._layoutBillboards(screens, target, vp) : [];
       const focused = this._focus ? screens.find((sc) => sc.id === this._focus) : null;
@@ -4081,7 +4244,7 @@ void main() {
         const failed = !this._gl || !this._gl.gl;
         if (failed !== !!this._glFailed) this._glFailed = failed;
       }
-      if (this._gl && this._gl.ok) this._gl.draw(frame.meshes, frame.view, frame.vp.w, frame.vp.h, frame.eye);
+      if (this._gl && this._gl.ok) this._gl.draw(frame.meshes, frame.view, frame.vp.w, frame.vp.h, frame.eye, frame.occluders);
     }
 
     _dropGl() {
@@ -4238,17 +4401,35 @@ void main() {
               indoor,
               pose: sc.pose,
               room: indoor ? p.indoor[roomAt(p.indoor, it.x, it.y)] : null,
+              // Indoors, a picture only goes onto its own room: nothing can hide it.
               mesh: () =>
                 new Mesh(MODE.picture, {
                   tex: { key: `picture:${snap.url}`, source: () => scaledPicture(snap.img, PICTURE_PX) },
-                  proj: { C, fwd, right, up, f, aspect: snap.aspect, reach: PROJ_REACH },
+                  proj: { C, fwd, right, up, f, aspect: snap.aspect, reach: PROJ_REACH, shadow: !indoor, key: it.id },
                 }),
             });
           }
         }
       }
+      // What hides the outdoor pictures: the home as it stands, every floor with its outer walls up
+      // and its roof on, whatever the view shows or cuts away.
+      let occluders = null;
+      if (projectors.some((pr) => !pr.indoor)) {
+        occluders = new Mesh();
+        for (const p of s.all) {
+          for (const seg of wallSegments(p.indoor)) {
+            if (!seg.normal) continue;
+            const o = seg.o === 'h' ? [seg.a, seg.at, p.z0 + H] : [seg.at, seg.a, p.z0 + H];
+            const bottom = p.k > 0 ? p.z0 - SLAB : 0;
+            occluders.poly(quad(o, mul3(seg.o === 'h' ? X : Y, seg.b - seg.a), [0, 0, bottom - p.z0 - H]), [0, 0, 0, 1]);
+          }
+          const above = s.all.filter((q) => q.k > p.k).flatMap((q) => q.indoor);
+          for (const rect of roofRects(p.indoor, above)) for (const slope of hipRoof(rect, p.z0 + H)) occluders.poly(slope.pts, [0, 0, 0, 1]);
+        }
+      }
       // A projected picture goes onto the floor and walls of the camera's room, or outdoors onto the
-      // ground, the outdoor rooms of its floor, and the outer walls and roof slopes facing it.
+      // ground, the outdoor rooms of its floor, and the outer walls and roof slopes facing it (minus
+      // what the occluders hide from the camera).
       const indoorProjectors = (k, room = null) => projectors.filter((pr) => pr.indoor && pr.room && pr.k === k && (!room || pr.room === room));
       const outdoorProjectors = (k) => projectors.filter((pr) => !pr.indoor && (k === null || pr.k === k));
       // Pictures of `list` cast onto the polygon `pts`, over `mesh`.
@@ -4378,7 +4559,7 @@ void main() {
         }
       }
       const radius = Math.hypot(g.maxX - g.minX, g.maxY - g.minY, s.all.length * (H + SLAB) + H);
-      return { meshes, screens, radius };
+      return { meshes, occluders, screens, radius };
     }
 
     // A window of `len` x `height` on a wall, its top-left corner at `o` and its length along `dir`:
@@ -5841,17 +6022,19 @@ void main() {
         _search: { state: true },
         _filter: { state: true },
         _history: { state: true },
-        _calib: { state: true },
+        _pins: { state: true },
+        _camDrag: { state: true },
         _snapTick: { state: true },
       };
     }
 
     constructor() {
       super();
-      this._calib = null; // point matching of the selected camera: { index, id, img: [[u, v]], plan: [[x, y]], solution }
+      this._pins = null; // corners pinned on the selected camera's picture: { index, id, list: [{ key, P, uv }] }
+      this._camDrag = null; // drag in progress on the camera's picture
       this._snapTick = 0; // bumps to reload the camera view's snapshot
       this._aspects = {}; // camera id -> picture aspect ratio
-      this._picWidths = {}; // camera id -> picture width (px), to show the matching error in pixels
+      this._picWidths = {}; // camera id -> picture width (px), to show the pins' error in pixels
       this._floorIndex = 0;
       this._selection = null; // { kind: 'room' | 'entity', index }
       this._drag = null;
@@ -5907,6 +6090,7 @@ void main() {
       const previous = this._history[this._history.length - 1];
       this._history = this._history.slice(0, -1);
       this._selection = null;
+      this._pins = null;
       this._extentCache = null;
       this._setFloors(previous);
     }
@@ -6011,7 +6195,7 @@ void main() {
 
         <!-- Plan and entity list side by side when the editor is wide enough (container query). -->
         <div class="workspace">
-          <div class="main">${this._renderCanvas(floor)} ${this._renderSelection(floors[fi])}</div>
+          <div class="main">${this._renderCanvas(floor)} ${this._renderSelection(floor)}</div>
           ${this._renderPalette(floors)}
         </div>
 
@@ -6030,8 +6214,11 @@ void main() {
     // The floor as currently displayed: the stored one with the drag in progress applied.
     _applyDrag(floor) {
       const d = this._drag;
-      if (!d || !d.moved) return floor;
+      const c = this._camDrag && this._camDrag.moved ? this._camDrag : null;
+      if ((!d || !d.moved) && !c) return floor;
       const copy = { ...floor, rooms: [...(floor.rooms || [])], entities: [...(floor.entities || [])] };
+      if (c && copy.entities[c.index]) copy.entities[c.index] = { ...copy.entities[c.index], ...c.settings };
+      if (!d || !d.moved) return copy;
       if (d.type === 'draw') copy.rooms.push({ ...d.rect, name: '' });
       if (d.type === 'move' || d.type === 'resize') {
         copy.rooms[d.index] = { ...copy.rooms[d.index], ...d.rect };
@@ -6101,7 +6288,6 @@ void main() {
         selectedItem && selectedItem.camera
           ? { item: selectedItem, x: selectedItem.x + selectedItem.camera.dx * AIM_HANDLE, y: selectedItem.y + selectedItem.camera.dy * AIM_HANDLE }
           : null;
-      const calib = selectedItem ? this._activeCalib(selectedItem) : null;
 
       return b`
       <div
@@ -6170,12 +6356,6 @@ void main() {
           ${aim
             ? b`<div class="handle aim" data-kind="aim" title="Drag to aim the camera"
                 style="left: ${px(aim.x)}%; top: ${py(aim.y)}%;"></div>`
-            : A}
-          ${calib
-            ? calib.plan.map(
-                (p, i) => b`<div class="calib-pt" data-kind="calib" data-i=${i} title="Drag onto the spot of point ${i + 1} in the picture"
-                  style="left: ${px(p[0])}%; top: ${py(p[1])}%; --c: ${CALIB_COLORS[i]};">${i + 1}</div>`
-              )
             : A}
           ${ghost
             ? b`<div class="e-entity ghost" style="left: ${px(ghost.pos.x)}%; top: ${py(ghost.pos.y)}%;">
@@ -6304,8 +6484,9 @@ void main() {
     }
 
     // The selected camera's picture with the plan drawn over it, as the camera sees it with its current
-    // settings: they are right when the lines follow the room in the picture. Point matching computes
-    // them from points of the floor found both in the picture and on the plan.
+    // settings: they are right when the lines follow the room in the picture. Dragging a corner of the
+    // outline onto the same corner in the picture sets them: the first corner turns the camera, the
+    // corners pinned after it also set its field of view and height.
     _renderCameraView(floor, index) {
       const plan = resolveFloor(this.hass, floor);
       const item = plan.items[index];
@@ -6315,112 +6496,67 @@ void main() {
       const aspect = this._aspects[item.id] || 16 / 9;
       const wallHeight = this._wallHeight();
       const pose = cameraPose(item.camera, [item.x, item.y, cameraHeight(item.camera, wallHeight)]);
-      const calib = this._activeCalib(item);
+      const pins = this._pinsOf(item);
       const header = b`<div class="cv-header">
       <span>Camera view</span>
-      ${pic
-        ? b`<button class="btn flat" title="Reload the picture" @click=${() => this._snapTick++}><ha-icon icon="mdi:refresh"></ha-icon></button>
-            <button class="btn ${calib ? '' : 'flat'}" @click=${() => this._toggleCalib(item, pose, aspect)}>
-              <ha-icon icon="mdi:target"></ha-icon> ${calib ? 'Stop matching' : 'Match points'}
-            </button>`
+      ${pic && pins.length
+        ? b`<button class="btn flat" @click=${() => (this._pins = null)}><ha-icon icon="mdi:pin-off-outline"></ha-icon> Unpin</button>`
         : A}
+      ${pic ? b`<button class="btn flat" title="Reload the picture" @click=${() => this._snapTick++}><ha-icon icon="mdi:refresh"></ha-icon></button>` : A}
     </div>`;
       if (!pic) return b`<div class="cv-section">${header}<div class="muted">No picture: the camera is unavailable.</div></div>`;
 
-      const sol = calib && calib.solution;
-      const solPose = sol ? poseOf(sol.direction, sol.tilt, sol.fov, [item.x, item.y, sol.height]) : null;
       // An indoor camera only sees its room: the lines of the others would show through its walls.
       const ownRoom = item.camera.indoor ? plan.indoor[roomAt(plan.indoor, item.x, item.y)] : null;
-      const lines = planLines(ownRoom ? [ownRoom] : plan.rooms, wallHeight);
-      const draw = (ps, cls) =>
-        lines.map((l) => {
-          const seg = segmentToPicture(ps, l.P, l.Q, aspect);
-          return seg
-            ? w`<line class="${cls} ${l.outdoor ? 'outdoor' : ''}" x1=${seg[0][0]} y1=${seg[0][1]} x2=${seg[1][0]} y2=${seg[1][1]}></line>`
-            : A;
+      const rooms = ownRoom ? [ownRoom] : plan.rooms;
+      const lines = planLines(rooms, wallHeight).map((l) => {
+        const seg = segmentToPicture(pose, l.P, l.Q, aspect);
+        return seg
+          ? w`<line class="cv-line ${l.outdoor ? 'outdoor' : ''}" x1=${seg[0][0]} y1=${seg[0][1]} x2=${seg[1][0]} y2=${seg[1][1]}></line>`
+          : A;
+      });
+      // Corners a little out of the picture wait on its edge, to be dragged in.
+      const pinned = new Map(pins.map((p) => [p.key, p]));
+      const near = (uv) => uv && uv[0] > -1 && uv[0] < 2 && uv[1] > -1 / aspect && uv[1] < 2 / aspect;
+      const edge = 0.02;
+      const corners = planCorners(rooms, wallHeight, !ownRoom)
+        .map((c) => ({ ...c, uv: toPicture(pose, c.P, aspect) }))
+        .filter((c) => near(c.uv))
+        .map((c) => {
+          const uv = [clamp(c.uv[0], edge, 1 - edge), clamp(c.uv[1], edge, 1 / aspect - edge)];
+          return { ...c, uv, outside: uv[0] !== c.uv[0] || uv[1] !== c.uv[1] };
         });
-      // Where the plan points land in the picture: on their picture points when the settings are right.
-      const landed = calib ? calib.plan.map((p) => toPicture(solPose || pose, [p[0], p[1], 0], aspect)) : [];
       const at = (uv) => `left: ${round2(uv[0] * 100)}%; top: ${round2(uv[1] * aspect * 100)}%;`;
-      const pxError = sol ? Math.round(sol.rms * (this._picWidths[item.id] || PROJ_PX)) : 0;
+      const width = this._picWidths[item.id] || PROJ_PX;
+      // Pins off their corner (more pins than the settings can satisfy, or settings changed since).
+      const off = pins.filter((p) => {
+        const uv = toPicture(pose, p.P, aspect);
+        return !uv || Math.hypot(uv[0] - p.uv[0], uv[1] - p.uv[1]) * width > 3;
+      });
+      const error = pins.length > 2 ? Math.round(matchError(pose, pins, aspect) * width) : null;
+      const hint = [
+        'Drag a corner of the outline (floor or top of a wall) onto the same corner in the picture: the camera turns to follow. Drag elsewhere to look around.',
+        'Pinned. Now drag a second corner, far from the first, onto its place in the picture: the field of view and height adjust too.',
+      ][pins.length] || `The settings follow the pinned corners${error !== null ? ` (error ${error} px)` : ''}. Drag another corner to check them, tap a pin to remove it.`;
 
       return b`<div class="cv-section">
       ${header}
-      <div class="cv" style="aspect-ratio: ${aspect};" @pointerdown=${this._cvDown} @pointermove=${this._cvMove}
-        @pointerup=${this._cvUp} @pointercancel=${this._cvUp}>
+      <div class="cv ${pins.length ? 'pinned' : ''}" style="aspect-ratio: ${aspect};" @pointerdown=${(ev) => this._cvDown(ev, item, aspect)}
+        @pointermove=${this._cvMove} @pointerup=${this._cvUp} @pointercancel=${this._cvUp}>
         <img alt="" src="${pic}${pic.includes('?') ? '&' : '?'}t=${this._snapTick}" @load=${(ev) => this._learnAspect(item.id, ev.target)} />
-        <svg viewBox="0 0 1 ${1 / aspect}" preserveAspectRatio="none">
-          ${draw(pose, 'cv-line')} ${solPose ? draw(solPose, 'cv-line solution') : A}
-        </svg>
-        ${landed.map((uv, i) => (uv ? b`<div class="cv-ring" style="${at(uv)} --c: ${CALIB_COLORS[i]};"></div>` : A))}
-        ${calib
-          ? calib.img.map((uv, i) => b`<div class="cv-pt" data-i=${i} style="${at(uv)} --c: ${CALIB_COLORS[i]};">${i + 1}</div>`)
-          : A}
+        <svg viewBox="0 0 1 ${1 / aspect}" preserveAspectRatio="none">${lines}</svg>
+        ${off.map((p) => b`<div class="cv-pin" style=${at(p.uv)}></div>`)}
+        ${corners.map(
+          (c) => b`<div class="cv-corner ${pinned.has(c.key) ? 'pinned' : ''} ${c.outside ? 'outside' : ''}" data-key=${c.key}
+            title=${pinned.has(c.key) ? 'Pinned: drag to move, tap to remove' : c.outside ? 'Out of the picture: drag it in' : 'Drag onto this corner in the picture'}
+            style=${at(c.uv)}></div>`
+        )}
       </div>
-      ${calib ? this._renderMatchPlan(plan, item, calib) : A}
       <div class="hint">
         <ha-icon icon="mdi:information-outline"></ha-icon>
-        <span>${calib
-          ? 'Drag each numbered point onto a spot of the floor you can recognize in the picture (a corner of the room, of a rug…), then the same number onto that spot on the plan. The rings show where the plan points land with the computed settings: apply them when each ring sits on its point.'
-          : 'The lines are your plan as this camera sees it with the settings above: floor outlines, wall corners and tops. Change the settings until the lines follow the picture, or match points to compute them.'}</span>
+        <span>${hint}</span>
       </div>
-      ${sol
-        ? b`<div class="cv-solution">
-            <span>Direction ${Math.round(sol.direction)}°, tilt ${Math.round(sol.tilt)}°, field of view ${Math.round(sol.fov)}°,
-              height ${round2(sol.height)} · error ${pxError} px</span>
-            <button class="btn" @click=${this._applyCalib}>Apply</button>
-          </div>`
-        : A}
     </div>`;
-    }
-
-    // The floor with the numbered points, right under the picture, so that both are in view while
-    // matching (the editor's plan may be far above, past the entity list).
-    _renderMatchPlan(plan, item, calib) {
-      const xs = [item.x, ...plan.rooms.flatMap((r) => [r.x, r.x + r.w])];
-      const ys = [item.y, ...plan.rooms.flatMap((r) => [r.y, r.y + r.h])];
-      const pad = 0.5;
-      const vb = { x: Math.min(...xs) - pad, y: Math.min(...ys) - pad };
-      vb.w = Math.max(...xs) + pad - vb.x;
-      vb.h = Math.max(...ys) + pad - vb.y;
-      this._matchView = vb;
-      const at = (x, y) => `left: ${round2(((x - vb.x) / vb.w) * 100)}%; top: ${round2(((y - vb.y) / vb.h) * 100)}%;`;
-      return b`<div class="cv-plan" style="aspect-ratio: ${round2(vb.w)} / ${round2(vb.h)}; width: min(100%, ${round2((260 * vb.w) / vb.h)}px);"
-      @pointerdown=${this._mpDown} @pointermove=${this._mpMove} @pointerup=${this._mpUp} @pointercancel=${this._mpUp}>
-      <svg viewBox="${vb.x} ${vb.y} ${vb.w} ${vb.h}" preserveAspectRatio="none">
-        ${plan.rooms.map((r) => w`<rect class="mp-room ${r.outdoor ? 'outdoor' : ''}" x=${r.x} y=${r.y} width=${r.w} height=${r.h}></rect>`)}
-        <path class="e-cone" d=${conePath(item)}></path>
-      </svg>
-      <div class="mp-cam" style=${at(item.x, item.y)}></div>
-      ${calib.plan.map((p, i) => b`<div class="cv-pt" data-i=${i} style="${at(p[0], p[1])} --c: ${CALIB_COLORS[i]};">${i + 1}</div>`)}
-    </div>`;
-    }
-
-    _mpDown(ev) {
-      const pt = ev.target.closest ? ev.target.closest('.cv-pt') : null;
-      if (!pt || !this._calib) return;
-      ev.preventDefault();
-      ev.currentTarget.setPointerCapture(ev.pointerId);
-      this._mpDrag = { i: Number(pt.dataset.i), el: ev.currentTarget, pointerId: ev.pointerId, vb: this._matchView };
-    }
-
-    _mpMove(ev) {
-      const d = this._mpDrag;
-      if (!d || ev.pointerId !== d.pointerId || !this._calib) return;
-      const r = d.el.getBoundingClientRect();
-      const plan = [...this._calib.plan];
-      plan[d.i] = [
-        round2(d.vb.x + clamp((ev.clientX - r.left) / r.width, 0, 1) * d.vb.w),
-        round2(d.vb.y + clamp((ev.clientY - r.top) / r.height, 0, 1) * d.vb.h),
-      ];
-      this._calib = { ...this._calib, plan };
-    }
-
-    _mpUp(ev) {
-      const d = this._mpDrag;
-      if (!d || ev.pointerId !== d.pointerId) return;
-      this._mpDrag = null;
-      this._solveCalib();
     }
 
     _learnAspect(id, img) {
@@ -6433,80 +6569,76 @@ void main() {
       }
     }
 
-    // Point matching of a camera, if it is the one in progress.
-    _activeCalib(item) {
-      const c = this._calib;
-      return c && c.index === item.index && c.id === item.id ? c : null;
+    // Pinned corners ({ key, P, uv }) of a camera (an item, or anything with its index and id),
+    // if it is the one they were pinned on.
+    _pinsOf(item) {
+      const p = this._pins;
+      return p && p.index === item.index && p.id === item.id ? p.list : [];
     }
 
-    // Starts with points the camera sees on the floor with its current settings, so that the points
-    // match until the user moves them.
-    _toggleCalib(item, pose, aspect) {
-      if (this._activeCalib(item)) {
-        this._calib = null;
-        return;
+    _cvPoint(el, ev) {
+      const r = el.getBoundingClientRect();
+      return [clamp((ev.clientX - r.left) / r.width, 0, 1), clamp((ev.clientY - r.top) / r.width, 0, r.height / r.width)];
+    }
+
+    // Dragging on the camera's picture: a corner of the outline, or the picture itself to turn the
+    // camera (only while nothing is pinned: the pins hold it).
+    _cvDown(ev, item, aspect) {
+      if (ev.button !== 0) return;
+      const cam = item.camera;
+      const q = [cam.direction, cam.tilt, cam.fov, cameraHeight(cam, this._wallHeight())];
+      const el = ev.currentTarget;
+      const corner = ev.target.closest ? ev.target.closest('.cv-corner') : null;
+      let key = null;
+      let P;
+      if (corner) {
+        key = corner.dataset.key;
+        P = key.split(',').map(Number);
+      } else {
+        if (this._pinsOf(item).length) return;
+        // A point straight along the line of sight under the pointer: it stays under it.
+        const pose = poseOf(...q.slice(0, 3), [item.x, item.y, q[3]]);
+        const uv = this._cvPoint(el, ev);
+        const ray = add3(add3(pose.fwd, mul3(pose.right, (uv[0] - 0.5) / pose.f)), mul3(pose.up, (0.5 / aspect - uv[1]) / pose.f));
+        P = add3(pose.C, mul3(ray, 5));
       }
-      const cam = item.camera;
-      const guess = [[0.3, 0.6], [0.7, 0.6], [0.3, 0.9], [0.7, 0.9]];
-      const plan = guess.map(([u, v], i) => {
-        const P = fromPicture(pose, [u, v / aspect], aspect, 0);
-        if (P && Math.hypot(P[0] - item.x, P[1] - item.y) < 12) return [round2(P[0]), round2(P[1])];
-        // Not on the floor (the camera looks too high): points ahead of the camera instead.
-        const d = i < 2 ? 3 : 1.5;
-        const l = i % 2 ? 0.75 : -0.75;
-        return [round2(item.x + cam.dx * d - cam.dy * l), round2(item.y + cam.dy * d + cam.dx * l)];
-      });
-      const img = plan.map((p, i) => {
-        const uv = toPicture(pose, [p[0], p[1], 0], aspect) || [guess[i][0], guess[i][1] / aspect];
-        return [clamp(uv[0], 0, 1), clamp(uv[1], 0, 1 / aspect)];
-      });
-      this._calib = { index: item.index, id: item.id, plan, img, solution: null };
-    }
-
-    _solveCalib() {
-      const c = this._calib;
-      const item = c && resolveFloor(this.hass, this._floors()[this._currentFloorIndex()]).items[c.index];
-      if (!item || !item.camera || item.id !== c.id) return;
-      const cam = item.camera;
-      const start = { direction: cam.direction, tilt: cam.tilt, fov: cam.fov, height: cameraHeight(cam, this._wallHeight()) };
-      const pairs = c.plan.map((p, i) => ({ p, uv: c.img[i] }));
-      this._calib = { ...c, solution: solveCamera(start, item.x, item.y, pairs, this._aspects[item.id] || 16 / 9) };
-    }
-
-    _applyCalib() {
-      const c = this._calib;
-      const s = c && c.solution;
-      if (!s) return;
-      const r1 = (v) => Math.round(v * 10) / 10;
-      this._editFloor((floor) => {
-        Object.assign(floor.entities[c.index], { direction: r1(s.direction), tilt: r1(s.tilt), fov: r1(s.fov), height: round2(s.height) });
-      });
-      this._calib = { ...c, solution: null };
-    }
-
-    // Dragging a numbered point on the camera's picture.
-    _cvDown(ev) {
-      const pt = ev.target.closest ? ev.target.closest('.cv-pt') : null;
-      if (!pt || !this._calib) return;
       ev.preventDefault();
-      ev.currentTarget.setPointerCapture(ev.pointerId);
-      this._cvDrag = { i: Number(pt.dataset.i), el: ev.currentTarget, pointerId: ev.pointerId };
+      el.setPointerCapture(ev.pointerId);
+      this._camDrag = { pointerId: ev.pointerId, el, index: item.index, id: item.id, x: item.x, y: item.y, aspect, key, P, q, start: [ev.clientX, ev.clientY], moved: false };
     }
 
     _cvMove(ev) {
-      const d = this._cvDrag;
-      if (!d || ev.pointerId !== d.pointerId || !this._calib) return;
-      const r = d.el.getBoundingClientRect();
-      const img = [...this._calib.img];
-      img[d.i] = [clamp((ev.clientX - r.left) / r.width, 0, 1), clamp((ev.clientY - r.top) / r.width, 0, r.height / r.width)];
-      this._calib = { ...this._calib, img };
+      const c = this._camDrag;
+      if (!c || ev.pointerId !== c.pointerId) return;
+      if (!c.moved && Math.hypot(ev.clientX - c.start[0], ev.clientY - c.start[1]) < 4) return;
+      const uv = this._cvPoint(c.el, ev);
+      const pins = c.key === null ? [] : this._pinsOf(c).filter((p) => p.key !== c.key);
+      // Alone, the corner turns the camera; with pins, all settings follow, the dragged corner first.
+      const pairs = [...pins, { P: c.P, uv, w: pins.length > 1 ? 3 : 1 }];
+      const s = solveCamera(c.q, c.x, c.y, pairs, c.aspect, pins.length ? [0, 1, 2, 3] : [0, 1]);
+      const r1 = (v) => Math.round(v * 10) / 10;
+      const settings = { direction: r1(s.direction), tilt: r1(s.tilt) };
+      if (pins.length) Object.assign(settings, { fov: r1(s.fov), height: round2(s.height) });
+      this._camDrag = { ...c, moved: true, uv, q: [s.direction, s.tilt, s.fov, s.height], settings };
     }
 
     _cvUp(ev) {
-      const d = this._cvDrag;
-      if (!d || ev.pointerId !== d.pointerId) return;
-      this._cvDrag = null;
-      this._solveCalib();
+      const c = this._camDrag;
+      if (!c || ev.pointerId !== c.pointerId) return;
+      this._camDrag = null;
+      const list = this._pinsOf(c).filter((p) => p.key !== c.key);
+      if (!c.moved) {
+        // A tap on a pinned corner unpins it.
+        if (c.key !== null) this._pins = { index: c.index, id: c.id, list };
+        return;
+      }
+      const defaults = this._cameraDefaults(this._floors()[this._currentFloorIndex()], c.index);
+      this._editFloor((floor) => {
+        const e = floor.entities[c.index];
+        Object.assign(e, c.settings);
+        for (const key of ['tilt', 'fov', 'height']) if (num(e[key]) === defaults[key]) delete e[key];
+      });
+      if (c.key !== null) this._pins = { index: c.index, id: c.id, list: [...list, { key: c.key, P: c.P, uv: c.uv }] };
     }
 
     // Cached: the editor re-renders on every pointer move while dragging.
@@ -6641,10 +6773,7 @@ void main() {
       ev.currentTarget.setPointerCapture(ev.pointerId);
       ev.currentTarget.focus();
 
-      if (kind === 'calib' && this._calib) {
-        const i = Number(target.dataset.i);
-        this._drag = { ...base, type: 'calib', i, orig: this._calib.plan[i] };
-      } else if (kind === 'entity') {
+      if (kind === 'entity') {
         const index = Number(target.dataset.index);
         const e = floor.entities[index];
         this._drag = { ...base, type: 'entity', index, id: e.entity, orig: { x: num(e.x), y: num(e.y) }, pos: { x: num(e.x), y: num(e.y) } };
@@ -6705,10 +6834,6 @@ void main() {
         next.rect = { x: left, y: top, w: right - left, h: bottom - top };
       } else if (d.type === 'aim') {
         next.direction = directionOf(p.x - d.center.x, p.y - d.center.y);
-      } else if (d.type === 'calib' && this._calib) {
-        const plan = [...this._calib.plan];
-        plan[d.i] = [round2(inX(d.orig[0] + dx)), round2(inY(d.orig[1] + dy))];
-        this._calib = { ...this._calib, plan };
       } else if (d.type === 'entity') {
         next.outside = !p.inside;
         const floor = this._floors()[this._currentFloorIndex()];
@@ -6722,10 +6847,6 @@ void main() {
       if (!d || d.type === 'palette' || ev.pointerId !== d.pointerId) return;
       this._drag = null;
 
-      if (d.type === 'calib') {
-        if (d.moved) this._solveCalib();
-        return;
-      }
       if (!d.moved) {
         // A plain click selects what is under the pointer.
         if (d.type === 'entity' || d.type === 'aim') this._selection = { kind: 'entity', index: d.index };
@@ -7233,27 +7354,6 @@ void main() {
         width: 16px;
         height: 16px;
       }
-      .calib-pt,
-      .cv-pt {
-        position: absolute;
-        width: 20px;
-        height: 20px;
-        box-sizing: border-box;
-        border-radius: 50%;
-        border: 2px solid #fff;
-        background: var(--c);
-        color: #000;
-        font-size: 11px;
-        font-weight: 700;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transform: translate(-50%, -50%);
-        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
-        pointer-events: auto;
-        cursor: grab;
-        touch-action: none;
-      }
       .cv-section {
         display: flex;
         flex-direction: column;
@@ -7292,6 +7392,7 @@ void main() {
       }
       .cv svg {
         pointer-events: none;
+        filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.9));
       }
       .cv-line {
         stroke: #fff;
@@ -7302,66 +7403,44 @@ void main() {
       .cv-line.outdoor {
         stroke-dasharray: 4 3;
       }
-      .cv-line.solution {
-        stroke: #69f0ae;
-        stroke-width: 2px;
-        stroke-dasharray: 6 3;
-      }
-      .cv-ring {
+      .cv-corner {
         position: absolute;
-        width: 12px;
-        height: 12px;
+        width: 16px;
+        height: 16px;
+        box-sizing: border-box;
         border-radius: 50%;
-        border: 2px solid var(--c);
+        border: 2px solid #fff;
+        background: rgba(0, 0, 0, 0.3);
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
         transform: translate(-50%, -50%);
-        pointer-events: none;
+        cursor: grab;
       }
-      .cv-plan {
-        position: relative;
-        align-self: center;
-        border-radius: 6px;
-        background: var(--secondary-background-color, rgba(127, 127, 127, 0.05));
-        touch-action: none;
-        user-select: none;
-        -webkit-user-select: none;
-      }
-      .cv-plan svg {
+      /* A larger target than the ring, for fingers. */
+      .cv-corner::before {
+        content: '';
         position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-        pointer-events: none;
+        inset: -12px;
+        border-radius: 50%;
       }
-      .mp-room {
-        fill: rgba(var(--rgb-primary-color, 3, 169, 244), 0.08);
-        stroke: var(--fp-wall);
-        stroke-opacity: 0.5;
-        stroke-width: 1.5px;
-        vector-effect: non-scaling-stroke;
+      .cv-corner.pinned {
+        background: var(--primary-color);
       }
-      .mp-room.outdoor {
-        fill: rgba(102, 160, 90, 0.18);
-        stroke-dasharray: 4 3;
+      .cv-corner.outside {
+        border-style: dashed;
+        opacity: 0.8;
       }
-      .mp-cam {
+      .cv-pin {
         position: absolute;
-        width: 10px;
-        height: 10px;
+        width: 8px;
+        height: 8px;
         border-radius: 50%;
         background: var(--primary-color);
-        border: 2px solid var(--card-background-color, #fff);
+        box-shadow: 0 0 0 1px #fff;
         transform: translate(-50%, -50%);
         pointer-events: none;
       }
-      .cv-solution {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 12px;
-        color: var(--primary-text-color);
-      }
-      .cv-solution span {
-        flex: 1;
+      .cv:not(.pinned) {
+        cursor: move;
       }
       .e-room.overlap {
         stroke: var(--error-color, #db4437);
