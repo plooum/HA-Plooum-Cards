@@ -80,6 +80,14 @@ const CAMERA_KEYS = ['fov', 'tilt', 'height', 'screen_size', 'screen_distance'];
 
 // 3D view. Grid units are meant as meters: walls are 2.5 units high by default.
 const U3 = 100; // px per grid unit in the 3D scene
+// Faces are drawn at their own density (`r`, px per grid unit, at most U3) and scaled up to U3 by
+// their transform. Browsers keep a texture of each face at the screen's pixel ratio, however small
+// it ends up on screen: drawn at U3, a home takes hundreds of MB of GPU memory on a phone, and its
+// biggest faces (ground, roofs) flicker or vanish.
+const RASTER_MARGIN = 1.5; // faces are drawn this much sharper than they show at the point looked at
+const RASTER_BUDGET = 8e6; // device px of faces per card (4 bytes each)
+const RASTER_MAX_SIDE = 4096; // device px: bigger faces are tiled, which fails in 3D on some phones
+const RASTER_MIN = 4;
 const WALL_HEIGHT = 2.5;
 const SLAB = 0.25; // thickness between two floors
 const WALL_CAP = 0.12; // wall thickness, drawn as a cap on top of each wall
@@ -459,9 +467,9 @@ const norm3 = (a) => mul3(a, 1 / (len3(a) || 1));
 const LIGHT_DIR = norm3([-0.5, -0.75, 0.6]);
 
 // A flat element whose top-left corner is at `o` and whose top and left edges follow `u` and `v`
-// (world units; they need not be perpendicular). `w` x `h` is its size in px: by default its real
-// size, so that text and images are rasterized at the scene's scale.
-function face(o, u, v, w = len3(u) * U3, h = len3(v) * U3) {
+// (world units; they need not be perpendicular). `w` x `h` is its size in px: by default its size
+// at `r` px per grid unit, the density the scene is drawn at.
+function face(o, u, v, r, w = len3(u) * r, h = len3(v) * r) {
   const n = norm3(cross3(u, v));
   const m = [...mul3(u, U3 / w), 0, ...mul3(v, U3 / h), 0, ...n, 0, ...mul3(o, U3), 1];
   return { w: round2(w), h: round2(h), n, transform: `matrix3d(${m.map((x) => +x.toFixed(5)).join(',')})` };
@@ -567,7 +575,7 @@ function roofRects(rooms, above) {
 }
 
 // The 4 slopes of a hip roof on a rectangle whose walls stop at height z.
-function hipRoof(rect, z) {
+function hipRoof(rect, z, r) {
   const o = ROOF_OVERHANG;
   const x0 = rect.x - o;
   const y0 = rect.y - o;
@@ -586,7 +594,7 @@ function hipRoof(rect, z) {
     const v = [d[0] * run, d[1] * run, run * ROOF_PITCH];
     const k = round2((run / len3(u)) * 100);
     return {
-      ...face([p[0], p[1], eave], u, v),
+      ...face([p[0], p[1], eave], u, v, r),
       clip: `polygon(0 0, 100% 0, ${100 - k}% 100%, ${k}% 100%)`,
       // Plane of the slope, for projected pictures: top-left corner, unit edges, upward normal.
       plane: { o: [p[0], p[1], eave], a: norm3(u), b: norm3(v), up: norm3(cross3(u, v)) },
@@ -595,15 +603,15 @@ function hipRoof(rect, z) {
 }
 
 // The 6 faces of a box centered on c, with half-extent vectors X, Y, Z. The +X face comes first.
-function boxFaces(c, X, Y, Z) {
+function boxFaces(c, X, Y, Z, r) {
   const p = (sx, sy, sz) => add3(add3(add3(c, mul3(X, sx)), mul3(Y, sy)), mul3(Z, sz));
   return [
-    face(p(1, -1, 1), mul3(Y, 2), mul3(Z, -2)),
-    face(p(-1, -1, 1), mul3(Y, 2), mul3(Z, -2)),
-    face(p(-1, -1, 1), mul3(X, 2), mul3(Y, 2)),
-    face(p(-1, 1, -1), mul3(X, 2), mul3(Y, -2)),
-    face(p(-1, -1, 1), mul3(X, 2), mul3(Z, -2)),
-    face(p(-1, 1, 1), mul3(X, 2), mul3(Z, -2)),
+    face(p(1, -1, 1), mul3(Y, 2), mul3(Z, -2), r),
+    face(p(-1, -1, 1), mul3(Y, 2), mul3(Z, -2), r),
+    face(p(-1, -1, 1), mul3(X, 2), mul3(Y, 2), r),
+    face(p(-1, 1, -1), mul3(X, 2), mul3(Y, -2), r),
+    face(p(-1, -1, 1), mul3(X, 2), mul3(Z, -2), r),
+    face(p(-1, 1, 1), mul3(X, 2), mul3(Z, -2), r),
   ];
 }
 
@@ -668,16 +676,16 @@ const cssNum = (v) => +v.toPrecision(8);
 
 // A camera's picture as projected onto a plane, the way a projector standing where the camera is
 // would light it. The plane is a face whose top-left corner is `o` and whose edges follow the
-// orthonormal vectors `a` and `b` (U3 px per grid unit). Returns an element of `w` x `h` px placed
+// orthonormal vectors `a` and `b` (`r` px per grid unit). Returns an element of `w` x `h` px placed
 // in the face with `transform`, holding the picture (`iw` x `ih` px) placed with `img`; or null when
 // the camera doesn't see the plane.
 //
 // The picture-to-face mapping is a homography, which matrix3d() can express. It is only valid where
 // the camera's rays hit the plane in front of it (w > 0): the element is cut to that part of the
 // picture (and to PROJ_REACH), along the line where it ends, so that none of its corners is past it.
-function projectedPicture(pose, aspect, o, a, b) {
-  const iw = PROJ_PX;
-  const ih = PROJ_PX / aspect;
+function projectedPicture(pose, aspect, o, a, b, r) {
+  const iw = Math.max(160, Math.round((PROJ_PX * r) / U3));
+  const ih = iw / aspect;
   const { C, fwd, right, up, f } = pose;
   // Ray through the picture pixel (x, y): c0 x + c1 y + c2.
   const c0 = mul3(right, 1 / (f * iw));
@@ -695,8 +703,8 @@ function projectedPicture(pose, aspect, o, a, b) {
   const cb = dot3(sub3(C, o), b);
   const ak = Math.abs(k);
   const Hm = [
-    [0, 1, 2].map((i) => U3 * (ca * W[i] + ak * ra[i])),
-    [0, 1, 2].map((i) => U3 * (cb * W[i] + ak * rb[i])),
+    [0, 1, 2].map((i) => r * (ca * W[i] + ak * ra[i])),
+    [0, 1, 2].map((i) => r * (cb * W[i] + ak * rb[i])),
     W,
   ];
 
@@ -1014,6 +1022,7 @@ class HaPlooumFloorplanCard extends LitElement {
     this._view = null; // '2d' | '3d', from the config until the user switches
     this._level3d = null; // floors shown in 3D: up to this index; floors.length = the closed house, with its roof
     this._orbit = null; // 3D point of view, null = framed automatically
+    this._r3 = null; // density the 3D faces are drawn at (px per grid unit), see _raster3d()
     this._focus = null; // camera whose screen the 3D view is zoomed on
     this._dragging3d = false;
     this._pointers = new Map();
@@ -1685,7 +1694,16 @@ class HaPlooumFloorplanCard extends LitElement {
       orbit.target[2] + Math.cos(t) * d,
     ];
     const mode = this.config.screen_mode || 'world';
-    const { faces, screens } = this._buildScene(s, eye, [Math.sin(a), Math.cos(a)], mode);
+    const toViewer = [Math.sin(a), Math.cos(a)];
+    let r = this._r3 || U3;
+    let scene = this._buildScene(s, eye, toViewer, mode, r);
+    // The density is kept while the view moves: changing it redraws every face.
+    if (!this._dragging3d) {
+      const next = this._raster3d(scene.faces, r, orbit, vp);
+      if (next !== r) scene = this._buildScene(s, eye, toViewer, mode, (r = next));
+      this._r3 = r;
+    }
+    const { faces, screens } = scene;
     // Every camera of the home, for the camera bar, even those whose floor isn't shown.
     const cameras = s.all.flatMap((p) => p.items.filter((it) => it.role === 'camera').map((it) => ({ id: it.id, item: it, k: p.k })));
     this._scene3dState = { vp, home, screens, cameras, floors: floors.length };
@@ -1706,7 +1724,7 @@ class HaPlooumFloorplanCard extends LitElement {
         @dblclick=${this._resetView}
         @contextmenu=${(ev) => ev.preventDefault()}
       >
-        <div class="world" style="transform: ${world};">
+        <div class="world" style="transform: ${world}; --r3: ${r / U3};">
           <div class="group">${faces.map((x) => this._face3d(x))}</div>
           <div class="group">${repeat(screens.filter((sc) => sc.inWorld), (sc) => sc.id, (sc) => this._renderScreen(sc))}</div>
         </div>
@@ -1722,6 +1740,24 @@ class HaPlooumFloorplanCard extends LitElement {
     `;
   }
 
+  // Density (px per grid unit) to draw the scene's faces at, from those drawn at density `r`: sharp
+  // enough for the point of view, within the GPU memory budget. It goes by steps of a factor √2, so
+  // that small changes (walls cut away as the view turns) don't redraw the whole scene.
+  _raster3d(faces, r, orbit, vp) {
+    const dpr = window.devicePixelRatio || 1;
+    let area = 0;
+    let side = 0;
+    for (const { f } of faces) {
+      area += f.w * f.h;
+      side = Math.max(side, f.w, f.h);
+    }
+    const need = (RASTER_MARGIN * U3 * vp.p) / orbit.dist;
+    const most = Math.min(U3, (r * Math.sqrt(RASTER_BUDGET / Math.max(area, 1))) / dpr, (r * RASTER_MAX_SIDE) / Math.max(side, 1) / dpr);
+    const step = (x) => Math.log2(U3 / x) * 2; // U3 / √2^step = x
+    const level = Math.max(Math.floor(step(need)), Math.ceil(step(most)));
+    return Math.max(RASTER_MIN, round2(U3 / Math.SQRT2 ** Math.max(0, level)));
+  }
+
   _face3d(x) {
     return html`<div
       class="f ${x.cls}"
@@ -1731,7 +1767,8 @@ class HaPlooumFloorplanCard extends LitElement {
 
   // Faces of the scene for a point of view: `eye` is the viewer's position, `toViewer` the
   // horizontal direction from the scene towards the viewer (walls facing it are cut away).
-  _buildScene(s, eye, toViewer, mode) {
+  // `r`: density the faces are drawn at (px per grid unit).
+  _buildScene(s, eye, toViewer, mode, r) {
     const H = s.H;
     const faces = [];
     const screens = [];
@@ -1752,7 +1789,7 @@ class HaPlooumFloorplanCard extends LitElement {
         // Hidden inside the home (under the roof or a floor above): not rendered, no snapshot loaded.
         if (indoor && (s.roof || p.k < s.top)) continue;
         // The screen zoomed on is always in the scene, whatever the screen mode.
-        const sc = this._camera3d(it, p, indoor, H, eye, faces, mode === 'world' || this._focus === it.id);
+        const sc = this._camera3d(it, p, indoor, H, eye, faces, mode === 'world' || this._focus === it.id, r);
         screens.push(sc);
         if (this._focus === it.id) sight = [[eye[0], eye[1]], [sc.center[0], sc.center[1]]];
         if (it.conf.projection && it.st && !isUnavailable(it.st) && it.st.attributes.entity_picture) {
@@ -1773,11 +1810,11 @@ class HaPlooumFloorplanCard extends LitElement {
       g.maxX = Math.max(g.maxX, p.bounds.maxX + GROUND_MARGIN);
       g.maxY = Math.max(g.maxY, p.bounds.maxY + GROUND_MARGIN);
     }
-    const ground = face([g.minX, g.minY, -0.02], [g.maxX - g.minX, 0, 0], [0, g.maxY - g.minY, 0]);
+    const ground = face([g.minX, g.minY, -0.02], [g.maxX - g.minX, 0, 0], [0, g.maxY - g.minY, 0], r);
     faces.push({
       f: ground,
       cls: 'ground',
-      content: this._projections(outdoorProjectors(null), [g.minX, g.minY, -0.02], X, Y, [0, 0, ground.w, ground.h], 'on-ground'),
+      content: this._projections(outdoorProjectors(null), [g.minX, g.minY, -0.02], X, Y, [0, 0, ground.w, ground.h], r, 'on-ground'),
     });
 
     for (const p of s.shown) {
@@ -1786,15 +1823,15 @@ class HaPlooumFloorplanCard extends LitElement {
 
       for (const room of p.rooms) {
         const f0z = p.z0 + (room.outdoor ? 0.005 : 0.01);
-        const f = face([room.x, room.y, f0z], [room.w, 0, 0], [0, room.h, 0]);
+        const f = face([room.x, room.y, f0z], [room.w, 0, 0], [0, room.h, 0], r);
         const layers = [];
         for (const it of room.lights) {
           if (!isActive(it.st)) continue;
           const c = lightRgb(it.st);
           const b = typeof it.st.attributes.brightness === 'number' ? it.st.attributes.brightness / 255 : 1;
-          const cx = round2((it.x - room.x) * U3);
-          const cy = round2((it.y - room.y) * U3);
-          layers.push(`radial-gradient(circle at ${cx}px ${cy}px, ${rgba(c, 0.35 + 0.5 * b)}, ${rgba(c, 0)} ${round2(Math.max(room.w, room.h) * 0.7 * U3)}px)`);
+          const cx = round2((it.x - room.x) * r);
+          const cy = round2((it.y - room.y) * r);
+          layers.push(`radial-gradient(circle at ${cx}px ${cy}px, ${rgba(c, 0.35 + 0.5 * b)}, ${rgba(c, 0)} ${round2(Math.max(room.w, room.h) * 0.7 * r)}px)`);
         }
         const temp = room.outdoor ? null : roomTemperature(room);
         if (temp !== null) layers.push(`linear-gradient(${rgba(tempRgb(temp, min, max), 0.25)}, ${rgba(tempRgb(temp, min, max), 0.25)})`);
@@ -1803,8 +1840,8 @@ class HaPlooumFloorplanCard extends LitElement {
           f,
           cls: room.outdoor ? 'floor3d outdoor' : 'floor3d',
           style: `background: ${layers.join(', ')};`,
-          content: html`${this._projections(room.outdoor ? outdoorProjectors(p.k) : indoorProjectors(p.k, room), [room.x, room.y, f0z], X, Y, [0, 0, f.w, f.h])}${
-            cutaway && room.name ? this._label3d(room, labelTurn) : nothing
+          content: html`${this._projections(room.outdoor ? outdoorProjectors(p.k) : indoorProjectors(p.k, room), [room.x, room.y, f0z], X, Y, [0, 0, f.w, f.h], r)}${
+            cutaway && room.name ? this._label3d(room, labelTurn, r) : nothing
           }`,
         });
       }
@@ -1823,30 +1860,30 @@ class HaPlooumFloorplanCard extends LitElement {
         const bottom = p.k > 0 ? p.z0 - SLAB : 0;
         const len = seg.b - seg.a;
         const u = seg.o === 'h' ? [len, 0, 0] : [0, len, 0];
-        const f = face([...ends[0], top], u, [0, 0, bottom - top]);
+        const f = face([...ends[0], top], u, [0, 0, bottom - top], r);
         // Pictures of the cameras of the rooms along this wall, above their floor.
         const pictures = indoorProjectors(p.k).map((pr) => {
-          const r = pr.room;
-          const edge = roomEdges(r).find((e) => e.o === seg.o && Math.abs(e.at - seg.at) < ON_WALL_EPS);
+          const room = pr.room;
+          const edge = roomEdges(room).find((e) => e.o === seg.o && Math.abs(e.at - seg.at) < ON_WALL_EPS);
           const a = edge ? Math.max(seg.a, edge.a) : 0;
           const b = edge ? Math.min(seg.b, edge.b) : 0;
           if (b - a < ON_WALL_EPS) return nothing;
           // Seen from the room only: from the other side, the wall hides what the camera sees.
-          const roomSide = (seg.o === 'h' ? r.y + r.h / 2 : r.x + r.w / 2) - seg.at;
+          const roomSide = (seg.o === 'h' ? room.y + room.h / 2 : room.x + room.w / 2) - seg.at;
           if (roomSide * ((seg.o === 'h' ? eye[1] : eye[0]) - seg.at) <= 0) return nothing;
-          return this._projections([pr], [...ends[0], top], seg.o === 'h' ? X : Y, [0, 0, -1], [(a - seg.a) * U3, 0, (b - a) * U3, (top - p.z0) * U3]);
+          return this._projections([pr], [...ends[0], top], seg.o === 'h' ? X : Y, [0, 0, -1], [(a - seg.a) * r, 0, (b - a) * r, (top - p.z0) * r], r);
         });
         // Outer walls facing an outdoor camera, seen from outside.
         if (outer) {
           const k = seg.o === 'h' ? 1 : 0;
           for (const pr of outdoorProjectors(null)) {
             if ((pr.pose.C[k] - seg.at) * seg.normal[k] <= 0.05 || (eye[k] - seg.at) * seg.normal[k] <= 0) continue;
-            pictures.push(this._projections([pr], [...ends[0], top], seg.o === 'h' ? X : Y, [0, 0, -1], [0, 0, f.w, f.h]));
+            pictures.push(this._projections([pr], [...ends[0], top], seg.o === 'h' ? X : Y, [0, 0, -1], [0, 0, f.w, f.h], r));
           }
         }
         faces.push({ f, cls: outer ? 'wall' : 'wall inner', style: wallColor(f.n), content: pictures.length ? pictures : nothing });
         const capOrigin = seg.o === 'h' ? [seg.a, seg.at - WALL_CAP / 2, top] : [seg.at - WALL_CAP / 2, seg.a, top];
-        faces.push({ f: face(capOrigin, u, seg.o === 'h' ? [0, WALL_CAP, 0] : [WALL_CAP, 0, 0]), cls: 'cap' });
+        faces.push({ f: face(capOrigin, u, seg.o === 'h' ? [0, WALL_CAP, 0] : [WALL_CAP, 0, 0], r), cls: 'cap' });
       }
 
       // Windows: covers on an outer wall, on both sides of it.
@@ -1864,7 +1901,7 @@ class HaPlooumFloorplanCard extends LitElement {
         for (const side of [0.02, -0.02]) {
           const o = seg.o === 'h' ? [center - len / 2, seg.at + seg.normal[1] * side, top] : [seg.at + seg.normal[0] * side, center - len / 2, top];
           faces.push({
-            f: face(o, seg.o === 'h' ? [len, 0, 0] : [0, len, 0], [0, 0, sill - top]),
+            f: face(o, seg.o === 'h' ? [len, 0, 0] : [0, len, 0], [0, 0, sill - top], r),
             cls: `window3d ${isUnavailable(it.st) ? 'unavailable' : ''}`,
             style: `--closed: ${100 - coverPosition(it.st)}%;`,
             content: html`<div class="shutter3d"></div>`,
@@ -1877,16 +1914,16 @@ class HaPlooumFloorplanCard extends LitElement {
     for (const p of s.roof ? s.shown : s.shown.slice(0, -1)) {
       const above = s.shown.filter((q) => q.k > p.k).flatMap((q) => q.indoor);
       for (const rect of roofRects(p.indoor, above)) {
-        for (const r of hipRoof(rect, p.z0 + H)) {
+        for (const slope of hipRoof(rect, p.z0 + H, r)) {
           // Slopes facing an outdoor camera get its picture.
-          const { o, a, b, up } = r.plane;
+          const { o, a, b, up } = slope.plane;
           const seenBy = outdoorProjectors(null).filter((pr) => dot3(sub3(pr.pose.C, o), up) > 0.05 && dot3(sub3(eye, o), up) > 0);
           faces.push({
-            f: r,
+            f: slope,
             cls: 'roof',
-            clip: r.clip,
-            style: `background-color: color-mix(in srgb, var(--fp3-roof) ${shade(r.n, 45)}%, #000);`,
-            content: this._projections(seenBy, o, a, b, [0, 0, r.w, r.h]),
+            clip: slope.clip,
+            style: `background-color: color-mix(in srgb, var(--fp3-roof) ${shade(slope.n, 45)}%, #000);`,
+            content: this._projections(seenBy, o, a, b, [0, 0, slope.w, slope.h], r),
           });
         }
       }
@@ -1896,7 +1933,7 @@ class HaPlooumFloorplanCard extends LitElement {
 
   // A camera in 3D: its body, its screen in front of it (up to the first wall), and the beam between them.
   // `inWorld` false: the screen is shown elsewhere (or not at all), and a short beam shows where it looks.
-  _camera3d(it, p, indoor, H, eye, faces, inWorld) {
+  _camera3d(it, p, indoor, H, eye, faces, inWorld, r) {
     const cam = it.camera;
     const conf = it.conf;
     const pose = cameraPose(cam, [it.x, it.y, p.z0 + cameraHeight(cam, H)]);
@@ -1927,7 +1964,7 @@ class HaPlooumFloorplanCard extends LitElement {
     const tl = add3(sub3(center, mul3(right, w / 2)), mul3(up, h / 2));
     const u = mul3(right, w);
     const v = mul3(up, -h);
-    const f = face(tl, u, v, SCREEN_PX, SCREEN_PX / aspect);
+    const f = face(tl, u, v, r, SCREEN_PX, SCREEN_PX / aspect);
 
     // From the other side (in front of the camera), the image is flipped so that it stays readable.
     const screen = { id: it.id, item: it, f, back: dot3(sub3(eye, center), f.n) < 0, center, w, h, cam, k: p.k, indoor, pose, inWorld };
@@ -1939,9 +1976,9 @@ class HaPlooumFloorplanCard extends LitElement {
     if (!inWorld) corners = corners.map((c) => add3(C, mul3(sub3(c, C), SHORT_BEAM / dist)));
     corners.forEach((c, i) => {
       const next = corners[(i + 1) % 4];
-      faces.push({ f: face(c, sub3(next, c), sub3(lens, c), 100, 100), cls: 'beam', clip: 'polygon(0 0, 100% 0, 0 100%)' });
+      faces.push({ f: face(c, sub3(next, c), sub3(lens, c), r), cls: 'beam', clip: 'polygon(0 0, 100% 0, 0 100%)' });
     });
-    boxFaces(C, mul3(fwd, 0.17), mul3(right, 0.1), mul3(up, 0.09)).forEach((bf, i) =>
+    boxFaces(C, mul3(fwd, 0.17), mul3(right, 0.1), mul3(up, 0.09), r).forEach((bf, i) =>
       faces.push({ f: bf, cls: i === 0 ? 'cam lens' : 'cam', style: `background-color: color-mix(in srgb, #4a5058 ${shade(bf.n, 40)}%, #000);` })
     );
     return screen;
@@ -2088,24 +2125,26 @@ class HaPlooumFloorplanCard extends LitElement {
   }
 
   // Name of a room on its floor in 3D, turned by `turn` degrees (a multiple of 90) around the room.
-  _label3d(room, turn) {
-    const w = room.w * U3;
-    const h = room.h * U3;
+  _label3d(room, turn, r) {
+    const w = room.w * r;
+    const h = room.h * r;
+    const k = r / U3;
     const corner = { 0: [0, 0], 90: [w, 0], 180: [w, h], 270: [0, h] }[turn];
-    return html`<div class="label3d" style="transform: translate(${corner[0]}px, ${corner[1]}px) rotate(${turn}deg) translate(16px, 12px);
-      max-width: ${Math.max(0, (turn % 180 ? h : w) - 32)}px;">
+    return html`<div class="label3d" style="transform: translate(${round2(corner[0])}px, ${round2(corner[1])}px) rotate(${turn}deg) translate(${round2(16 * k)}px, ${round2(12 * k)}px);
+      max-width: ${round2(Math.max(0, (turn % 180 ? h : w) - 32 * k))}px;">
       ${room.icon ? html`<ha-icon icon=${room.icon}></ha-icon>` : nothing}<span>${room.name}</span>
     </div>`;
   }
 
   // Pictures of `projectors` cast onto a face whose top-left corner is `o` and whose edges follow the
-  // unit vectors `a` and `b`, kept within `box` ([left, top, width, height], px of the face).
-  _projections(projectors, o, a, b, box, cls = '') {
+  // unit vectors `a` and `b`, kept within `box` ([left, top, width, height], px of the face drawn at
+  // `r` px per grid unit).
+  _projections(projectors, o, a, b, box, r, cls = '') {
     if (!projectors.length) return nothing;
-    const origin = add3(add3(o, mul3(a, box[0] / U3)), mul3(b, box[1] / U3));
+    const origin = add3(add3(o, mul3(a, box[0] / r)), mul3(b, box[1] / r));
     return projectors.map(({ it, pose }) => {
       const st = it.st;
-      const pr = projectedPicture(pose, this._aspects[it.id] || 16 / 9, origin, a, b);
+      const pr = projectedPicture(pose, this._aspects[it.id] || 16 / 9, origin, a, b, r);
       if (!pr) return nothing;
       const pic = st.attributes.entity_picture;
       return html`<div class="proj ${cls}" style="left: ${round2(box[0])}px; top: ${round2(box[1])}px; width: ${round2(box[2])}px; height: ${round2(box[3])}px;">
@@ -2987,8 +3026,9 @@ class HaPlooumFloorplanCard extends LitElement {
       .view3d.dark .f.ground {
         background: radial-gradient(closest-side, color-mix(in srgb, var(--fp3-ground) 55%, #000) 70%, transparent);
       }
+      /* Sizes inside the faces follow their density: --r3 is 1 when drawn at U3 px per grid unit. */
       .f.floor3d {
-        box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.08);
+        box-shadow: inset 0 0 0 calc(2px * var(--r3)) rgba(0, 0, 0, 0.08);
       }
       .f.floor3d.outdoor {
         box-shadow: none;
@@ -3001,12 +3041,12 @@ class HaPlooumFloorplanCard extends LitElement {
         transform-origin: 0 0;
         display: flex;
         align-items: center;
-        gap: 8px;
-        font-size: 30px;
+        gap: calc(8px * var(--r3));
+        font-size: calc(30px * var(--r3));
         font-weight: 500;
         white-space: nowrap;
         color: rgba(40, 30, 20, 0.75);
-        --mdc-icon-size: 30px;
+        --mdc-icon-size: calc(30px * var(--r3));
       }
       .label3d ha-icon {
         flex: none;
@@ -3050,7 +3090,11 @@ class HaPlooumFloorplanCard extends LitElement {
         background: var(--fp3-cap);
       }
       .f.roof {
-        background-image: repeating-linear-gradient(to bottom, transparent 0 22px, rgba(0, 0, 0, 0.16) 22px 25px);
+        background-image: repeating-linear-gradient(
+          to bottom,
+          transparent 0 calc(22px * var(--r3)),
+          rgba(0, 0, 0, 0.16) calc(22px * var(--r3)) calc(25px * var(--r3))
+        );
       }
       .f.beam {
         background: linear-gradient(to bottom, rgba(var(--fp3-beam), 0.3), rgba(var(--fp3-beam), 0.04));
@@ -3060,14 +3104,18 @@ class HaPlooumFloorplanCard extends LitElement {
       }
       .f.window3d {
         background: linear-gradient(160deg, #b9e4ff, #6fb6e6);
-        border: 4px solid #f5f2ec;
+        border: calc(4px * var(--r3)) solid #f5f2ec;
       }
       .f.window3d.unavailable {
         opacity: 0.5;
       }
       .shutter3d {
         height: var(--closed);
-        background: repeating-linear-gradient(180deg, #6d7680 0 6px, #87909a 6px 12px);
+        background: repeating-linear-gradient(
+          180deg,
+          #6d7680 0 calc(6px * var(--r3)),
+          #87909a calc(6px * var(--r3)) calc(12px * var(--r3))
+        );
         transition: height 0.4s ease;
       }
       .f.screen {
