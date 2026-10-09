@@ -3581,6 +3581,7 @@ void main() {
         this._probeIcons();
       } else {
         this._dropGl();
+        this._measureThumbObstacles();
       }
     }
 
@@ -3590,6 +3591,7 @@ void main() {
       this._resizeObserver.disconnect();
       clearTimeout(this._holdTimer);
       clearTimeout(this._previewTimer);
+      clearTimeout(this._measureTimer);
       clearInterval(this._refreshTimer);
       clearInterval(this._thumbTimer);
       clearTimeout(this._iconTimer);
@@ -3966,8 +3968,8 @@ void main() {
     }
 
     // Preview of a camera over the plan: shown while the mouse is on its marker, or pinned by a tap.
-    // It goes next to the marker on the side with the most room, preferably behind the camera so that
-    // its cone stays visible. A tap on it opens the camera's details, with its live view.
+    // It goes on the side set by the camera's `preview_position`, or else next to the marker on the
+    // side with the most room, preferably behind the camera so that its cone stays visible. A tap on it opens the camera's details, with its live view.
     _renderCamPreview(plan, vb, zoom, planWidth, markerSize) {
       const id = this._camHover || this._camPinned;
       const item = id && plan.items.find((it) => it.id === id && it.role === 'camera');
@@ -3990,7 +3992,11 @@ void main() {
         { v: [-1, 0], w: Math.min(maxW, x - gap - m, (H - 2 * m) * aspect) },
       ];
       const score = (sd) => sd.w * (1 - 0.2 * (sd.v[0] * look[0] + sd.v[1] * look[1]));
-      const side = sides.reduce((a, b) => (score(b) > score(a) ? b : a));
+      // The camera's `preview_position` forces the side; otherwise the side with the most room.
+      const forced = THUMB_SIDES[item.conf.preview_position];
+      const side = forced
+        ? sides.find((sd) => sd.v[0] === forced[0] && sd.v[1] === forced[1])
+        : sides.reduce((a, b) => (score(b) > score(a) ? b : a));
       const w = Math.max(side.w, 80);
       const h = w / aspect;
       let left;
@@ -4002,6 +4008,9 @@ void main() {
         top = clamp(y - h / 2, m, H - m - h);
         left = side.v[0] > 0 ? x + gap : x - gap - w;
       }
+      // A forced side too small for the preview: it stays in the plan, over the marker if need be.
+      left = clamp(left, m, Math.max(m, W - m - w));
+      top = clamp(top, m, Math.max(m, H - m - h));
       const pinned = id === this._camPinned;
       const state = !item.st ? 'missing' : isUnavailable(item.st) ? 'unavailable' : '';
       return b`<div class="campop ${pinned ? 'pinned' : ''} ${state}" title="Open the live view"
@@ -4024,51 +4033,97 @@ void main() {
 
     // Where each camera's thumbnail goes (`camera_previews: always`): id -> { w, h, dx, dy }, its size
     // and the offset of its center from the marker (px, before the plan's zoom). A camera's
-    // `preview_position` (top, bottom, left, right) puts it on that side; `auto` (default) puts it
-    // behind the camera so that its cone stays visible, or else on the side closest to behind that
-    // fits inside the plan without covering a thumbnail or a camera already placed.
+    // `preview_position` (top, bottom, left, right) puts it on that side. Otherwise (`auto`) it should
+    // hide nothing: among spots around the camera, a little further away, and smaller sizes, the one
+    // covering the least of the other thumbnails, the markers, the windows and the room names wins, preferably
+    // behind the camera (its cone stays visible), close to it and full size.
     _thumbLayout(cams, vb, planWidth, markerSize) {
       const layout = {};
       if (planWidth <= 0) return layout;
       const unit = planWidth / vb.w;
       const planH = vb.h * unit;
       const m = 4;
-      const w = clamp(Math.round(markerSize * 3.4), 64, THUMB_PX + 24);
+      const full = clamp(Math.round(markerSize * 3.4), 64, THUMB_PX + 24);
       const at = (it) => [(it.x - vb.x) * unit, (it.y - vb.y) * unit];
-      // Boxes to avoid: the camera markers, then each thumbnail placed.
-      const taken = cams.map((it) => {
+      const overlap = (a, b) => Math.max(0, Math.min(a.r, b.r) - Math.max(a.l, b.l)) * Math.max(0, Math.min(a.b, b.b) - Math.max(a.t, b.t));
+      // Markers and room names, measured on the plan (see _measureThumbObstacles), or the camera
+      // markers until then.
+      const obstacles = this._thumbObstacles || cams.map((it) => {
         const [x, y] = at(it);
-        return { l: x - markerSize / 2, r: x + markerSize / 2, t: y - markerSize / 2, b: y + markerSize / 2, id: it.id };
+        return { l: x - markerSize / 2, r: x + markerSize / 2, t: y - markerSize / 2, b: y + markerSize / 2 };
       });
+      const placed = [];
+      const gap = markerSize / 2 + 4;
       const fixed = (it) => THUMB_SIDES[it.conf.preview_position];
       for (const it of [...cams.filter(fixed), ...cams.filter((c) => !fixed(c))]) {
-        const h = w / (this._aspects[it.id] || 16 / 9);
+        const aspect = this._aspects[it.id] || 16 / 9;
         const [x, y] = at(it);
-        const spot = (v) => {
-          const reach = markerSize / 2 + 4 + Math.abs(v[0]) * (w / 2) + Math.abs(v[1]) * (h / 2);
-          const cx = x + v[0] * reach;
-          const cy = y + v[1] * reach;
+        // Spot in direction v (each coordinate in -1..1) at `far` extra px from the marker.
+        const spot = (v, w, far) => {
+          const h = w / aspect;
+          const g = v[0] && v[1] ? gap * 0.7 : gap;
+          const n = Math.hypot(v[0], v[1]);
+          const cx = x + v[0] * (g + w / 2) + (v[0] / n) * far;
+          const cy = y + v[1] * (g + h / 2) + (v[1] / n) * far;
           const box = { l: cx - w / 2, r: cx + w / 2, t: cy - h / 2, b: cy + h / 2 };
-          const inside = box.l >= m && box.r <= planWidth - m && box.t >= m && box.b <= planH - m;
-          const free = !taken.some((o) => o.id !== it.id && o.l < box.r && box.l < o.r && o.t < box.b && box.t < o.b);
-          return { cx, cy, box, inside, free };
+          return { cx, cy, w, h, box, inside: box.l >= m && box.r <= planWidth - m && box.t >= m && box.b <= planH - m };
         };
-        let found;
+        let best;
         if (fixed(it)) {
-          found = spot(fixed(it));
+          best = spot(fixed(it), full, 0);
         } else {
           const dir = it.camera ? toRad(it.camera.direction) : 0;
           const back = [-Math.sin(dir), Math.cos(dir)];
-          const sides = Object.values(THUMB_SIDES).sort((a, b) => b[0] * back[0] + b[1] * back[1] - (a[0] * back[0] + a[1] * back[1]));
-          const spots = [back, ...sides].map(spot);
-          found = spots.find((f) => f.inside && f.free) || spots.find((f) => f.inside) || spots[0];
+          const dirs = [back];
+          for (const vx of [-1, 0, 1]) for (const vy of [-1, 0, 1]) if (vx || vy) dirs.push([vx, vy]);
+          let bestCost = Infinity;
+          for (const [si, w] of [full, full * 0.8, full * 0.65].entries()) {
+            for (const far of [0, 0.3, 0.7, 1.1, 1.5].map((f) => f * w)) {
+              for (const v of dirs) {
+                const c = spot(v, w, far);
+                if (!c.inside) continue;
+                // Share of each thumbnail, marker or name hidden: hiding anything costs more than
+                // moving the thumbnail away or shrinking it.
+                const hidden = (list) => list.reduce((sum, o) => sum + overlap(c.box, o) / Math.max(1, (o.r - o.l) * (o.b - o.t)), 0);
+                const n = Math.hypot(v[0], v[1]);
+                const cost = 4 * hidden(placed) + 2 * hidden(obstacles) + 0.06 * (1 - (v[0] * back[0] + v[1] * back[1]) / n) + 0.08 * (far / w) + 0.12 * si;
+                if (cost < bestCost) {
+                  bestCost = cost;
+                  best = c;
+                }
+              }
+            }
+          }
+          best = best || spot(back, full, 0);
         }
-        const cx = clamp(found.cx, w / 2 + m, planWidth - w / 2 - m);
-        const cy = clamp(found.cy, h / 2 + m, planH - h / 2 - m);
-        taken.push({ l: cx - w / 2, r: cx + w / 2, t: cy - h / 2, b: cy + h / 2, id: null });
-        layout[it.id] = { w, h, dx: cx - x, dy: cy - y };
+        const cx = clamp(best.cx, best.w / 2 + m, planWidth - best.w / 2 - m);
+        const cy = clamp(best.cy, best.h / 2 + m, planH - best.h / 2 - m);
+        placed.push({ l: cx - best.w / 2, r: cx + best.w / 2, t: cy - best.h / 2, b: cy + best.h / 2 });
+        layout[it.id] = { w: best.w, h: best.h, dx: cx - x, dy: cy - y, gap };
       }
       return layout;
+    }
+
+    // What the thumbnails should not hide, measured on the rendered plan (px, before the zoom): the
+    // markers, badges, windows and room names. Measured only while the plan isn't zoomed; laid out again when
+    // it changes.
+    _measureThumbObstacles() {
+      if (this.config.camera_previews !== 'always' || this._selectedRoom !== null) return;
+      const zoom = this.renderRoot.querySelector('.plan .zoom');
+      if (!zoom) return;
+      const origin = zoom.getBoundingClientRect();
+      const boxes = [...zoom.querySelectorAll('.overlay > .marker, .overlay > .badge, .overlay > .window, .room .label .name > *, .room .label .climate > *')]
+        .map((el) => el.getBoundingClientRect())
+        .filter((r) => r.width && r.height)
+        .map((r) => ({ l: r.left - origin.left, r: r.right - origin.left, t: r.top - origin.top, b: r.bottom - origin.top }));
+      const key = boxes.map((b) => `${Math.round(b.l)},${Math.round(b.t)},${Math.round(b.r)},${Math.round(b.b)}`).join(' ');
+      if (key === this._thumbObstaclesKey) return;
+      this._thumbObstaclesKey = key;
+      this._thumbObstacles = boxes;
+      this.requestUpdate();
+      // Again once the labels' zoom transition has ended.
+      clearTimeout(this._measureTimer);
+      this._measureTimer = setTimeout(() => this._measureThumbObstacles(), 600);
     }
 
     // Thumbnail always shown next to a camera (`camera_previews: always`), under the markers, hidden
@@ -4082,7 +4137,16 @@ void main() {
       if (!url && unavailable) return A;
       const thumb = this._thumbs[id];
       const k = (v) => `calc(${round2(v)}px * var(--k, 1))`;
-      return b`<div class="camthumb ${unavailable ? 'unavailable' : ''} ${dimClass}" title="Open the live view"
+      // A thumbnail moved away from its camera is linked to it by a line, to its nearest point.
+      const lx = clamp(0, spot.dx - spot.w / 2, spot.dx + spot.w / 2);
+      const ly = clamp(0, spot.dy - spot.h / 2, spot.dy + spot.h / 2);
+      const len = Math.hypot(lx, ly);
+      const leader =
+        len > spot.gap + 6
+          ? b`<div class="camthumb-leader ${dimClass}"
+            style="left: ${px(item.x)}%; top: ${py(item.y)}%; width: ${k(len)}; transform: rotate(${round2((Math.atan2(ly, lx) * 180) / Math.PI)}deg);"></div>`
+          : A;
+      return b`${leader}<div class="camthumb ${unavailable ? 'unavailable' : ''} ${dimClass}" title="Open the live view"
       style="left: ${px(item.x)}%; top: ${py(item.y)}%; width: ${k(spot.w)}; height: ${k(spot.h)};
         transform: translate(calc(-50% + ${k(spot.dx)}), calc(-50% + ${k(spot.dy)}));"
       @click=${(ev) => {
@@ -5825,6 +5889,14 @@ void main() {
         height: 100%;
         object-fit: cover;
       }
+      .camthumb-leader {
+        position: absolute;
+        height: 0;
+        border-top: 1.5px dashed var(--fp-camera);
+        opacity: 0.8;
+        transform-origin: 0 0;
+        pointer-events: none;
+      }
       .camthumb-reload {
         position: absolute;
         top: 2px;
@@ -6675,7 +6747,7 @@ void main() {
             { name: 'projection', label: 'Project the picture onto the floor and walls it sees (3D)', selector: { boolean: {} } },
             {
               name: 'preview_position',
-              label: 'Thumbnail position (2D, camera previews: always)',
+              label: 'Preview position on the 2D plan',
               selector: {
                 select: {
                   mode: 'dropdown',
