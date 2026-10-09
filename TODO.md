@@ -10,6 +10,9 @@ Issues noticed while working on something else. Each item should be fixable on i
 ## Floorplan card
 
 - [x] **Outdoor projection through the house.** An outdoor camera's picture is projected onto the whole ground in front of it and onto every outer wall and roof slope facing it (`outdoorProjectors()` in `_buildScene()`), including what the house hides from the camera: the ground behind the house (where the picture actually shows its walls), or a wall behind another wing of an L-shaped house. Leave out what lies in the house's shadow as seen from the camera: a shadow map in the WebGL renderer (depth of the scene rendered from each projecting camera, compared in `MODE.picture` of the fragment shader).
+- [ ] **Room humidity.** Rooms only show their temperature. Also show their humidity (a `humidity` sensor per room, and picked up from the area's humidity sensors for the plan generated from the areas), next to the temperature in the room's label and panel.
+- [ ] **Several zones for one room.** A room is a single rectangle/polygon: an L-shaped room, or the outdoors around the house, has to be drawn as several zones that show up as separate rooms (each with its own label, temperature, panel). Let several zones be declared as the same room (e.g. a shared `room` id / name), merged for the label (shown once), the sensors and the panel, and drawn without the inner wall between them.
+- [ ] **Temperature hidden behind icons.** A room's label (name and temperature) is drawn under the entity icons placed in the room: an icon on top of it hides the text (seen with a fountain icon over "Salon 20,4 °C"). Keep the label readable: draw it above the icons, or move it / the icons so they don't overlap.
 
 ### Editor: camera alignment
 
