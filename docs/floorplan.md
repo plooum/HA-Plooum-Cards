@@ -15,10 +15,10 @@ Switch it to **3D** and the same plan becomes a model of your home and garden, w
 - **Zero configuration to start**: with no `floors`, the plan is generated from your Home Assistant floors and areas, with each area's entities placed in its room. The card picker preview already shows your home.
 - **Visual plan editor**: draw rooms by dragging on a grid, move and resize them, and drag entities from a searchable list onto the plan. Your areas don't need to be right: an entity belongs to the room it is dropped in, wherever Home Assistant thinks it is.
 - **Roles guessed from the entity**: lights glow (and so does any plug or switch marked as a light), `temperature` / `humidity` sensors feed the room, covers become windows, `door` / `window` / `opening` binary sensors show alerts, `motion` / `occupancy` / `presence` sensors make the room pulse. Nothing to map by hand.
-- **Interactive plan**: tap a device to toggle it (hold for its details), drag a shutter along its window to set its position, tap a room to zoom on it and list its devices with their controls (the plan grows taller if the room needs it). Tap another room to switch to it; close with the panel's ✕, `Escape` or a tap outside the rooms.
+- **Interactive plan**: tap a device to toggle it (hold for its details), drag a shutter along its window to set its position, tap a room to zoom on it and list its devices with their controls, and the pictures of its cameras (the plan grows taller if the room needs it). Tap another room to switch to it; close with the panel's ✕, `Escape` or a tap outside the rooms.
 - **Several floors**, switched with chips at the top of the card.
 - **Every state stays readable**: unavailable devices blink in grey, an entity that no longer exists shows as an orange dashed `?`.
-- **Cameras**: on the plan, a cone shows where each camera looks (up to the first wall). In 3D, its picture is shown on a screen in front of it or on a floating screen, and can be projected onto the floor and walls. The editor shows the plan over the camera's picture, and can compute where the camera looks from a few matched points.
+- **Cameras**: on the plan, a cone shows where each camera looks (up to the first wall). Hover a camera with the mouse to preview its picture next to it; tap it to keep the preview open (tap the camera again, the preview's ✕, `Escape` or the plan to close it). A tap on the preview opens the camera's live view. In 3D, its picture is shown on a screen in front of it or on a floating screen, and can be projected onto the floor and walls. The editor shows the plan over the camera's picture, and can compute where the camera looks from a few matched points.
 - **3D view** (the **2D / 3D** switch at the top of the card): the floors are stacked, outer walls get their windows and shutters, a hip roof is generated over the home, and outdoor rooms (garden, terrace) lie on the lawn.
 
 ## The 3D view
@@ -68,8 +68,8 @@ The editor writes this configuration for you; it can also be written by hand. Po
 | `view` | string | `2d` | View shown when the card opens: `2d` or `3d`. |
 | `roof` | boolean | `true` | In 3D, start with the whole home closed, with its roof. `false` starts on the top floor, open. |
 | `wall_height` | number | `2.5` | Wall height in 3D, in grid units. |
-| `camera_view` | string | `snapshot` | Camera screens in 3D: `snapshot` (an image refreshed every `refresh_interval`) or `live` (the live stream). |
-| `refresh_interval` | number | `3` | Seconds between two snapshots of a camera. |
+| `camera_view` | string | `snapshot` | Camera pictures (3D screens, 2D previews and the room panel): `snapshot` (an image refreshed every `refresh_interval`) or `live` (the live stream). |
+| `refresh_interval` | number | `3` | Seconds between two snapshots of a camera (3D screens, 2D previews and the room panel). |
 | `screen_mode` | string | `world` | Camera screens in 3D: `world` (in the scene, in front of the camera), `billboard` (floating flat on the view next to the camera) or `none`. |
 | `floors` | list | generated | The plan, one item per floor (see below). Leave it out to generate the plan from your areas. |
 
@@ -126,7 +126,7 @@ How each entity is shown:
 | `camera.*` | Icon and view cone. In 3D: the camera and its picture on a screen in front of it (or floating next to it), projected onto the room with `projection: true`. |
 | anything else | Icon, highlighted when active. |
 
-A tap toggles lights, switches, fans and input booleans, runs scenes, scripts and buttons, and opens the details of anything else. A long press always opens the details.
+A tap toggles lights, switches, fans and input booleans, runs scenes, scripts and buttons, shows a camera's preview, and opens the details of anything else. A long press always opens the details.
 
 ## Example
 

@@ -2013,6 +2013,7 @@
 
   const UNAVAILABLE_STATES$1 = ['unavailable', 'unknown'];
   const HOLD_DELAY = 500; // ms before a press on an entity opens its more-info dialog
+  const PREVIEW_LEAVE_MS = 200; // ms a hovered camera's preview stays once the mouse leaves its marker
   const COVER_PENDING_MS = 5000; // how long a dragged cover position is shown while waiting for the state
   const WINDOW_LENGTH = 1.5; // default window length on a wall (grid units)
   const WALL_SNAP = 0.75; // max distance for a cover to snap onto a wall in the editor (grid units)
@@ -3001,6 +3002,8 @@
         _focus: { state: true },
         _dragging3d: { state: true },
         _tick: { state: true },
+        _camHover: { state: true },
+        _camPinned: { state: true },
       };
     }
 
@@ -3024,11 +3027,18 @@
       this._pointers = new Map();
       this._aspects = {}; // camera id -> image aspect ratio, learned when its image loads
       this._tick = 0; // bumps every refresh_interval: reloads camera snapshots
+      this._camHover = null; // camera previewed in 2D while the mouse is on its marker
+      this._camPinned = null; // camera previewed in 2D after a tap on its marker
+      this._panelCameras = false; // the room panel shows camera pictures
       this._wheelListener = { handleEvent: (ev) => this._wheel3d(ev), passive: false };
       this._onKeyDown = (ev) => {
         // Keys meant for dialogs (the more-info of a camera) or fields: leave the view as it is then.
         if (ev.composedPath().some((n) => n.localName && (n.localName.includes('dialog') || ['input', 'textarea'].includes(n.localName)))) return;
         if (ev.key === 'Escape') {
+          if (this._camPinned) {
+            this._camPinned = null;
+            return;
+          }
           if (this._selectedRoom !== null) this._selectedRoom = null;
           if (this._view === '3d') this._resetView();
         } else if ((ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') && this._view === '3d' && this._focus) {
@@ -3064,6 +3074,7 @@
       window.removeEventListener('keydown', this._onKeyDown);
       this._resizeObserver.disconnect();
       clearTimeout(this._holdTimer);
+      clearTimeout(this._previewTimer);
       clearInterval(this._refreshTimer);
     }
 
@@ -3086,15 +3097,20 @@
       if (refreshChanged && this.isConnected) this._startRefresh();
     }
 
-    // Camera snapshots are reloaded periodically, only while the 3D view is shown. Projected pictures
-    // are snapshots even with `camera_view: live`.
+    // Camera snapshots are reloaded periodically, only while some are shown: in 3D, or in 2D in a
+    // camera's preview or the room panel. Projected pictures are snapshots even with `camera_view: live`.
     _startRefresh() {
       clearInterval(this._refreshTimer);
       if (!this.config) return;
       const seconds = Math.max(1, num(this.config.refresh_interval, REFRESH_INTERVAL));
       this._refreshTimer = setInterval(() => {
-        if (this._view === '3d' && !document.hidden) this._tick++;
+        if (this._snapshotsShown() && !document.hidden) this._tick++;
       }, seconds * 1000);
+    }
+
+    _snapshotsShown() {
+      if (this._view === '3d') return true;
+      return !!(this._camHover || this._camPinned || this._panelCameras);
     }
 
     static getStubConfig() {
@@ -3144,6 +3160,7 @@
         ? floors.every((f) => !(f.rooms || []).length && !(f.entities || []).length)
         : !plan.rooms.length && !plan.items.length;
       const level = this._level(floors);
+      this._panelCameras = false; // set again by the room panel
 
       return b`
       <ha-card>
@@ -3186,12 +3203,14 @@
     _setView(view) {
       this._view = view;
       this._selectedRoom = null;
+      this._closePreviews();
       if (view === '3d') this._tick++;
     }
 
     _selectFloor(i) {
       this._floorIndex = i;
       this._selectedRoom = null;
+      this._closePreviews();
     }
 
     _renderPlan(plan, selected) {
@@ -3214,7 +3233,10 @@
       const planSize = planWidth > 0 ? `height: ${zoom.height}px;` : `aspect-ratio: ${vb.w} / ${vb.h};`;
 
       return b`
-      <div class="plan" style="${planSize} --m: ${markerSize}px;" @click=${() => (this._selectedRoom = null)}>
+      <div class="plan" style="${planSize} --m: ${markerSize}px;" @click=${() => {
+        this._selectedRoom = null;
+        this._camPinned = null;
+      }}>
         <div class="zoom" style="aspect-ratio: ${vb.w} / ${vb.h}; transform: ${zoom.transform}; --k: ${zoom.k};">
           <svg class="layer" viewBox="${vb.x} ${vb.y} ${vb.w} ${vb.h}" preserveAspectRatio="none">
             <defs>
@@ -3290,6 +3312,7 @@
             ${plan.items.map((item) => this._renderItem(item, plan, { px, py, pw, ph }))}
           </div>
         </div>
+        ${this._renderCamPreview(plan, vb, zoom, planWidth, markerSize)}
       </div>
     `;
     }
@@ -3299,7 +3322,7 @@
     // `k` shrinks markers and labels back so that they grow at most ZOOM_ITEM_GROWTH times.
     _zoomView(vb, selected, planWidth) {
       const baseHeight = (planWidth * vb.h) / vb.w;
-      const none = { height: baseHeight, transform: 'none', k: 1 };
+      const none = { height: baseHeight, transform: 'none', k: 1, s: 1, tx: 0, ty: 0 };
       if (!selected || planWidth <= 0) return none;
 
       const unit = planWidth / vb.w; // px per grid unit, unzoomed
@@ -3317,7 +3340,7 @@
       let ty = height / 2 - cy * s;
       tx = clamp(tx, planWidth - planWidth * s, 0);
       if (baseHeight * s >= height) ty = clamp(ty, height - baseHeight * s, 0);
-      return { height, transform: `translate(${tx}px, ${ty}px) scale(${s})`, k: Math.min(s, ZOOM_ITEM_GROWTH) / s };
+      return { height, transform: `translate(${tx}px, ${ty}px) scale(${s})`, k: Math.min(s, ZOOM_ITEM_GROWTH) / s, s, tx, ty };
     }
 
     _renderRoom(room, dimClass, { px, py, pw, ph }) {
@@ -3396,11 +3419,101 @@
         isUnavailable(item.st) ? 'unavailable' : '',
         dim,
       ].join(' ');
-      return b`<button class=${classes} style="${pos} --c: ${color};" title=${title}
-      @pointerdown=${events.down} @pointerup=${events.up} @pointerleave=${events.up} @click=${events.click}
+      const camera = item.role === 'camera';
+      return b`<button class=${classes} style="${pos} --c: ${color};" title=${camera ? A : title}
+      @pointerdown=${events.down} @pointerup=${events.up} @click=${events.click}
+      @pointerenter=${camera ? (ev) => this._previewEnter(ev, item) : A}
+      @pointerleave=${(ev) => {
+        events.up();
+        if (camera) this._previewLeave(ev);
+      }}
       @contextmenu=${(ev) => ev.preventDefault()}>
       ${this._icon(item)}
     </button>`;
+    }
+
+    // Preview of a camera over the plan: shown while the mouse is on its marker, or pinned by a tap.
+    // It goes next to the marker on the side with the most room, preferably behind the camera so that
+    // its cone stays visible. A tap on it opens the camera's details, with its live view.
+    _renderCamPreview(plan, vb, zoom, planWidth, markerSize) {
+      const id = this._camHover || this._camPinned;
+      const item = id && plan.items.find((it) => it.id === id && it.role === 'camera');
+      if (!item || planWidth <= 0) return A;
+      const W = planWidth;
+      const H = zoom.height;
+      const m = 8; // margin to the plan's edges
+      const unit = W / vb.w;
+      const x = zoom.tx + zoom.s * (item.x - vb.x) * unit;
+      const y = zoom.ty + zoom.s * (item.y - vb.y) * unit;
+      const gap = (markerSize * zoom.k * zoom.s) / 2 + 6;
+      const aspect = this._aspects[id] || 16 / 9;
+      const maxW = Math.min(W - 2 * m, clamp(W * 0.42, 200, 360));
+      const dir = item.camera ? (item.camera.direction * Math.PI) / 180 : 0;
+      const look = [Math.sin(dir), -Math.cos(dir)];
+      const sides = [
+        { v: [0, 1], w: Math.min(maxW, (H - y - gap - m) * aspect) },
+        { v: [0, -1], w: Math.min(maxW, (y - gap - m) * aspect) },
+        { v: [1, 0], w: Math.min(maxW, W - x - gap - m, (H - 2 * m) * aspect) },
+        { v: [-1, 0], w: Math.min(maxW, x - gap - m, (H - 2 * m) * aspect) },
+      ];
+      const score = (sd) => sd.w * (1 - 0.2 * (sd.v[0] * look[0] + sd.v[1] * look[1]));
+      const side = sides.reduce((a, b) => (score(b) > score(a) ? b : a));
+      const w = Math.max(side.w, 80);
+      const h = w / aspect;
+      let left;
+      let top;
+      if (side.v[1]) {
+        left = clamp(x - w / 2, m, W - m - w);
+        top = side.v[1] > 0 ? y + gap : y - gap - h;
+      } else {
+        top = clamp(y - h / 2, m, H - m - h);
+        left = side.v[0] > 0 ? x + gap : x - gap - w;
+      }
+      const pinned = id === this._camPinned;
+      const state = !item.st ? 'missing' : isUnavailable(item.st) ? 'unavailable' : '';
+      return b`<div class="campop ${pinned ? 'pinned' : ''} ${state}" title="Open the live view"
+      style="left: ${round2(left)}px; top: ${round2(top)}px; width: ${round2(w)}px; height: ${round2(h)}px;"
+      @pointerenter=${() => clearTimeout(this._previewTimer)}
+      @pointerleave=${(ev) => this._previewLeave(ev)}
+      @click=${(ev) => {
+        ev.stopPropagation();
+        this._moreInfo(id);
+      }}>
+      ${this._screenContent(item)}
+      ${pinned
+        ? b`<button class="campop-close" title="Close" @click=${(ev) => {
+            ev.stopPropagation();
+            this._camPinned = null;
+          }}><ha-icon icon="mdi:close"></ha-icon></button>`
+        : A}
+    </div>`;
+    }
+
+    _previewEnter(ev, item) {
+      if (ev.pointerType !== 'mouse') return;
+      clearTimeout(this._previewTimer);
+      if (this._camHover === item.id) return;
+      this._camHover = item.id;
+      this._tick++; // a fresh snapshot
+    }
+
+    _previewLeave(ev) {
+      if (ev.pointerType !== 'mouse') return;
+      clearTimeout(this._previewTimer);
+      this._previewTimer = setTimeout(() => (this._camHover = null), PREVIEW_LEAVE_MS);
+    }
+
+    _togglePreview(id) {
+      clearTimeout(this._previewTimer);
+      this._camHover = null;
+      this._camPinned = this._camPinned === id ? null : id;
+      if (this._camPinned) this._tick++;
+    }
+
+    _closePreviews() {
+      clearTimeout(this._previewTimer);
+      this._camHover = null;
+      this._camPinned = null;
     }
 
     _icon(item) {
@@ -3446,6 +3559,7 @@
     _renderPanel(room) {
       const order = ['temperature', 'humidity', 'light', 'cover', 'device', 'opening', 'presence', 'sensor'];
       const items = [...room.items].sort((a, b) => order.indexOf(a.role) - order.indexOf(b.role));
+      this._panelCameras = items.some((it) => it.role === 'camera' && it.st && !isUnavailable(it.st));
       return b`
       <div class="panel">
         <div class="panel-header">
@@ -3499,12 +3613,16 @@
         control = b`<span class="row-state">${formatState(this.hass, st)}</span>`;
       }
       return b`<div class="row ${unavailable ? 'unavailable' : ''} ${isActive(st) ? 'active' : ''}">
-      <button class="row-main" @click=${() => this._moreInfo(item.id)}>
-        ${this._icon(item)}
-        <span class="row-name">${name}</span>
-      </button>
-      ${control}
-    </div>`;
+        <button class="row-main" @click=${() => this._moreInfo(item.id)}>
+          ${this._icon(item)}
+          <span class="row-name">${name}</span>
+        </button>
+        ${control}
+      </div>
+      ${domain === 'camera' && !unavailable
+        ? b`<button class="row-cam" title="Open the live view" style="aspect-ratio: ${this._aspects[item.id] || 16 / 9};"
+            @click=${() => this._moreInfo(item.id)}>${this._cameraImage(st)}</button>`
+        : A}`;
     }
 
     // --- 3D view -------------------------------------------------------------
@@ -4162,7 +4280,9 @@
     // or a tap outside the rooms.
     _selectRoom(ev, index) {
       ev.stopPropagation();
+      if (this._selectedRoom !== index) this._tick++; // fresh snapshots for the panel's cameras
       this._selectedRoom = index;
+      this._camPinned = null;
     }
 
     _itemDown(ev, item) {
@@ -4183,7 +4303,8 @@
         return;
       }
       const domain = domainOf(item.id);
-      if (isUnavailable(item.st)) this._moreInfo(item.id);
+      if (item.role === 'camera') this._togglePreview(item.id);
+      else if (isUnavailable(item.st)) this._moreInfo(item.id);
       else if (TOGGLE_DOMAINS.includes(domain)) this._toggle(item.id);
       else if (RUN_SERVICES[domain]) this._call(domain, RUN_SERVICES[domain], item.id);
       else this._moreInfo(item.id);
@@ -4705,6 +4826,76 @@
       }
       .row.missing .row-name {
         flex: 1;
+      }
+      .row-cam {
+        display: block;
+        width: 100%;
+        max-width: 420px;
+        margin: 2px 0 8px;
+        padding: 0;
+        border: none;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #000;
+        cursor: pointer;
+      }
+      .row-cam img,
+      .row-cam ha-camera-stream {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .campop {
+        position: absolute;
+        z-index: 2;
+        box-sizing: border-box;
+        cursor: pointer;
+        background: #000;
+        border: 2px solid #1b1e22;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+        animation: campop 0.18s ease;
+      }
+      .campop.pinned {
+        border-color: var(--fp-camera);
+      }
+      .campop.unavailable {
+        background: #222;
+      }
+      @keyframes campop {
+        from { opacity: 0; transform: scale(0.94); }
+      }
+      .campop .screen-name {
+        left: 6px;
+        bottom: 6px;
+        max-width: calc(100% - 12px);
+        padding: 1px 7px;
+        border-radius: 4px;
+        font-size: 12px;
+      }
+      .campop .screen-msg {
+        font-size: 13px;
+        gap: 4px;
+        --mdc-icon-size: 32px;
+      }
+      .campop-close {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        width: 26px;
+        height: 26px;
+        padding: 0;
+        border: none;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.55);
+        color: #fff;
+        cursor: pointer;
+        --mdc-icon-size: 16px;
       }
       .row-state {
         font-size: 13px;
