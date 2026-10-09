@@ -2344,7 +2344,8 @@ class HaPlooumFloorplanCard extends LitElement {
         if (!seg || seg.cut) continue;
         const len = Math.min(num(it.length, WINDOW_LENGTH), w.b - w.a);
         const center = clamp(w.pos, w.a + len / 2, w.b - len / 2);
-        const sill = p.z0 + H * 0.36;
+        // A floor-length window (French window, bay window) starts at the floor.
+        const sill = p.z0 + (it.conf.floor_length ? 0 : H * 0.36);
         const top = p.z0 + H * 0.84;
         for (const side of [0.02, -0.02]) {
           const o = seg.o === 'h' ? [center - len / 2, seg.at + seg.normal[1] * side, top] : [seg.at + seg.normal[0] * side, center - len / 2, top];
@@ -4226,7 +4227,10 @@ class HaPlooumFloorplanCardEditor extends LitElement {
         schema.push({ name: 'light', label: 'Lights up the room (glows when on)', selector: { boolean: {} } });
       }
       if (isCover) {
-        schema.push({ name: 'length', label: 'Window length', selector: { number: { min: 0.5, max: 8, step: 0.25, mode: 'box' } } });
+        schema.push(
+          { name: 'length', label: 'Window length', selector: { number: { min: 0.5, max: 8, step: 0.25, mode: 'box' } } },
+          { name: 'floor_length', label: 'Floor-length window (French window, bay window)', selector: { boolean: {} } }
+        );
       }
       if (isCamera) {
         schema.push(
@@ -4890,6 +4894,7 @@ class HaPlooumFloorplanCardEditor extends LitElement {
       if (value[key] === '' || value[key] === undefined || value[key] === null) delete value[key];
     }
     if (listKey === 'entities' && num(value.length, WINDOW_LENGTH) === WINDOW_LENGTH) delete value.length;
+    if (listKey === 'entities' && (!value.floor_length || domainOf(value.entity) !== 'cover')) delete value.floor_length;
     if (listKey === 'entities' && !value.entity) return;
     if (listKey === 'entities') {
       const defaults = domainOf(value.entity) === 'camera' ? this._cameraDefaults(this._floors()[this._currentFloorIndex()], sel.index) : {};

@@ -170,8 +170,8 @@ views:
                   - { entity: switch.tv_plug, x: 5.5, y: 4 }
                   - { entity: sensor.living_room_temperature, x: 6, y: 1 }
                   - { entity: sensor.living_room_humidity, x: 6.5, y: 1 }
-                  # Top wall: horizontal window.
-                  - { entity: cover.living_room_cover, x: 3.5, y: 0, length: 2.5 }
+                  # Top wall: horizontal window, a bay window down to the floor.
+                  - { entity: cover.living_room_cover, x: 3.5, y: 0, length: 2.5, floor_length: true }
                   - { entity: light.kitchen_light, x: 9, y: 1.5 }
                   - { entity: sensor.kitchen_temperature, x: 10.5, y: 0.5 }
                   - { entity: binary_sensor.front_door, x: 10.25, y: 4.25 }

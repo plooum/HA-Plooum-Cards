@@ -103,6 +103,7 @@ Walls shared by two rooms are drawn thin; outer walls are drawn thick.
 | `icon` | string | Optional icon, instead of the state icon. |
 | `light` | boolean | Lights up its room like a light: `true` for an on/off device that isn't a `light.*` (a plug powering a lamp, a switch, an input boolean…), `false` to stop a `light.*` from glowing. Default: `true` for `light.*` only. |
 | `length` | number | Covers only: window length, default `1.5`. |
+| `floor_length` | boolean | Covers only: the window goes down to the floor (French window, bay window), in 3D. Default `false`. |
 | `direction` | number | Cameras only: where it looks, in degrees clockwise from the top of the plan (`0` up, `90` right). Default: the middle of its room, or away from the home outdoors. |
 | `fov` | number | Cameras only: horizontal field of view, default `90`. |
 | `tilt` | number | Cameras only: degrees looking down, default `15`. |
