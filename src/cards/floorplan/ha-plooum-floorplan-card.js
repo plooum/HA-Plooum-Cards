@@ -14,6 +14,16 @@ const ROOM_SNAP = 0.5; // room corners snap to this step (grid units)
 const ENTITY_SNAP = 0.25; // entity positions snap to this step (grid units)
 const EDGE_DRAW_ZONE = 0.3; // in the editor, a drag starting this close to a wall draws a room (grid units)
 const PALETTE_LIMIT = 80; // max entities listed at once in the editor palette
+const PALETTE_OPEN_KEY = 'ha-plooum-floorplan-palette-open'; // localStorage key: the editor's entity list is unfolded ('1') or folded ('0')
+
+// Whether the editor's entity list was left unfolded on this device (unfolded by default).
+function readPaletteOpen() {
+  try {
+    return localStorage.getItem(PALETTE_OPEN_KEY) !== '0';
+  } catch (err) {
+    return true;
+  }
+}
 const CARD_PADDING = 12; // px, inside ha-card around the plan
 const ZOOM_MARGIN = 0.5; // space kept around a zoomed room, so its walls and windows stay visible (grid units)
 const ZOOM_MAX = 2.5; // max zoom on a room
@@ -4830,6 +4840,8 @@ class HaPlooumFloorplanCardEditor extends LitElement {
       _snapTick: { state: true },
       _capture: { state: true },
       _fitCorrection: { state: true },
+      _cameraAdvanced: { state: true },
+      _paletteOpen: { state: true },
     };
   }
 
@@ -4840,6 +4852,8 @@ class HaPlooumFloorplanCardEditor extends LitElement {
     this._snapTick = 0; // bumps to reload the camera view's snapshot
     this._capture = null; // reference picture capture: { id, busy } or { id, error }
     this._fitCorrection = false; // the camera view's fit also corrects the plan (see cameraPose())
+    this._cameraAdvanced = false; // a camera's advanced settings (3D, projection, camera view) are shown
+    this._paletteOpen = readPaletteOpen(); // the entity list is unfolded (remembered on the device)
     this._matches = {}; // `${reference url}|${snapshot url}` -> matchPicture() verdict, null while comparing
     this._aspects = {}; // camera id -> picture aspect ratio
     this._picWidths = {}; // camera id -> picture width (px), to show the pins' error in pixels
@@ -4955,20 +4969,6 @@ class HaPlooumFloorplanCardEditor extends LitElement {
               },
             },
           },
-          {
-            name: 'projection_picture',
-            label: 'Projected pictures (3D)',
-            selector: {
-              select: {
-                mode: 'dropdown',
-                options: [
-                  { value: 'frozen', label: 'Reference picture' },
-                  { value: 'live', label: 'Recent snapshot, while it matches the reference' },
-                  { value: 'snapshot', label: 'Latest snapshot' },
-                ],
-              },
-            },
-          },
           { name: 'refresh_interval', label: 'Snapshot refresh (s)', selector: { number: { min: 1, max: 60, step: 1, mode: 'box' } } },
           {
             name: 'screen_mode',
@@ -4987,6 +4987,28 @@ class HaPlooumFloorplanCardEditor extends LitElement {
         ],
       },
       { name: 'roof', label: 'Show the roof when the 3D view opens', selector: { boolean: {} } },
+      {
+        type: 'expandable',
+        name: '',
+        flatten: true,
+        title: 'Advanced',
+        schema: [
+          {
+            name: 'projection_picture',
+            label: 'Projected pictures (3D)',
+            selector: {
+              select: {
+                mode: 'dropdown',
+                options: [
+                  { value: 'frozen', label: 'Reference picture' },
+                  { value: 'live', label: 'Recent snapshot, while it matches the reference' },
+                  { value: 'snapshot', label: 'Latest snapshot' },
+                ],
+              },
+            },
+          },
+        ],
+      },
     ];
 
     return html`
@@ -5267,18 +5289,7 @@ class HaPlooumFloorplanCardEditor extends LitElement {
             label: 'Direction (°, clockwise from the top of the plan; or drag the handle on the plan)',
             selector: { number: { min: 0, max: 355, step: 5, mode: 'slider' } },
           },
-          {
-            type: 'grid',
-            name: '',
-            schema: [
-              { name: 'fov', label: 'Field of view (°)', selector: { number: { min: 20, max: 170, step: 5, mode: 'box' } } },
-              { name: 'tilt', label: 'Tilt down (°)', selector: { number: { min: -45, max: 89, step: 5, mode: 'box' } } },
-              { name: 'height', label: 'Height above the floor', selector: { number: { min: 0, max: 10, step: 0.1, mode: 'box' } } },
-              { name: 'screen_size', label: 'Screen width (3D)', selector: { number: { min: 0.3, max: 10, step: 0.1, mode: 'box' } } },
-              { name: 'screen_distance', label: 'Screen distance (3D)', selector: { number: { min: 0.5, max: 15, step: 0.1, mode: 'box' } } },
-            ],
-          },
-          { name: 'projection', label: 'Project the picture onto the floor and walls it sees (3D)', selector: { boolean: {} } },
+          { name: 'fov', label: 'Field of view (°)', selector: { number: { min: 20, max: 170, step: 5, mode: 'box' } } },
           {
             name: 'preview_position',
             label: 'Preview position on the 2D plan',
@@ -5297,6 +5308,22 @@ class HaPlooumFloorplanCardEditor extends LitElement {
           }
         );
       }
+      // The 3D placement and the projection, with the camera view that lines the camera up, stay
+      // folded away: the plan only needs the direction and field of view.
+      const advanced = [
+        {
+          type: 'grid',
+          name: '',
+          schema: [
+            { name: 'tilt', label: 'Tilt down (°)', selector: { number: { min: -45, max: 89, step: 5, mode: 'box' } } },
+            { name: 'height', label: 'Height above the floor', selector: { number: { min: 0, max: 10, step: 0.1, mode: 'box' } } },
+            { name: 'screen_size', label: 'Screen width (3D)', selector: { number: { min: 0.3, max: 10, step: 0.1, mode: 'box' } } },
+            { name: 'screen_distance', label: 'Screen distance (3D)', selector: { number: { min: 0.5, max: 15, step: 0.1, mode: 'box' } } },
+          ],
+        },
+        { name: 'projection', label: 'Project the picture onto the floor and walls it sees (3D)', selector: { boolean: {} } },
+      ];
+      const data = { length: WINDOW_LENGTH, light: naturalRole === 'light', ...(isCamera ? { ...this._cameraDefaults(floor, sel.index), preview_position: 'auto' } : {}), ...ent };
       return html`<div class="selection">
         <div class="selection-header">
           ${this._entityIcon(ent.entity, ent.icon)}
@@ -5305,12 +5332,26 @@ class HaPlooumFloorplanCardEditor extends LitElement {
         </div>
         <ha-form
           .hass=${this.hass}
-          .data=${{ length: WINDOW_LENGTH, light: naturalRole === 'light', ...(isCamera ? { ...this._cameraDefaults(floor, sel.index), preview_position: 'auto' } : {}), ...ent }}
+          .data=${data}
           .schema=${schema}
           .computeLabel=${(s) => s.label || s.name}
           @value-changed=${(ev) => this._selectionChanged(ev, 'entities')}
         ></ha-form>
-        ${isCamera ? this._renderCameraView(this._applyDrag(floor), sel.index) : nothing}
+        ${isCamera
+          ? html`<ha-expansion-panel outlined .header=${'Advanced: 3D and projection'} .expanded=${this._cameraAdvanced}
+              @expanded-changed=${(ev) => (this._cameraAdvanced = ev.detail.expanded)}>
+              <div class="advanced">
+                <ha-form
+                  .hass=${this.hass}
+                  .data=${data}
+                  .schema=${advanced}
+                  .computeLabel=${(s) => s.label || s.name}
+                  @value-changed=${(ev) => this._selectionChanged(ev, 'entities')}
+                ></ha-form>
+                ${this._cameraAdvanced ? this._renderCameraView(this._applyDrag(floor), sel.index) : nothing}
+              </div>
+            </ha-expansion-panel>`
+          : nothing}
       </div>`;
     }
     const floors = this._floors();
@@ -5694,11 +5735,16 @@ class HaPlooumFloorplanCardEditor extends LitElement {
   _renderPalette(floors) {
     const { list, placedCount } = this._paletteEntities(floors);
     const dragging = this._drag && this._drag.type === 'palette' ? this._drag.id : null;
+    const open = this._paletteOpen;
+    const header = html`<button class="palette-header" aria-expanded=${open ? 'true' : 'false'} title=${open ? 'Fold the entity list' : 'Unfold the entity list'}
+      @click=${this._togglePalette}>
+      <span>Entities</span>
+      ${open ? html`<span class="muted">${placedCount} on the plan · ${list.length} available</span>` : nothing}
+      <ha-icon icon=${open ? 'mdi:chevron-up' : 'mdi:chevron-down'}></ha-icon>
+    </button>`;
+    if (!open) return html`<div class="palette collapsed">${header}</div>`;
     return html`<div class="palette">
-      <div class="palette-header">
-        <span>Entities</span>
-        <span class="muted">${placedCount} on the plan · ${list.length} available</span>
-      </div>
+      ${header}
       <input
         class="search"
         type="search"
@@ -5737,6 +5783,15 @@ class HaPlooumFloorplanCardEditor extends LitElement {
         ${!list.length ? html`<div class="muted more">No entity matches.</div>` : nothing}
       </div>
     </div>`;
+  }
+
+  _togglePalette() {
+    this._paletteOpen = !this._paletteOpen;
+    try {
+      localStorage.setItem(PALETTE_OPEN_KEY, this._paletteOpen ? '1' : '0');
+    } catch (err) {
+      // No storage (private window): the choice only lasts for this editor.
+    }
   }
 
   // --- Canvas pointer handling --------------------------------------------
@@ -6191,6 +6246,10 @@ class HaPlooumFloorplanCardEditor extends LitElement {
         .palette .palette-list {
           max-height: 420px;
         }
+        /* Folded, the list gives its column back to the plan. */
+        .palette.collapsed {
+          width: auto;
+        }
       }
       .section-title {
         margin-top: 4px;
@@ -6363,6 +6422,12 @@ class HaPlooumFloorplanCardEditor extends LitElement {
         cursor: grab;
         width: 16px;
         height: 16px;
+      }
+      .advanced {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding-bottom: 8px;
       }
       .cv-section {
         display: flex;
@@ -6597,11 +6662,30 @@ class HaPlooumFloorplanCardEditor extends LitElement {
       }
       .palette-header {
         display: flex;
-        justify-content: space-between;
-        align-items: baseline;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 0;
+        border: none;
+        background: none;
+        cursor: pointer;
+        text-align: left;
+        font: inherit;
         font-size: 13px;
         font-weight: 500;
         color: var(--primary-text-color);
+      }
+      .palette-header .muted {
+        flex: 1;
+        text-align: right;
+      }
+      .palette-header ha-icon {
+        --mdc-icon-size: 18px;
+        margin-left: auto;
+        color: var(--secondary-text-color);
+      }
+      .palette-header .muted + ha-icon {
+        margin-left: 0;
       }
       .muted {
         font-size: 12px;
