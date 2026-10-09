@@ -34,7 +34,7 @@ Switch it to **3D** and the same plan becomes a model of your home and garden, w
 - **Projection** (`projection: true` on a camera): the camera's picture is cast onto the floor and walls of its room, or outdoors onto the ground, the outdoor rooms of its floor and the outer walls and roof slopes facing it, the way a projector standing where the camera is would light them. You see what the camera films right where it is in the home. The camera's setting must be right for the picture to fall in place: check it with the editor's camera view (below). Outdoors, the house hides from the camera what lies behind it (the ground behind it, a wall behind another wing): the picture doesn't go there. A wide-angle lens bends straight lines (barrel distortion): set the camera's `distortion` (the editor's camera view fits it) and the picture is straightened as it is projected. Anything standing in the room is flattened onto the floor. The screen of a projecting camera is smaller and faint, so that it doesn't hide its own projection.
 - Screens show a snapshot refreshed every 3 s (`refresh_interval`), or the live stream with `camera_view: live`.
 - **Projected pictures** (`projection_picture`): a camera lined up in the editor matches the picture it was lined up on; once the camera turns (PTZ, a knock), a fresh picture would fall askew. So **Capture** a reference picture in the editor's camera view: by default (`frozen`) the camera always projects that picture. With `live`, it projects a snapshot taken every 5 minutes instead, but only as long as it still looks like the reference (their edges are compared, not their colors, so the light of the day doesn't matter): a snapshot that differs too much is not projected, and the camera's screen shows **Camera moved? Re-align it**. Black or failed snapshots are skipped: the last good picture stays. Gray night (infrared) pictures are checked like the others: one that matches is projected. `snapshot` projects the latest snapshot, refreshed every `refresh_interval`, as do cameras without a reference picture.
-- Room names on the floor turn by quarter turns to read upright from where you look.
+- Room names on the floor, with their temperature and humidity, turn by quarter turns to read upright from where you look.
 - Grid units are taken as meters: walls are 2.5 high (`wall_height`). The roof is a best effort: the plan says nothing about it, so a hip roof is generated over each part of the home that no floor covers. A part that leans against a floor above (a strip along its wall, a wing ending against it) gets a lean-to roof rising to that wall instead.
 
 ## Using the editor
@@ -96,6 +96,8 @@ The editor writes this configuration for you; it can also be written by hand. Po
 | `x`, `y` | number | Top-left corner. |
 | `w`, `h` | number | Width and height. |
 | `outdoor` | boolean | Garden, terrace…: no walls and no roof. |
+| `temperature` | string | Optional temperature sensor of the room, without placing it on the plan (added to the sensors placed in the room). The plan generated from your areas takes the area's own temperature sensor (set in the area's settings). |
+| `humidity` | string | Optional humidity sensor of the room, without placing it on the plan, as `temperature`. |
 
 Walls shared by two rooms are drawn thin; outer walls are drawn thick.
 
@@ -129,7 +131,7 @@ How each entity is shown:
 | :--- | :--- |
 | `light.*`, or any on/off entity with `light: true` | Icon; when on, a glow around it in the light's color (warm white without one), as bright as the light. |
 | `sensor.*` with `device_class: temperature` | Room temperature (average if several) and floor color. Outside any room: a value badge. |
-| `sensor.*` with `device_class: humidity` | Room humidity. Outside any room: a value badge. |
+| `sensor.*` with `device_class: humidity` | Room humidity (average if several), next to its temperature in its label, its panel and on its floor in 3D. Outside any room: a value badge. |
 | other `sensor.*` | A value badge. |
 | `cover.*` on a wall | A window with its shutter; drag along it to set the position. Off a wall: an icon. |
 | `binary_sensor.*` door / window / opening | Icon, red when open. |

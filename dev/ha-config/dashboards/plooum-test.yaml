@@ -198,7 +198,8 @@ views:
                   - { entity: camera.does_not_exist, x: 13, y: 5, direction: 225 }
               - name: Upstairs
                 rooms:
-                  - { name: Bedroom, icon: "mdi:bed", x: 0, y: 0, w: 5, h: 4 }
+                  # A room sensor that isn't placed on the plan (room `humidity`).
+                  - { name: Bedroom, icon: "mdi:bed", x: 0, y: 0, w: 5, h: 4, humidity: sensor.living_room_humidity }
                   - { name: Bathroom, x: 5, y: 0, w: 3, h: 4 }
                 entities:
                   - { entity: light.bedroom_light, x: 2.5, y: 2 }

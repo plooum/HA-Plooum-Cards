@@ -378,6 +378,9 @@ function normalizeRoom(r, index) {
     w: Math.max(ROOM_SNAP, num(r.w, 1)),
     h: Math.max(ROOM_SNAP, num(r.h, 1)),
     outdoor: !!r.outdoor,
+    // Sensors of the room that don't need to be placed on the plan (picked from its area when generated).
+    temperature: r.temperature || '',
+    humidity: r.humidity || '',
   };
 }
 
@@ -494,6 +497,15 @@ function resolveFloor(hass, floor) {
     if (item.role === 'presence' && item.st.state === 'on') room.presence = true;
     if (item.role === 'light') room.lights.push(item);
   }
+  // The room's own `temperature` / `humidity` sensors, unless they are also placed in it.
+  for (const room of rooms) {
+    for (const [key, list] of [['temperature', room.temps], ['humidity', room.hums]]) {
+      const id = room[key];
+      const st = id && hass.states[id];
+      if (!st || isUnavailable(st) || !Number.isFinite(parseFloat(st.state)) || list.some((it) => it.id === id)) continue;
+      list.push({ id, st, role: key, conf: { entity: id } });
+    }
+  }
 
   // Thermostats feed the room temperature when no temperature sensor is placed in it.
   for (const room of rooms) {
@@ -535,6 +547,22 @@ function roomTemperature(room) {
   }
   if (room.climateTemp) return room.climateTemp.st.attributes.current_temperature;
   return null;
+}
+
+// Texts of a room's temperature and humidity ('' when it has none): the sensor's own state when
+// there is one, else the average.
+function roomClimate(hass, room) {
+  const t = roomTemperature(room);
+  let temp = '';
+  if (room.temps.length === 1) temp = formatState(hass, room.temps[0].st);
+  else if (t !== null) {
+    const unit = room.temps.length ? room.temps[0].st.attributes.unit_of_measurement || '' : hass.config.unit_system.temperature;
+    temp = `${t.toFixed(1)} ${unit}`;
+  }
+  let hum = '';
+  if (room.hums.length === 1) hum = formatState(hass, room.hums[0].st);
+  else if (room.hums.length > 1) hum = `${Math.round(room.hums.reduce((s, it) => s + parseFloat(it.st.state), 0) / room.hums.length)} %`;
+  return { temp, hum };
 }
 
 // --- Cameras ----------------------------------------------------------------
@@ -1847,7 +1875,17 @@ function generateFromAreas(hass) {
       const placed = [];
       layoutAreas(weighted, 0, 0, w, h, placed);
 
-      const rooms = placed.map((p) => ({ name: p.area.name, icon: p.area.icon || undefined, x: p.x, y: p.y, w: p.w, h: p.h }));
+      // The area's own temperature and humidity sensors (set in its settings) feed the room even when not suggested.
+      const rooms = placed.map((p) => ({
+        name: p.area.name,
+        icon: p.area.icon || undefined,
+        x: p.x,
+        y: p.y,
+        w: p.w,
+        h: p.h,
+        temperature: p.area.temperature_entity_id || undefined,
+        humidity: p.area.humidity_entity_id || undefined,
+      }));
       const exterior = exteriorSegments(rooms.map(normalizeRoom));
       const entities = [];
       placed.forEach((p, i) => entities.push(...placeAreaEntities(hass, p.ids, rooms[i], exterior)));
@@ -2287,18 +2325,7 @@ class HaPlooumFloorplanCard extends LitElement {
   }
 
   _renderRoom(room, dimClass, { px, py, pw, ph }) {
-    const t = roomTemperature(room);
-    let tempText = '';
-    if (room.temps.length === 1) tempText = formatState(this.hass, room.temps[0].st);
-    else if (t !== null) {
-      const unit = room.temps.length ? room.temps[0].st.attributes.unit_of_measurement || '' : this.hass.config.unit_system.temperature;
-      tempText = `${t.toFixed(1)} ${unit}`;
-    }
-    let humText = '';
-    if (room.hums.length === 1) humText = formatState(this.hass, room.hums[0].st);
-    else if (room.hums.length > 1) {
-      humText = `${Math.round(room.hums.reduce((s, it) => s + parseFloat(it.st.state), 0) / room.hums.length)} %`;
-    }
+    const { temp: tempText, hum: humText } = roomClimate(this.hass, room);
 
     return html`
       <div
@@ -2701,6 +2728,7 @@ class HaPlooumFloorplanCard extends LitElement {
         <div class="panel-header">
           ${room.icon ? html`<ha-icon icon=${room.icon}></ha-icon>` : nothing}
           <span class="panel-title">${room.name || 'Room'}</span>
+          ${this._renderClimate(room)}
           <button class="close" title="Close" @click=${() => (this._selectedRoom = null)}>
             <ha-icon icon="mdi:close"></ha-icon>
           </button>
@@ -2710,6 +2738,16 @@ class HaPlooumFloorplanCard extends LitElement {
           : html`<div class="panel-empty">No device placed in this room.</div>`}
       </div>
     `;
+  }
+
+  // A room's temperature and humidity, as in its label on the plan.
+  _renderClimate(room) {
+    const { temp, hum } = roomClimate(this.hass, room);
+    if (!temp && !hum) return nothing;
+    return html`<div class="climate">
+      ${temp ? html`<span class="temp">${temp}</span>` : nothing}
+      ${hum ? html`<span class="hum"><ha-icon icon="mdi:water-percent"></ha-icon>${hum}</span>` : nothing}
+    </div>`;
   }
 
   _renderRow(item) {
@@ -3179,7 +3217,7 @@ class HaPlooumFloorplanCard extends LitElement {
           floor.overlay(new Mesh(MODE.glow).poly(pts, [...c, 0.35 + 0.5 * b], pts.map((q) => [(q[0] - it.x) / R, (q[1] - it.y) / R, 0, 0])));
         }
         project(floor, room.outdoor ? outdoorProjectors(p.k) : indoorProjectors(p.k, room), pts);
-        if (cutaway && room.name) this._roomLabel(floor, room, f0z, labelTurn, colors);
+        if (cutaway && (room.name || room.temps.length || room.hums.length)) this._roomLabel(floor, room, f0z, labelTurn, colors);
       }
 
       // Walls: the outer ones on every floor shown (they also cover the slab), the inner ones only
@@ -3293,20 +3331,34 @@ class HaPlooumFloorplanCard extends LitElement {
     if (maxWidth < 40) return;
     const icon = room.icon ? this._iconPath(room.icon) : null;
     const font = `500 60px ${colors.font}`;
+    const small = `600 50px ${colors.font}`;
     const [, measure] = canvas2d(1, 1);
     measure.font = font;
     const iconW = room.icon ? 76 : 0;
-    const text = fitText(measure, room.name, maxWidth - iconW);
-    const w = Math.min(maxWidth, iconW + measure.measureText(text).width + 4);
-    const h = 76;
-    const key = `label:${room.name}:${room.icon || ''}:${!!icon}:${Math.round(maxWidth)}:${colors.font}`;
+    const text = fitText(measure, room.name || '', maxWidth - iconW);
+    let w = iconW + measure.measureText(text).width + 4;
+    // Its temperature and humidity on a second line, when the room is deep enough.
+    const { temp, hum } = roomClimate(this.hass, room);
+    const across = turn % 180 ? room.w : room.h;
+    const climate = (temp || hum) && across >= 1.2 ? [temp, hum].filter(Boolean).join('  ·  ') : '';
+    measure.font = small;
+    const climateText = climate ? fitText(measure, climate, maxWidth) : '';
+    if (climateText) w = Math.max(w, measure.measureText(climateText).width + 4);
+    w = Math.min(maxWidth, w);
+    const h = climateText ? 136 : 76;
+    const key = `label:${room.name}:${room.icon || ''}:${!!icon}:${climateText}:${Math.round(maxWidth)}:${colors.font}`;
     const source = () => {
       const [c, ctx] = canvas2d(w, h);
       ctx.fillStyle = 'rgba(40, 30, 20, 0.75)';
       if (icon) drawIcon(ctx, icon, 0, 8, 60);
       ctx.font = font;
       ctx.textBaseline = 'middle';
-      ctx.fillText(text, iconW, h / 2 + 2);
+      ctx.fillText(text, iconW, 40);
+      if (climateText) {
+        ctx.font = small;
+        ctx.fillStyle = 'rgba(40, 30, 20, 0.9)';
+        ctx.fillText(climateText, 0, 108);
+      }
       return c;
     };
     // The label's frame: its corner of the room, then its axes turned by `turn`.
@@ -3899,6 +3951,7 @@ class HaPlooumFloorplanCard extends LitElement {
         --fp-alert: var(--error-color, #ef5350);
         --fp-presence: var(--info-color, #4fc3f7);
         --fp-camera: var(--primary-color, #03a9f4);
+        --fp-humidity: #4fa3e0;
         --fp-outdoor: rgba(102, 160, 90, 0.16);
         /* 3D view */
         --fp3-wall: #ece7df;
@@ -4119,9 +4172,12 @@ class HaPlooumFloorplanCard extends LitElement {
       .hum {
         display: inline-flex;
         align-items: center;
+        font-weight: 500;
+        color: var(--primary-text-color);
       }
       .hum ha-icon {
         --mdc-icon-size: 12px;
+        color: var(--fp-humidity);
       }
 
       .marker,
@@ -4285,6 +4341,13 @@ class HaPlooumFloorplanCard extends LitElement {
       .panel-title {
         flex: 1;
         font-weight: 500;
+      }
+      .panel-header .climate {
+        font-size: 13px;
+        gap: 10px;
+      }
+      .panel-header .hum ha-icon {
+        --mdc-icon-size: 15px;
       }
       .close,
       .icon-btn {
@@ -5250,6 +5313,14 @@ class HaPlooumFloorplanCardEditor extends LitElement {
             { name: 'name', label: 'Name', selector: { text: {} } },
             { name: 'icon', label: 'Icon', selector: { icon: {} } },
             { name: 'outdoor', label: 'Outdoor (garden, terrace): no walls nor roof', selector: { boolean: {} } },
+            {
+              type: 'grid',
+              name: '',
+              schema: [
+                { name: 'temperature', label: 'Temperature sensor (optional)', selector: { entity: { domain: 'sensor', device_class: 'temperature' } } },
+                { name: 'humidity', label: 'Humidity sensor (optional)', selector: { entity: { domain: 'sensor', device_class: 'humidity' } } },
+              ],
+            },
           ]}
           .computeLabel=${(s) => s.label || s.name}
           @value-changed=${(ev) => this._selectionChanged(ev, 'rooms')}
