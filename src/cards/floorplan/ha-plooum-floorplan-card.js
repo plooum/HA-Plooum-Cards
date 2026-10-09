@@ -2291,6 +2291,7 @@ class HaPlooumFloorplanCard extends LitElement {
               ? cameraItems.map((it) => this._renderThumb(it, thumbs[it.id], dimItem(it), { px, py }))
               : nothing}
             ${plan.items.map((item) => this._renderItem(item, plan, { px, py, pw, ph }))}
+            ${plan.rooms.map((room) => this._renderRoomLabel(room, dim(room), { px, py, pw, ph }))}
           </div>
         </div>
         ${this._renderCamPreview(plan, vb, zoom, planWidth, markerSize)}
@@ -2324,15 +2325,22 @@ class HaPlooumFloorplanCard extends LitElement {
     return { height, transform: `translate(${tx}px, ${ty}px) scale(${s})`, k: Math.min(s, ZOOM_ITEM_GROWTH) / s, s, tx, ty };
   }
 
+  // A room's tap target, under the markers.
   _renderRoom(room, dimClass, { px, py, pw, ph }) {
-    const { temp: tempText, hum: humText } = roomClimate(this.hass, room);
+    return html`<div
+      class="room ${dimClass} ${this._selectedRoom === room.index ? 'selected' : ''}"
+      style="left: ${px(room.x)}%; top: ${py(room.y)}%; width: ${pw(room.w)}%; height: ${ph(room.h)}%;"
+      @click=${(ev) => this._selectRoom(ev, room.index)}
+    ></div>`;
+  }
 
+  // A room's name, temperature and humidity, over the markers so that they stay readable (taps go
+  // through it to the markers and the room).
+  _renderRoomLabel(room, dimClass, { px, py, pw, ph }) {
+    const { temp: tempText, hum: humText } = roomClimate(this.hass, room);
+    if (!room.name && !tempText && !humText) return nothing;
     return html`
-      <div
-        class="room ${dimClass} ${this._selectedRoom === room.index ? 'selected' : ''}"
-        style="left: ${px(room.x)}%; top: ${py(room.y)}%; width: ${pw(room.w)}%; height: ${ph(room.h)}%;"
-        @click=${(ev) => this._selectRoom(ev, room.index)}
-      >
+      <div class="room-label ${dimClass}" style="left: ${px(room.x)}%; top: ${py(room.y)}%; width: ${pw(room.w)}%; height: ${ph(room.h)}%;">
         <div class="label">
           ${room.name
             ? html`<div class="name">
@@ -2547,7 +2555,7 @@ class HaPlooumFloorplanCard extends LitElement {
     const zoom = this.renderRoot.querySelector('.plan .zoom');
     if (!zoom) return;
     const origin = zoom.getBoundingClientRect();
-    const boxes = [...zoom.querySelectorAll('.overlay > .marker, .overlay > .badge, .overlay > .window, .room .label .name > *, .room .label .climate > *')]
+    const boxes = [...zoom.querySelectorAll('.overlay > .marker, .overlay > .badge, .overlay > .window, .room-label .name > *, .room-label .climate > *')]
       .map((el) => el.getBoundingClientRect())
       .filter((r) => r.width && r.height)
       .map((r) => ({ l: r.left - origin.left, r: r.right - origin.left, t: r.top - origin.top, b: r.bottom - origin.top }));
@@ -4127,15 +4135,28 @@ class HaPlooumFloorplanCard extends LitElement {
       .room:hover {
         background: rgba(127, 127, 127, 0.06);
       }
+      /* Over the markers: a light backdrop keeps it readable when a marker stands under it. */
+      .room-label {
+        position: absolute;
+        box-sizing: border-box;
+        overflow: hidden;
+        pointer-events: none;
+        transition: opacity 0.4s ease;
+      }
       .label {
         transform: scale(var(--k, 1));
         transform-origin: 0 0;
         transition: transform 0.45s ease;
-        padding: 5px 7px;
+        box-sizing: border-box;
+        max-width: calc(100% / var(--k, 1) - 6px);
+        width: max-content;
+        margin: 3px;
+        padding: 2px 5px;
+        border-radius: 6px;
+        background: color-mix(in srgb, var(--card-background-color, #1c1c1c) 62%, transparent);
         display: flex;
         flex-direction: column;
         gap: 1px;
-        pointer-events: none;
       }
       .name {
         display: flex;
