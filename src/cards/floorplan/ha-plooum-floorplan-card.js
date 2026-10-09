@@ -75,6 +75,9 @@ const PICTURE_PX = 1024; // max width of a camera picture projected in 3D (textu
 const PROJ_REACH = 25; // projected pictures stop this far from their camera (grid units)
 const REFRESH_INTERVAL = 3; // s between two snapshots of a camera
 const THUMB_INTERVAL = 300; // s between two snapshots of the thumbnails always shown in 2D (`camera_previews: always`)
+const THUMB_CHECK = 30; // s between two checks for thumbnails older than THUMB_INTERVAL
+const THUMB_STORE = 'ha-plooum-floorplan-thumbs'; // localStorage key of the thumbnails kept between visits
+const THUMB_STORE_PX = 320; // width of a thumbnail kept in localStorage (JPEG)
 const THUMB_PX = 96; // thumbnail width in 2D (px, before the plan's zoom)
 // Sides a thumbnail can be put on (a camera's `preview_position`), as directions from its camera.
 const THUMB_SIDES = { top: [0, -1], bottom: [0, 1], left: [-1, 0], right: [1, 0] };
@@ -115,24 +118,71 @@ function isUnavailable(st) {
   return !st || UNAVAILABLE_STATES.includes(st.state);
 }
 
-// True when a loaded image is (almost) all black: a camera that sends a black frame. An image the
-// canvas can't read (another origin) counts as not black.
-function isBlack(img) {
+// A loaded snapshot read through a canvas: `black` when it is (almost) all black (a camera that
+// sends a black frame), and `data`, a small JPEG copy (data URL) to keep between visits. An image
+// the canvas can't read (another origin) is not black and has no copy.
+function readSnapshot(img) {
   try {
-    const canvas = document.createElement('canvas');
-    canvas.width = 32;
-    canvas.height = 18;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-    for (let i = 0; i < data.length; i += 4) {
-      if (Math.max(data[i], data[i + 1], data[i + 2]) >= BLACK_LEVEL) return false;
+    const probe = document.createElement('canvas');
+    probe.width = 32;
+    probe.height = 18;
+    const ctx = probe.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(img, 0, 0, probe.width, probe.height);
+    const px = ctx.getImageData(0, 0, probe.width, probe.height).data;
+    let black = true;
+    for (let i = 0; i < px.length && black; i += 4) {
+      if (Math.max(px[i], px[i + 1], px[i + 2]) >= BLACK_LEVEL) black = false;
     }
-    return true;
+    if (black) return { black, data: null };
+    const copy = document.createElement('canvas');
+    copy.width = Math.min(img.naturalWidth, THUMB_STORE_PX);
+    copy.height = Math.max(1, Math.round((copy.width * img.naturalHeight) / img.naturalWidth));
+    copy.getContext('2d').drawImage(img, 0, 0, copy.width, copy.height);
+    return { black, data: copy.toDataURL('image/jpeg', 0.75) };
   } catch (err) {
-    return false;
+    return { black: false, data: null };
   }
 }
+
+// Thumbnails of the 2D plan (`camera_previews: always`), shared by every card of the page and kept
+// in localStorage between visits, so that opening a dashboard again shows them at once instead of
+// loading them again. Camera id -> { url, aspect, time } (time of the snapshot, ms), plus while in
+// use { tried, loading, force, cards } (the cards showing it, redrawn when a new one has loaded).
+const thumbCache = (() => {
+  let entries = {};
+  try {
+    entries = JSON.parse(localStorage.getItem(THUMB_STORE)) || {};
+  } catch (err) {
+    entries = {};
+  }
+  return {
+    get(id) {
+      const e = entries[id] || (entries[id] = { url: null, aspect: null, time: 0 });
+      if (!e.cards) Object.assign(e, { tried: 0, loading: false, force: false, cards: new Set() });
+      return e;
+    },
+    // Keeps the thumbnails that have a JPEG copy; drops the oldest when localStorage is full.
+    save() {
+      const kept = Object.entries(entries)
+        .filter(([, e]) => e.url && e.url.startsWith('data:'))
+        .sort((a, b) => b[1].time - a[1].time)
+        .map(([id, e]) => [id, { url: e.url, aspect: e.aspect, time: e.time }]);
+      for (let n = kept.length; n > 0; n--) {
+        try {
+          localStorage.setItem(THUMB_STORE, JSON.stringify(Object.fromEntries(kept.slice(0, n))));
+          return;
+        } catch (err) {
+          // Quota exceeded: try with fewer thumbnails.
+        }
+      }
+      try {
+        localStorage.removeItem(THUMB_STORE);
+      } catch (err) {
+        // localStorage unavailable: thumbnails are only kept for this page.
+      }
+    },
+  };
+})();
 
 function isActive(st) {
   if (isUnavailable(st)) return false;
@@ -1528,8 +1578,6 @@ class HaPlooumFloorplanCard extends LitElement {
     this._tick = 0; // bumps every refresh_interval: reloads camera snapshots
     this._camHover = null; // camera previewed in 2D while the mouse is on its marker
     this._camPinned = null; // camera previewed in 2D after a tap on its marker
-    this._thumbs = {}; // camera id -> thumbnail always shown in 2D, see _thumb()
-    this._thumbTick = 0; // bumps every THUMB_INTERVAL: reloads the thumbnails
     this._panelCameras = false; // the room panel shows camera pictures
     this._wheelListener = { handleEvent: (ev) => this._wheel3d(ev), passive: false };
     this._onKeyDown = (ev) => {
@@ -1624,10 +1672,10 @@ class HaPlooumFloorplanCard extends LitElement {
     this._refreshTimer = setInterval(() => {
       if (this._snapshotsShown() && !document.hidden) this._tick++;
     }, seconds * 1000);
+    // Thumbnails are reloaded once older than THUMB_INTERVAL (see _thumb()): check now and then.
     this._thumbTimer = setInterval(() => {
-      this._thumbTick++;
       if (this.config.camera_previews === 'always' && this._view !== '3d' && !document.hidden) this.requestUpdate();
-    }, THUMB_INTERVAL * 1000);
+    }, THUMB_CHECK * 1000);
   }
 
   _snapshotsShown() {
@@ -2127,7 +2175,7 @@ class HaPlooumFloorplanCard extends LitElement {
     const unavailable = isUnavailable(item.st);
     const url = this._thumb(item.st);
     if (!url && unavailable) return nothing;
-    const thumb = this._thumbs[id];
+    const thumb = thumbCache.get(id);
     const k = (v) => `calc(${round2(v)}px * var(--k, 1))`;
     // A thumbnail moved away from its camera is linked to it by a line, to its nearest point.
     const lx = clamp(0, spot.dx - spot.w / 2, spot.dx + spot.w / 2);
@@ -2156,27 +2204,44 @@ class HaPlooumFloorplanCard extends LitElement {
     </div>`;
   }
 
-  // Latest good thumbnail of a camera (an image URL), or null until one has loaded. A new snapshot
-  // is loaded every THUMB_INTERVAL, or on demand (_reloadThumb); one that fails to load or comes out
-  // black is dropped, and the previous one stays (also while the camera is unavailable).
+  // Latest good thumbnail of a camera (an image URL), or null until one has loaded. It comes from
+  // thumbCache (shared by the cards, kept between visits); a new snapshot is loaded once it is older
+  // than THUMB_INTERVAL, or on demand (_reloadThumb). One that fails to load or comes out black is
+  // dropped: the previous one stays (also while the camera is unavailable), and the next try waits
+  // THUMB_INTERVAL as well.
   _thumb(st) {
     const id = st.entity_id;
-    const thumb = this._thumbs[id] || (this._thumbs[id] = { url: null, key: null, reloads: 0, loading: false });
+    const thumb = thumbCache.get(id);
+    thumb.cards.add(this);
+    if (thumb.aspect && !this._aspects[id]) this._aspects[id] = thumb.aspect;
     const pic = !isUnavailable(st) && st.attributes.entity_picture;
-    const key = `${this._thumbTick}-${thumb.reloads}`;
-    if (pic && thumb.key !== key) {
-      thumb.key = key;
+    const now = Date.now();
+    const due = thumb.force || now - Math.max(thumb.time, thumb.tried) >= THUMB_INTERVAL * 1000;
+    if (pic && due && !thumb.loading) {
+      thumb.force = false;
+      thumb.tried = now;
       thumb.loading = true;
-      const url = `${pic}${pic.includes('?') ? '&' : '?'}t=thumb${key}`;
+      const url = `${pic}${pic.includes('?') ? '&' : '?'}t=thumb${now}`;
       const img = new Image();
       const done = (good) => {
-        if (thumb.key !== key) return; // a newer one is loading
         thumb.loading = false;
-        if (good && !isBlack(img)) {
-          thumb.url = url;
-          this._learnAspect(id, img);
+        const snap = good ? readSnapshot(img) : null;
+        if (snap && !snap.black) {
+          // The JPEG copy, or the picture's URL when the canvas can't read it (not kept then).
+          thumb.url = snap.data || url;
+          thumb.aspect = img.naturalWidth / img.naturalHeight;
+          thumb.time = Date.now();
+          thumbCache.save();
         }
-        this.requestUpdate();
+        // Every card showing this camera, still on the page.
+        for (const card of thumb.cards) {
+          if (!card.isConnected) {
+            thumb.cards.delete(card);
+            continue;
+          }
+          if (snap && !snap.black) card._learnAspect(id, img);
+          card.requestUpdate();
+        }
       };
       img.onload = () => done(true);
       img.onerror = () => done(false);
@@ -2186,9 +2251,9 @@ class HaPlooumFloorplanCard extends LitElement {
   }
 
   _reloadThumb(id) {
-    const thumb = this._thumbs[id];
-    if (!thumb || thumb.loading) return;
-    thumb.reloads++;
+    const thumb = thumbCache.get(id);
+    if (thumb.loading) return;
+    thumb.force = true;
     this.requestUpdate();
   }
 
