@@ -5703,7 +5703,7 @@ class HaPlooumFloorplanCardEditor extends LitElement {
   // move while dragging.
   _sightTest(plan, C, wallHeight) {
     const floors = this._floors();
-    const key = [floors, this._currentFloorIndex(), wallHeight, JSON.stringify(plan.rooms)];
+    const key = [floors, this._currentFloorIndex(), wallHeight, JSON.stringify(plan.rooms.map((r) => [r.x, r.y, r.w, r.h, r.outdoor]))];
     if (!this._occKey || this._occKey.some((v, i) => v !== key[i])) {
       this._occKey = key;
       const above = floors.slice(this._currentFloorIndex() + 1).map((f, i) => ({
