@@ -2084,6 +2084,8 @@
   const REFRESH_INTERVAL = 3; // s between two snapshots of a camera
   const THUMB_INTERVAL = 300; // s between two snapshots of the thumbnails always shown in 2D (`camera_previews: always`)
   const THUMB_PX = 96; // thumbnail width in 2D (px, before the plan's zoom)
+  // Sides a thumbnail can be put on (a camera's `preview_position`), as directions from its camera.
+  const THUMB_SIDES = { top: [0, -1], bottom: [0, 1], left: [-1, 0], right: [1, 0] };
   const BLACK_LEVEL = 20; // a snapshot whose brightest pixel is darker than this (0-255) is considered black
   const AIM_HANDLE = 1.25; // distance from a camera to its aim handle in the editor (grid units)
   // Camera options left out of the config when they keep their default value.
@@ -3756,6 +3758,7 @@ void main() {
       const planWidth = this._width - 2 * CARD_PADDING;
       const markerSize = planWidth > 0 ? clamp(Math.round((planWidth / vb.w) * 0.8), 18, 28) : 28;
       const zoom = this._zoomView(vb, selected, planWidth);
+      const thumbs = this.config.camera_previews === 'always' ? this._thumbLayout(cameraItems, vb, planWidth, markerSize) : {};
       // Until the width is known, the aspect ratio sizes the plan; then an explicit height lets it grow while zoomed.
       const planSize = planWidth > 0 ? `height: ${zoom.height}px;` : `aspect-ratio: ${vb.w} / ${vb.h};`;
 
@@ -3837,7 +3840,7 @@ void main() {
           <div class="overlay">
             ${plan.rooms.map((room) => this._renderRoom(room, dim(room), { px, py, pw, ph }))}
             ${this.config.camera_previews === 'always'
-              ? cameraItems.map((it) => this._renderThumb(it, vb, planWidth, markerSize, dimItem(it), { px, py }))
+              ? cameraItems.map((it) => this._renderThumb(it, thumbs[it.id], dimItem(it), { px, py }))
               : A}
             ${plan.items.map((item) => this._renderItem(item, plan, { px, py, pw, ph }))}
           </div>
@@ -4019,68 +4022,118 @@ void main() {
     </div>`;
     }
 
-    // Thumbnail always shown next to a camera (`camera_previews: always`), behind it so that its cone
-    // stays visible, under the markers. Hidden while the camera's full preview is open. A tap on it
-    // opens the camera's details, with its live view.
-    _renderThumb(item, vb, planWidth, markerSize, dimClass, { px, py }) {
+    // Where each camera's thumbnail goes (`camera_previews: always`): id -> { w, h, dx, dy }, its size
+    // and the offset of its center from the marker (px, before the plan's zoom). A camera's
+    // `preview_position` (top, bottom, left, right) puts it on that side; `auto` (default) puts it
+    // behind the camera so that its cone stays visible, or else on the side closest to behind that
+    // fits inside the plan without covering a thumbnail or a camera already placed.
+    _thumbLayout(cams, vb, planWidth, markerSize) {
+      const layout = {};
+      if (planWidth <= 0) return layout;
+      const unit = planWidth / vb.w;
+      const planH = vb.h * unit;
+      const m = 4;
+      const w = clamp(Math.round(markerSize * 3.4), 64, THUMB_PX + 24);
+      const at = (it) => [(it.x - vb.x) * unit, (it.y - vb.y) * unit];
+      // Boxes to avoid: the camera markers, then each thumbnail placed.
+      const taken = cams.map((it) => {
+        const [x, y] = at(it);
+        return { l: x - markerSize / 2, r: x + markerSize / 2, t: y - markerSize / 2, b: y + markerSize / 2, id: it.id };
+      });
+      const fixed = (it) => THUMB_SIDES[it.conf.preview_position];
+      for (const it of [...cams.filter(fixed), ...cams.filter((c) => !fixed(c))]) {
+        const h = w / (this._aspects[it.id] || 16 / 9);
+        const [x, y] = at(it);
+        const spot = (v) => {
+          const reach = markerSize / 2 + 4 + Math.abs(v[0]) * (w / 2) + Math.abs(v[1]) * (h / 2);
+          const cx = x + v[0] * reach;
+          const cy = y + v[1] * reach;
+          const box = { l: cx - w / 2, r: cx + w / 2, t: cy - h / 2, b: cy + h / 2 };
+          const inside = box.l >= m && box.r <= planWidth - m && box.t >= m && box.b <= planH - m;
+          const free = !taken.some((o) => o.id !== it.id && o.l < box.r && box.l < o.r && o.t < box.b && box.t < o.b);
+          return { cx, cy, box, inside, free };
+        };
+        let found;
+        if (fixed(it)) {
+          found = spot(fixed(it));
+        } else {
+          const dir = it.camera ? toRad(it.camera.direction) : 0;
+          const back = [-Math.sin(dir), Math.cos(dir)];
+          const sides = Object.values(THUMB_SIDES).sort((a, b) => b[0] * back[0] + b[1] * back[1] - (a[0] * back[0] + a[1] * back[1]));
+          const spots = [back, ...sides].map(spot);
+          found = spots.find((f) => f.inside && f.free) || spots.find((f) => f.inside) || spots[0];
+        }
+        const cx = clamp(found.cx, w / 2 + m, planWidth - w / 2 - m);
+        const cy = clamp(found.cy, h / 2 + m, planH - h / 2 - m);
+        taken.push({ l: cx - w / 2, r: cx + w / 2, t: cy - h / 2, b: cy + h / 2, id: null });
+        layout[it.id] = { w, h, dx: cx - x, dy: cy - y };
+      }
+      return layout;
+    }
+
+    // Thumbnail always shown next to a camera (`camera_previews: always`), under the markers, hidden
+    // while the camera's full preview is open. A tap on it opens the camera's details, with its live
+    // view; its corner button reloads it now.
+    _renderThumb(item, spot, dimClass, { px, py }) {
       const id = item.id;
-      if (planWidth <= 0 || id === this._camHover || id === this._camPinned) return A;
+      if (!spot || id === this._camHover || id === this._camPinned) return A;
       const unavailable = isUnavailable(item.st);
       const url = this._thumb(item.st);
       if (!url && unavailable) return A;
-      const w = clamp(Math.round(markerSize * 3.4), 64, THUMB_PX + 24);
-      const h = w / (this._aspects[id] || 16 / 9);
-      const dir = item.camera ? (item.camera.direction * Math.PI) / 180 : 0;
-      const back = [-Math.sin(dir), Math.cos(dir)];
-      // Center of the thumbnail from the marker (px): behind the camera, or else on the side closest
-      // to behind where it fits inside the plan.
-      const unit = planWidth / vb.w;
-      const x = (item.x - vb.x) * unit;
-      const y = (item.y - vb.y) * unit;
-      const m = 4;
-      const fits = (v) => {
-        const reach = markerSize / 2 + 4 + Math.abs(v[0]) * (w / 2) + Math.abs(v[1]) * (h / 2);
-        const c = [x + v[0] * reach, y + v[1] * reach];
-        const inside = c[0] - w / 2 >= m && c[0] + w / 2 <= planWidth - m && c[1] - h / 2 >= m && c[1] + h / 2 <= vb.h * unit - m;
-        return { c, inside };
-      };
-      const sides = [[1, 0], [-1, 0], [0, 1], [0, -1]].sort((a, b) => b[0] * back[0] + b[1] * back[1] - (a[0] * back[0] + a[1] * back[1]));
-      const spot = [back, ...sides].map(fits).find((f) => f.inside) || fits(back);
-      const dx = clamp(spot.c[0], w / 2 + m, planWidth - w / 2 - m) - x;
-      const dy = clamp(spot.c[1], h / 2 + m, vb.h * unit - h / 2 - m) - y;
+      const thumb = this._thumbs[id];
       const k = (v) => `calc(${round2(v)}px * var(--k, 1))`;
-      return b`<button class="camthumb ${unavailable ? 'unavailable' : ''} ${dimClass}" title="Open the live view"
-      style="left: ${px(item.x)}%; top: ${py(item.y)}%; width: ${k(w)}; height: ${k(h)};
-        transform: translate(calc(-50% + ${k(dx)}), calc(-50% + ${k(dy)}));"
+      return b`<div class="camthumb ${unavailable ? 'unavailable' : ''} ${dimClass}" title="Open the live view"
+      style="left: ${px(item.x)}%; top: ${py(item.y)}%; width: ${k(spot.w)}; height: ${k(spot.h)};
+        transform: translate(calc(-50% + ${k(spot.dx)}), calc(-50% + ${k(spot.dy)}));"
       @click=${(ev) => {
         ev.stopPropagation();
         this._moreInfo(id);
       }}>
       ${url ? b`<img alt="" src=${url} />` : b`<ha-icon icon="mdi:cctv"></ha-icon>`}
-    </button>`;
+      ${unavailable
+        ? A
+        : b`<button class="camthumb-reload ${thumb.loading ? 'loading' : ''}" title="Reload the picture"
+            @click=${(ev) => {
+              ev.stopPropagation();
+              this._reloadThumb(id);
+            }}><ha-icon icon="mdi:refresh"></ha-icon></button>`}
+    </div>`;
     }
 
     // Latest good thumbnail of a camera (an image URL), or null until one has loaded. A new snapshot
-    // is loaded every THUMB_INTERVAL; one that fails to load or comes out black is dropped, and the
-    // previous one stays (also while the camera is unavailable).
+    // is loaded every THUMB_INTERVAL, or on demand (_reloadThumb); one that fails to load or comes out
+    // black is dropped, and the previous one stays (also while the camera is unavailable).
     _thumb(st) {
       const id = st.entity_id;
-      const thumb = this._thumbs[id] || (this._thumbs[id] = { url: null, tick: -1 });
+      const thumb = this._thumbs[id] || (this._thumbs[id] = { url: null, key: null, reloads: 0, loading: false });
       const pic = !isUnavailable(st) && st.attributes.entity_picture;
-      if (pic && thumb.tick !== this._thumbTick) {
-        thumb.tick = this._thumbTick;
-        const url = `${pic}${pic.includes('?') ? '&' : '?'}t=thumb${this._thumbTick}`;
+      const key = `${this._thumbTick}-${thumb.reloads}`;
+      if (pic && thumb.key !== key) {
+        thumb.key = key;
+        thumb.loading = true;
+        const url = `${pic}${pic.includes('?') ? '&' : '?'}t=thumb${key}`;
         const img = new Image();
-        img.onload = () => {
-          if (thumb.tick !== this._thumbTick && thumb.url) return; // a newer one is loading
-          if (isBlack(img)) return;
-          thumb.url = url;
-          this._learnAspect(id, img);
+        const done = (good) => {
+          if (thumb.key !== key) return; // a newer one is loading
+          thumb.loading = false;
+          if (good && !isBlack(img)) {
+            thumb.url = url;
+            this._learnAspect(id, img);
+          }
           this.requestUpdate();
         };
+        img.onload = () => done(true);
+        img.onerror = () => done(false);
         img.src = url;
       }
       return thumb.url;
+    }
+
+    _reloadThumb(id) {
+      const thumb = this._thumbs[id];
+      if (!thumb || thumb.loading) return;
+      thumb.reloads++;
+      this.requestUpdate();
     }
 
     _previewEnter(ev, item) {
@@ -5772,6 +5825,40 @@ void main() {
         height: 100%;
         object-fit: cover;
       }
+      .camthumb-reload {
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        width: 22px;
+        height: 22px;
+        padding: 0;
+        border: none;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.55);
+        color: #fff;
+        cursor: pointer;
+        --mdc-icon-size: 15px;
+      }
+      .camthumb-reload.loading ha-icon {
+        animation: spin 0.9s linear infinite;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      /* With a mouse, the reload button only shows while the thumbnail is hovered. */
+      @media (hover: hover) {
+        .camthumb-reload {
+          opacity: 0;
+          transition: opacity 0.15s;
+        }
+        .camthumb:hover .camthumb-reload,
+        .camthumb-reload.loading {
+          opacity: 1;
+        }
+      }
       .camthumb.unavailable img {
         filter: grayscale(1);
         opacity: 0.5;
@@ -6585,7 +6672,23 @@ void main() {
                 { name: 'screen_distance', label: 'Screen distance (3D)', selector: { number: { min: 0.5, max: 15, step: 0.1, mode: 'box' } } },
               ],
             },
-            { name: 'projection', label: 'Project the picture onto the floor and walls it sees (3D)', selector: { boolean: {} } }
+            { name: 'projection', label: 'Project the picture onto the floor and walls it sees (3D)', selector: { boolean: {} } },
+            {
+              name: 'preview_position',
+              label: 'Thumbnail position (2D, camera previews: always)',
+              selector: {
+                select: {
+                  mode: 'dropdown',
+                  options: [
+                    { value: 'auto', label: 'Automatic (behind the camera)' },
+                    { value: 'top', label: 'Above' },
+                    { value: 'bottom', label: 'Below' },
+                    { value: 'left', label: 'Left' },
+                    { value: 'right', label: 'Right' },
+                  ],
+                },
+              },
+            }
           );
         }
         return b`<div class="selection">
@@ -6596,7 +6699,7 @@ void main() {
         </div>
         <ha-form
           .hass=${this.hass}
-          .data=${{ length: WINDOW_LENGTH, light: naturalRole === 'light', ...(isCamera ? this._cameraDefaults(floor, sel.index) : {}), ...ent }}
+          .data=${{ length: WINDOW_LENGTH, light: naturalRole === 'light', ...(isCamera ? { ...this._cameraDefaults(floor, sel.index), preview_position: 'auto' } : {}), ...ent }}
           .schema=${schema}
           .computeLabel=${(s) => s.label || s.name}
           @value-changed=${(ev) => this._selectionChanged(ev, 'entities')}
@@ -7177,7 +7280,8 @@ void main() {
         // The direction is always kept: it would otherwise change when the camera is moved.
         for (const key of CAMERA_KEYS) if (key in defaults && num(value[key]) === defaults[key]) delete value[key];
         if (!value.projection) delete value.projection;
-        if (domainOf(value.entity) !== 'camera') for (const key of ['direction', 'projection', ...CAMERA_KEYS]) delete value[key];
+        if (value.preview_position === 'auto') delete value.preview_position;
+        if (domainOf(value.entity) !== 'camera') for (const key of ['direction', 'projection', 'preview_position', ...CAMERA_KEYS]) delete value[key];
       }
       if (listKey === 'entities') {
         // `light` is only kept when it differs from what the entity's domain gives.

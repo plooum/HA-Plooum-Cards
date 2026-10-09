@@ -204,8 +204,9 @@ views:
                   - { entity: sensor.bedroom_temperature, x: 4.5, y: 0.5 }
                   # Left wall: vertical window.
                   - { entity: cover.bedroom_cover, x: 0, y: 2 }
-                  # Unavailable when input_boolean.garage_camera_available is off.
-                  - { entity: camera.garage_camera, x: 4.75, y: 3.75, direction: 315 }
+                  # Unavailable when input_boolean.garage_camera_available is off. Its thumbnail
+                  # (camera_previews: always) is forced to its left.
+                  - { entity: camera.garage_camera, x: 4.75, y: 3.75, direction: 315, preview_position: left }
           - type: custom:ha-plooum-floorplan-card
             title: Home, camera thumbnails
             # Thumbnails always shown next to the cameras. camera_view: live must not reach the
