@@ -2089,7 +2089,6 @@
   const PROJECTING_SCREEN = { size: 0.55, alpha: 0.35 }; // screen of a camera projecting its picture in 3D: smaller and faint
   const SHORT_BEAM = 0.7; // beam length when the screen isn't in the scene (grid units)
   const STRIP_HEIGHT = 44; // px kept free at the bottom of the 3D view for the camera bar
-  const PROJ_PX = 640; // picture width (px) assumed by the editor until the picture has loaded
   const PICTURE_PX = 1024; // max width of a camera picture projected in 3D (texture)
   const PROJ_REACH = 25; // projected pictures stop this far from their camera (grid units)
   const REFRESH_INTERVAL = 3; // s between two snapshots of a camera
@@ -2118,7 +2117,7 @@
   const CORRECTION_LO = [0.7, 0.7, 0.7, -2, -2];
   const CORRECTION_HI = [1.3, 1.3, 1.3, 2, 2];
   const LENS_PINS = 5; // pinned corners from which the editor's fit also sets the lens distortion
-  const CORRECTION_PINS = 6; // … and the plan's correction, when asked
+  const MAX_PINS = 16; // pinned corners of a camera (`pins`): the shader's warp takes this many
 
   // 3D view. Grid units are meant as meters: walls are 2.5 units high by default.
   const U3 = 100; // px per grid unit of the 3D view (orbit distances, perspective, overlays)
@@ -2708,9 +2707,26 @@
       tilt: clamp(num(c.tilt, CAMERA_TILT), -45, 89),
       distortion: clamp(num(c.distortion, 0), ...DISTORTION_RANGE),
       correction: CORRECTION_KEYS.map((key, i) => clamp(num(c[key], CORRECTION_NONE[i]), CORRECTION_LO[i], CORRECTION_HI[i])),
+      pins: readPins(c.pins),
       center: planCenter(indoor),
       hit: raycast(indoor, item.x, item.y, dx, dy),
     };
+  }
+
+  // Key of a world point: pinned corners and the editor's handles are matched by it.
+  const pointKey = (P) => P.map(round2).join(',');
+
+  // Corners pinned on a camera's picture (`pins`: [{ x, y, z, u, v }], u and v from 0 to 1 across and
+  // down the picture): [{ key, P, u, v }].
+  function readPins(list) {
+    if (!Array.isArray(list)) return [];
+    return list
+      .filter((p) => p && ['x', 'y', 'z', 'u', 'v'].every((k) => isNum(p[k])))
+      .slice(0, MAX_PINS)
+      .map((p) => {
+        const P = [num(p.x), num(p.y), num(p.z)];
+        return { key: pointKey(P), P, u: num(p.u), v: num(p.v) };
+      });
   }
 
   // 2D view cone of a camera, as an SVG path (plan coordinates).
@@ -2980,6 +2996,12 @@
   // it: the camera sees the plan's point P at base + (P - base) · stretch + shift, the base being the
   // middle of its floor's indoor rooms, on the floor (the camera itself doesn't move). Only its
   // picture (projection, editor) follows it.
+  //
+  // Pinned corners (`pins`, see readPins()): world points pinned on the picture in the editor. The
+  // model above never fits them exactly (a plan measured a little wrong, a lens it doesn't describe):
+  // on top of it, the picture is warped so that each one falls exactly where it was pinned. The
+  // offsets from where the model puts them to their pins are interpolated smoothly over the picture
+  // (see pinWarp()); the model alone still says what lies behind what (the shadow maps).
 
   function cameraHeight(cam, wallHeight) {
     return cam.height !== null && cam.height !== undefined ? cam.height : Math.min(CAMERA_HEIGHT, wallHeight - 0.3);
@@ -2988,7 +3010,7 @@
   // Camera standing at C (world), on a floor at height z0: the picture's x follows `right`, its y
   // follows -`up`, and `f` is the focal length in picture widths. `cam` needs dx, dy (plan direction),
   // tilt and fov; `distortion`, `correction` (values of CORRECTION_KEYS) and its base (`center`,
-  // [x, y]) are optional.
+  // [x, y]), and `pins` (see readPins()) are optional.
   function cameraPose(cam, C, z0 = 0) {
     const t = toRad(cam.tilt);
     const fwd = [cam.dx * Math.cos(t), cam.dy * Math.cos(t), -Math.sin(t)];
@@ -3003,6 +3025,8 @@
       base: [...(cam.center || C.slice(0, 2)), z0],
       stretch: (cam.correction || CORRECTION_NONE).slice(0, 3),
       shift: [...(cam.correction || CORRECTION_NONE).slice(3, 5), 0],
+      pins: cam.pins || [], // their points are on the floor's plan: z0 lifts them to it
+      z0,
     };
   }
 
@@ -3016,6 +3040,13 @@
   // Where a world point shows in the picture, or null when it is behind the camera (or out of the
   // field of a pincushion lens).
   function toPicture(pose, P, aspect) {
+    const uv = modelPicture(pose, P, aspect);
+    const warp = uv && pinWarp(pose, aspect);
+    return warp ? warpPoint(warp, uv) : uv;
+  }
+
+  // toPicture() by the model alone, without the warp of the pinned corners.
+  function modelPicture(pose, P, aspect) {
     const d = sub3(stretched(pose, P), pose.C);
     const z = dot3(d, pose.fwd);
     if (z < 1e-3) return null;
@@ -3026,6 +3057,96 @@
     if (s < 0) return null;
     const g = 2 / (1 + Math.sqrt(s));
     return [0.5 + 0.5 * ux * g, 0.5 / aspect - 0.5 * uy * g];
+  }
+
+  // Thin-plate spline kernel: r² log r, from r².
+  const tps = (r2) => (r2 > 1e-12 ? 0.5 * r2 * Math.log(r2) : 0);
+
+  // Warp of the picture that brings each pinned corner of the pose from where the model shows it to
+  // its pin, in picture widths: the offset at a model point p is a0 + ax p.x + ay p.y + Σ w_i tps(|p - pts_i|²).
+  // One pin shifts the picture, two move it as a similarity (shift, turn, scale), from three on a
+  // thin-plate spline bends it as little as possible between them. Null without pins. Cached per
+  // pose and aspect.
+  function pinWarp(pose, aspect) {
+    if (!pose.pins || !pose.pins.length) return null;
+    if (pose.warpCache && pose.warpCache.aspect === aspect) return pose.warpCache.warp;
+    const m = [];
+    const d = [];
+    for (const pin of pose.pins) {
+      const uv = modelPicture(pose, add3(pin.P, [0, 0, pose.z0]), aspect);
+      if (!uv) continue;
+      m.push(uv);
+      d.push([pin.u - uv[0], pin.v / aspect - uv[1]]);
+    }
+    const warp = fitWarp(m, d);
+    pose.warpCache = { aspect, warp };
+    return warp;
+  }
+
+  function fitWarp(m, d) {
+    const n = m.length;
+    const none = [0, 0];
+    if (!n) return null;
+    const shift = { pts: [], w: [], a0: d.reduce((s, v) => [s[0] + v[0] / n, s[1] + v[1] / n], [0, 0]), ax: none, ay: none };
+    // Similarity bringing m[i] to m[i] + d[i] and m[j] to m[j] + d[j] (complex numbers: z -> α z + β).
+    const similarity = (i, j) => {
+      const [ax, ay] = [m[j][0] - m[i][0], m[j][1] - m[i][1]];
+      const [bx, by] = [ax + d[j][0] - d[i][0], ay + d[j][1] - d[i][1]];
+      const den = ax * ax + ay * ay;
+      if (den < 1e-8) return shift;
+      const re = (bx * ax + by * ay) / den;
+      const im = (by * ax - bx * ay) / den;
+      // Offset: (α - 1) p + β, with β = m[i] + d[i] - α m[i].
+      const t = [m[i][0] + d[i][0] - (re * m[i][0] - im * m[i][1]), m[i][1] + d[i][1] - (im * m[i][0] + re * m[i][1])];
+      return { pts: [], w: [], a0: t, ax: [re - 1, im], ay: [-im, re - 1] };
+    };
+    if (n === 1) return shift;
+    if (n === 2) return similarity(0, 1);
+    // Thin-plate spline: [K P; Pᵀ 0] [w; c] = [d; 0], for each coordinate.
+    const size = n + 3;
+    const A = [];
+    for (let i = 0; i < size; i++) {
+      const row = new Array(size).fill(0);
+      if (i < n) {
+        for (let j = 0; j < n; j++) row[j] = tps((m[i][0] - m[j][0]) ** 2 + (m[i][1] - m[j][1]) ** 2);
+        row[n] = 1;
+        row[n + 1] = m[i][0];
+        row[n + 2] = m[i][1];
+      } else {
+        for (let j = 0; j < n; j++) row[j] = i === n ? 1 : m[j][i - n - 1];
+      }
+      A.push(row);
+    }
+    const sx = solveLinear(A, [...d.map((v) => v[0]), 0, 0, 0]);
+    const sy = solveLinear(A, [...d.map((v) => v[1]), 0, 0, 0]);
+    if (!sx || !sy) {
+      // Pins in a line: the similarity of the two farthest apart.
+      let best = [0, 1];
+      let far = -1;
+      for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+        const dist = (m[i][0] - m[j][0]) ** 2 + (m[i][1] - m[j][1]) ** 2;
+        if (dist > far) [far, best] = [dist, [i, j]];
+      }
+      return similarity(...best);
+    }
+    return {
+      pts: m,
+      w: m.map((_, i) => [sx[i], sy[i]]),
+      a0: [sx[n], sy[n]],
+      ax: [sx[n + 1], sy[n + 1]],
+      ay: [sx[n + 2], sy[n + 2]],
+    };
+  }
+
+  function warpPoint(warp, p) {
+    let x = p[0] + warp.a0[0] + warp.ax[0] * p[0] + warp.ay[0] * p[1];
+    let y = p[1] + warp.a0[1] + warp.ax[1] * p[0] + warp.ay[1] * p[1];
+    warp.pts.forEach((q, i) => {
+      const k = tps((p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2);
+      x += warp.w[i][0] * k;
+      y += warp.w[i][1] * k;
+    });
+    return [x, y];
   }
 
   // Direction (world, not normalized) of the line of sight through the picture point `uv`.
@@ -3104,6 +3225,12 @@ uniform vec3 uShift;
 uniform sampler2D uShadow;
 uniform int uShadowOn;
 uniform float uShadowScale;
+uniform int uWarpN;
+uniform vec2 uWarpP[${MAX_PINS}];
+uniform vec2 uWarpW[${MAX_PINS}];
+uniform vec2 uWarpA0;
+uniform vec2 uWarpAx;
+uniform vec2 uWarpAy;
 varying vec3 vPos;
 varying vec4 vColor;
 varying vec4 vUV;
@@ -3129,7 +3256,17 @@ void main() {
     float s = 1.0 - 4.0 * uK * dot(u, u);
     if (s < 0.0) discard;
     vec2 q = u * (2.0 / (1.0 + sqrt(s)));
-    vec2 p = vec2(0.5 + 0.5 * q.x, 0.5 - 0.5 * q.y * uAspect);
+    // Then the warp of the pinned corners (see warpPoint()), in picture widths.
+    vec2 w = vec2(0.5 + 0.5 * q.x, 0.5 / uAspect - 0.5 * q.y);
+    vec2 dw = uWarpA0 + uWarpAx * w.x + uWarpAy * w.y;
+    for (int i = 0; i < ${MAX_PINS}; i++) {
+      if (i >= uWarpN) break;
+      vec2 e = w - uWarpP[i];
+      float r2 = dot(e, e);
+      if (r2 > 1e-12) dw += uWarpW[i] * (0.5 * r2 * log(r2));
+    }
+    w += dw;
+    vec2 p = vec2(w.x, w.y * uAspect);
     if (p.x < 0.0 || p.x > 1.0 || p.y < 0.0 || p.y > 1.0) discard;
     // Hidden from the camera by something nearer to it (see GL_DEPTH_FRAGMENT). The shadow map is
     // undistorted, and as much wider than the picture as its distortion needs (uShadowScale).
@@ -3318,6 +3455,7 @@ void main() {
       this.depth = program(GL_DEPTH_VERTEX, GL_DEPTH_FRAGMENT, ['uView', 'uC', 'uFwd', 'uReach', 'uBase', 'uStretch', 'uShift']);
       this.u = program(GL_VERTEX, GL_FRAGMENT, [
         'uView', 'uMode', 'uTex', 'uC', 'uFwd', 'uRight', 'uUp', 'uF', 'uAspect', 'uReach', 'uK', 'uBase', 'uStretch', 'uShift', 'uShadow', 'uShadowOn', 'uShadowScale',
+        'uWarpN', 'uWarpP', 'uWarpW', 'uWarpA0', 'uWarpAx', 'uWarpAy',
       ]);
       gl.useProgram(this.u.prog);
       this.buffer = gl.createBuffer();
@@ -3504,6 +3642,18 @@ void main() {
           gl.uniform3fv(this.u.uStretch, p.stretch);
           gl.uniform3fv(this.u.uShift, p.shift);
           gl.uniform1f(this.u.uShadowScale, fieldScale(p.k, p.aspect));
+          const warp = p.warp || { pts: [], w: [], a0: [0, 0], ax: [0, 0], ay: [0, 0] };
+          const flat = (list) => {
+            const a = new Float32Array(2 * MAX_PINS);
+            list.slice(0, MAX_PINS).forEach((v, i) => a.set(v, 2 * i));
+            return a;
+          };
+          gl.uniform1i(this.u.uWarpN, Math.min(MAX_PINS, warp.pts.length));
+          gl.uniform2fv(this.u.uWarpP, flat(warp.pts));
+          gl.uniform2fv(this.u.uWarpW, flat(warp.w));
+          gl.uniform2fv(this.u.uWarpA0, warp.a0);
+          gl.uniform2fv(this.u.uWarpAx, warp.ax);
+          gl.uniform2fv(this.u.uWarpAy, warp.ay);
           const shadow = p.shadow ? shadows.get(p.key) : null;
           gl.uniform1i(this.u.uShadowOn, shadow ? 1 : 0);
           if (shadow) {
@@ -3711,15 +3861,6 @@ void main() {
     return { q: [((q[0] % 360) + 360) % 360, ...q.slice(1)], rms: Math.sqrt(cost(e) / pairs.length) };
   }
 
-  // How far points `P` show from their place `uv` in the picture with a pose (rms, in picture widths).
-  function matchError(pose, pairs, aspect) {
-    const d2 = pairs.map(({ P, uv }) => {
-      const s = toPicture(pose, P, aspect);
-      return s ? (s[0] - uv[0]) ** 2 + (s[1] - uv[1]) ** 2 : 1;
-    });
-    return Math.sqrt(d2.reduce((a, b) => a + b, 0) / pairs.length);
-  }
-
   // Corners of rooms to line the camera's picture up with: floor corners, and the tops of the walls
   // indoors. Rooms sharing a corner give it once. With `outline` (an outdoor camera), only the corners
   // where the outline of the indoor rooms turns, the ones seen from outside.
@@ -3734,8 +3875,8 @@ void main() {
       for (const [x, y] of [[r.x, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h], [r.x, r.y + r.h]]) {
         if (outline && !r.outdoor && !turns(x, y)) continue;
         for (const z of r.outdoor ? [0] : [0, wallHeight]) {
-          const P = [round2(x), round2(y), z];
-          corners.set(P.join(','), P);
+          const P = [round2(x), round2(y), round2(z)];
+          corners.set(pointKey(P), P);
         }
       }
     }
@@ -3786,6 +3927,32 @@ void main() {
       c.forEach((p, i) => lines.push({ P: [...p, 0], Q: [...c[(i + 1) % 4], 0], outdoor: true }));
     }
     return lines;
+  }
+
+  // The 4 corners (foot and top of both ends) of the outer wall an outdoor camera sees best: the one
+  // facing it that is largest in its picture (counting only its part in the picture, and less when
+  // the house hides some of its corners). Empty when it sees none.
+  function facadeCorners(indoor, wallHeight, pose, aspect, hidden) {
+    const C = pose.C;
+    let best = null;
+    for (const seg of wallSegments(indoor)) {
+      const k = seg.o === 'h' ? 1 : 0;
+      if (!seg.normal || (C[k] - seg.at) * seg.normal[k] <= 0.05) continue;
+      const at = (t, z) => (seg.o === 'h' ? [t, seg.at, z] : [seg.at, t, z]);
+      const P = [at(seg.a, 0), at(seg.b, 0), at(seg.b, wallHeight), at(seg.a, wallHeight)].map((X) => X.map(round2));
+      const uv = P.map((X) => toPicture(pose, X, aspect));
+      if (uv.some((q) => !q)) continue;
+      const q = uv.map(([u, v]) => [clamp(u, 0, 1), clamp(v, 0, 1 / aspect)]);
+      let area = 0;
+      q.forEach((a, i) => {
+        const b = q[(i + 1) % 4];
+        area += a[0] * b[1] - b[0] * a[1];
+      });
+      const seen = hidden ? P.filter((X) => !hidden(X)).length : 4;
+      const score = (Math.abs(area) / 2) * (0.25 + seen / 4);
+      if (score > 1e-6 && (!best || score > best.score)) best = { score, P };
+    }
+    return best ? best.P.map((P) => ({ key: pointKey(P), P })) : [];
   }
 
   // What hides a floor from its outdoor cameras: its indoor rooms and those of the floors above
@@ -3848,7 +4015,7 @@ void main() {
     const cut = (A, B, dA, dB) => (dA >= near ? A : add3(A, mul3(sub3(B, A), (near - dA) / (dB - dA))));
     const A = cut(P, Q, dP, dQ);
     const B = cut(Q, P, dQ, dP);
-    const steps = hidden || pose.k ? clamp(Math.ceil(len3(sub3(B, A)) / 0.1), 1, 100) : 1;
+    const steps = hidden || pose.k || pose.pins.length ? clamp(Math.ceil(len3(sub3(B, A)) / 0.1), 1, 100) : 1;
     const lines = [];
     let line = null;
     for (let i = 0; i <= steps; i++) {
@@ -5235,7 +5402,7 @@ void main() {
               mesh: () =>
                 new Mesh(MODE.picture, {
                   tex: { key: `picture:${snap.url}`, source: () => scaledPicture(snap.img, PICTURE_PX) },
-                  proj: { C, fwd, right, up, f, k, base, stretch, shift, aspect: snap.aspect, reach: PROJ_REACH, shadow: !indoor, key: it.id },
+                  proj: { C, fwd, right, up, f, k, base, stretch, shift, warp: pinWarp(sc.pose, snap.aspect), aspect: snap.aspect, reach: PROJ_REACH, shadow: !indoor, key: it.id },
                 }),
             });
           }
@@ -7011,11 +7178,9 @@ void main() {
         _search: { state: true },
         _filter: { state: true },
         _history: { state: true },
-        _pins: { state: true },
         _camDrag: { state: true },
         _snapTick: { state: true },
         _capture: { state: true },
-        _fitCorrection: { state: true },
         _cameraAdvanced: { state: true },
         _paletteOpen: { state: true },
       };
@@ -7023,16 +7188,13 @@ void main() {
 
     constructor() {
       super();
-      this._pins = null; // corners pinned on the selected camera's picture: { index, id, list: [{ key, P, uv }] }
       this._camDrag = null; // drag in progress on the camera's picture
       this._snapTick = 0; // bumps to reload the camera view's snapshot
       this._capture = null; // reference picture capture: { id, busy } or { id, error }
-      this._fitCorrection = false; // the camera view's fit also corrects the plan (see cameraPose())
       this._cameraAdvanced = false; // a camera's advanced settings (3D, projection, camera view) are shown
       this._paletteOpen = readPaletteOpen(); // the entity list is unfolded (remembered on the device)
       this._matches = {}; // `${reference url}|${snapshot url}` -> matchPicture() verdict, null while comparing
       this._aspects = {}; // camera id -> picture aspect ratio
-      this._picWidths = {}; // camera id -> picture width (px), to show the pins' error in pixels
       this._floorIndex = 0;
       this._selection = null; // { kind: 'room' | 'entity', index }
       this._drag = null;
@@ -7088,7 +7250,6 @@ void main() {
       const previous = this._history[this._history.length - 1];
       this._history = this._history.slice(0, -1);
       this._selection = null;
-      this._pins = null;
       this._extentCache = null;
       this._setFloors(previous);
     }
@@ -7386,6 +7547,10 @@ void main() {
               ${this._entityIcon(it.id, it.icon)}
             </div>`;
           })}
+          ${this._camDrag && this._camDrag.moved && this._camDrag.key !== null
+            ? // The corner being placed in the camera view.
+              b`<div class="e-corner-hl" style="left: ${px(this._camDrag.P[0])}%; top: ${py(this._camDrag.P[1])}%;"></div>`
+            : A}
           ${aim
             ? b`<div class="handle aim" data-kind="aim" title="Drag to aim the camera"
                 style="left: ${px(aim.x)}%; top: ${py(aim.y)}%;"></div>`
@@ -7566,10 +7731,11 @@ void main() {
       return Math.max(1, num(this._config.wall_height, WALL_HEIGHT));
     }
 
-    // The selected camera's picture with the plan drawn over it, as the camera sees it with its current
-    // settings: they are right when the lines follow the room in the picture. Dragging a corner of the
-    // outline onto the same corner in the picture sets them: the first corner turns the camera, the
-    // corners pinned after it also set its field of view and height.
+    // The selected camera's picture with the plan drawn over it, as the camera sees it: the settings
+    // are right when the lines follow the house in the picture. Dragging a corner of the house onto
+    // the same corner in the picture pins it there: it stays exactly where it is dropped (the picture
+    // is warped to it, see pinWarp()), and the camera's settings follow the pins quietly. An outdoor
+    // camera only offers the corners of the facade it sees best; an indoor one those of its room.
     _renderCameraView(floor, index) {
       const plan = resolveFloor(this.hass, floor);
       const item = plan.items[index];
@@ -7579,8 +7745,7 @@ void main() {
       const aspect = this._aspects[item.id] || 16 / 9;
       const wallHeight = this._wallHeight();
       const pose = cameraPose(item.camera, [item.x, item.y, cameraHeight(item.camera, wallHeight)]);
-      const pins = this._pinsOf(item);
-      const cam = item.camera;
+      const pins = item.camera.pins;
       // With a reference picture, the camera is aligned on it (and it is what gets projected).
       const refUrl = item.conf.reference_picture ? uploadedImageUrl(item.conf.reference_picture) : null;
       const snapUrl = pic ? `${pic}${pic.includes('?') ? '&' : '?'}t=${this._snapTick}` : null;
@@ -7589,7 +7754,7 @@ void main() {
       const header = b`<div class="cv-header">
       <span>${refUrl ? 'Camera view (reference picture)' : 'Camera view'}</span>
       ${(pic || refUrl) && pins.length
-        ? b`<button class="btn flat" @click=${() => (this._pins = null)}><ha-icon icon="mdi:pin-off-outline"></ha-icon> Unpin</button>`
+        ? b`<button class="btn flat" title="Unpin every corner" @click=${() => this._unpinAll(item)}><ha-icon icon="mdi:pin-off-outline"></ha-icon> Unpin</button>`
         : A}
       ${pic
         ? b`<button class="btn flat" ?disabled=${!canUpload || (capture && capture.busy)} @click=${() => this._captureReference(item)}
@@ -7624,17 +7789,28 @@ void main() {
       const ownRoom = item.camera.indoor ? plan.indoor[roomAt(plan.indoor, item.x, item.y)] : null;
       const rooms = ownRoom ? ownRoom.zones : plan.rooms;
       const hidden = ownRoom ? null : this._sightTest(plan, pose.C, wallHeight);
-      const lines = (ownRoom ? planLines(rooms, wallHeight) : facingLines(rooms, wallHeight, pose.C)).flatMap((l) =>
+      const lineList = ownRoom ? planLines(rooms, wallHeight) : facingLines(rooms, wallHeight, pose.C);
+      const lines = lineList.flatMap((l) =>
         segmentToPicture(pose, l.P, l.Q, aspect, hidden).map(
           (pts) => w`<polyline class="cv-line ${l.outdoor ? 'outdoor' : ''}" points=${pts.map((q) => `${q[0]},${q[1]}`).join(' ')}></polyline>`
         )
       );
+      // Handles: kept as they were when a drag started, so that they don't switch under the finger.
+      const drag = this._camDrag && this._camDrag.index === item.index && this._camDrag.id === item.id ? this._camDrag : null;
+      let handles = drag && drag.handles;
+      if (!handles) {
+        handles = ownRoom
+          ? planCorners(rooms, wallHeight, true)
+          : facadeCorners(plan.indoor, wallHeight, pose, aspect, hidden);
+        for (const p of pins) if (!handles.some((h) => h.key === p.key)) handles = [...handles, { key: p.key, P: p.P }];
+        this._cvHandles = { index: item.index, id: item.id, list: handles };
+      }
+      const pinned = new Set(pins.map((p) => p.key));
       // Corners a little out of the picture wait on its edge, to be dragged in.
-      const pinned = new Map(pins.map((p) => [p.key, p]));
       const near = (uv) => uv && uv[0] > -1 && uv[0] < 2 && uv[1] > -1 / aspect && uv[1] < 2 / aspect;
       const edge = 0.02;
-      const corners = planCorners(rooms, wallHeight, true)
-        .filter((c) => !hidden || !hidden(c.P))
+      const corners = handles
+        .filter((c) => pinned.has(c.key) || !hidden || !hidden(c.P))
         .map((c) => ({ ...c, uv: toPicture(pose, c.P, aspect) }))
         .filter((c) => near(c.uv))
         .map((c) => {
@@ -7642,67 +7818,80 @@ void main() {
           return { ...c, uv, outside: uv[0] !== c.uv[0] || uv[1] !== c.uv[1] };
         });
       const at = (uv) => `left: ${round2(uv[0] * 100)}%; top: ${round2(uv[1] * aspect * 100)}%;`;
-      const width = this._picWidths[item.id] || PROJ_PX;
-      // Pins off their corner (more pins than the settings can satisfy, or settings changed since).
-      const off = pins.filter((p) => {
-        const uv = toPicture(pose, p.P, aspect);
-        return !uv || Math.hypot(uv[0] - p.uv[0], uv[1] - p.uv[1]) * width > 3;
-      });
-      const error = pins.length > 2 ? Math.round(matchError(pose, pins, aspect) * width) : null;
-      const hint = [
-        'Drag a corner of the outline (floor or top of a wall) onto the same corner in the picture: the camera turns to follow. Drag elsewhere to look around.',
-        'Pinned. Now drag a second corner, far from the first, onto its place in the picture: the field of view and height adjust too.',
-      ][pins.length] ||
-        `The settings follow the pinned corners${error !== null ? ` (error ${error} px)` : ''}. Drag another corner to check them, tap a pin to remove it.` +
-          (pins.length < LENS_PINS - 1 ? ` From ${LENS_PINS} corners, the lens distortion adjusts too.` : '');
-      // The plan's correction as this camera sees it, if any.
-      const sign = (v) => (v < 0 ? '−' : '+');
-      const correction = cam.correction.some((v, i) => Math.abs(v - CORRECTION_NONE[i]) > 1e-3)
-        ? [
-            ...['width', 'depth', 'height'].map((name, i) => `${name} ${sign(cam.correction[i] - 1)}${Math.abs(Math.round((cam.correction[i] - 1) * 1000) / 10)}%`),
-            `shifted ${sign(cam.correction[3])}${Math.abs(round2(cam.correction[3]))}, ${sign(cam.correction[4])}${Math.abs(round2(cam.correction[4]))}`,
-          ].join(', ')
-        : null;
-      const lens = b`<div class="cv-lens">
-      <label>
-        <span>Lens distortion</span>
-        <input type="range" min=${DISTORTION_RANGE[0]} max=${DISTORTION_RANGE[1]} step="0.01" .value=${String(cam.distortion)}
-          title="Barrel (wide-angle lenses: straight lines bulge out) to the left, pincushion to the right"
-          @input=${(ev) => this._setCameraLens(item, { distortion: Number(ev.target.value) })} />
-        <span class="cv-value">${cam.distortion.toFixed(2)}</span>
-      </label>
-      <div class="cv-stretch">
-        <button class="chip small ${this._fitCorrection ? 'active' : ''}" @click=${() => (this._fitCorrection = !this._fitCorrection)}
-          title="With ${CORRECTION_PINS} pinned corners or more, also stretch and shift the plan (width, depth, wall height) as this camera sees it, to make up for measuring errors or a camera placed a little off. Only this camera's picture follows: the plan doesn't change.">
-          Correct the plan's proportions
-        </button>
-        ${correction
-          ? b`<span class="muted">${correction}</span>
-              <button class="btn flat" title="Back to the plan as drawn" @click=${() => this._setCameraLens(item, { correction: CORRECTION_NONE })}>
-                <ha-icon icon="mdi:restore"></ha-icon>
-              </button>`
-          : A}
-      </div>
-    </div>`;
+      const dragged = drag && drag.moved && drag.key !== null ? drag : null;
+      const hint = pins.length
+        ? 'Each pinned corner stays where you dropped it, and the camera follows them. Drag another corner onto its place to line the rest up, or a pinned one to move it; tap a pin to remove it.'
+        : ownRoom
+          ? 'Drag a corner of the room (floor or top of a wall) onto the same corner in the picture: it is pinned there. Pin a few, far apart. With nothing pinned, drag the picture to turn the camera.'
+          : 'Drag the corners of the facade the camera sees best (floor or top of the wall) onto the same corners in the picture: each one is pinned there. These 4 corners are enough. With nothing pinned, drag the picture to turn the camera.';
 
       return b`<div class="cv-section">
       ${header}
-      <div class="cv ${pins.length ? 'pinned' : ''}" style="aspect-ratio: ${aspect};" @pointerdown=${(ev) => this._cvDown(ev, item, aspect)}
-        @pointermove=${this._cvMove} @pointerup=${this._cvUp} @pointercancel=${this._cvUp}>
-        <img alt="" src=${refUrl || snapUrl} @load=${(ev) => this._learnAspect(item.id, ev.target)} />
-        <svg viewBox="0 0 1 ${1 / aspect}" preserveAspectRatio="none">${lines}</svg>
-        ${off.map((p) => b`<div class="cv-pin" style=${at(p.uv)}></div>`)}
-        ${corners.map(
-          (c) => b`<div class="cv-corner ${pinned.has(c.key) ? 'pinned' : ''} ${c.outside ? 'outside' : ''}" data-key=${c.key}
-            title=${pinned.has(c.key) ? 'Pinned: drag to move, tap to remove' : c.outside ? 'Out of the picture: drag it in' : 'Drag onto this corner in the picture'}
-            style=${at(c.uv)}></div>`
-        )}
+      <div class="cv-wrap">
+        <div class="cv ${pins.length ? 'pinned' : ''}" style="aspect-ratio: ${aspect};" @pointerdown=${(ev) => this._cvDown(ev, item, aspect)}
+          @pointermove=${this._cvMove} @pointerup=${this._cvUp} @pointercancel=${this._cvUp}>
+          <img alt="" src=${refUrl || snapUrl} @load=${(ev) => this._learnAspect(item.id, ev.target)} />
+          <svg viewBox="0 0 1 ${1 / aspect}" preserveAspectRatio="none">${lines}</svg>
+          ${corners.map(
+            (c) => b`<div class="cv-corner ${pinned.has(c.key) ? 'pinned' : ''} ${c.outside ? 'outside' : ''} ${dragged && dragged.key === c.key ? 'dragging' : ''}"
+              data-key=${c.key}
+              title=${pinned.has(c.key) ? 'Pinned: drag to move, tap to remove' : c.outside ? 'Out of the picture: drag it in' : 'Drag onto this corner in the picture'}
+              style=${at(c.uv)}></div>`
+          )}
+        </div>
+        ${dragged ? this._renderLoupe(dragged, refUrl || snapUrl, aspect, lines) : A}
+        ${dragged ? this._renderMiniPlan(plan, item, dragged) : A}
       </div>
-      ${lens} ${notes}
+      ${notes}
       <div class="hint">
         <ha-icon icon="mdi:information-outline"></ha-icon>
         <span>${hint}</span>
       </div>
+    </div>`;
+    }
+
+    // Magnifier over the finger while a corner is dragged: the picture zoomed around the corner, with
+    // the plan's lines and a crosshair where the corner goes (the finger hides that very spot).
+    _renderLoupe(drag, url, aspect, lines) {
+      const L = 120; // px
+      const Z = 3;
+      const W = drag.width;
+      const H = W / aspect;
+      const cx = drag.uv[0] * W;
+      const cy = drag.uv[1] * W;
+      // Above the finger, or under it near the top of the picture.
+      const above = cy - L - 32 >= -L / 2;
+      const left = clamp(cx - L / 2, 0, Math.max(0, W - L));
+      const top = above ? cy - L - 32 : cy + 32;
+      const hw = L / 2 / (W * Z);
+      return b`<div class="cv-loupe" style="left: ${round2(left)}px; top: ${round2(top)}px; width: ${L}px; height: ${L}px;
+        background-image: url('${url}'); background-size: ${round2(W * Z)}px ${round2(H * Z)}px;
+        background-position: ${round2(L / 2 - cx * Z)}px ${round2(L / 2 - cy * Z)}px;">
+      <svg viewBox="${drag.uv[0] - hw} ${drag.uv[1] - hw} ${2 * hw} ${2 * hw}">${lines}</svg>
+      <div class="cv-cross"></div>
+    </div>`;
+    }
+
+    // Small plan of the floor while a corner is dragged, with that corner marked: which corner of
+    // the house is being placed, and whether at the floor or at the top of the wall.
+    _renderMiniPlan(plan, item, drag) {
+      const b$1 = plan.rooms.length ? plan.bounds : null;
+      if (!b$1) return A;
+      const pad = 0.6;
+      const vb = { x: Math.min(b$1.minX, item.x) - pad, y: Math.min(b$1.minY, item.y) - pad };
+      vb.w = Math.max(b$1.maxX, item.x) + pad - vb.x;
+      vb.h = Math.max(b$1.maxY, item.y) + pad - vb.y;
+      const [x, y, z] = drag.P;
+      const unit = Math.max(vb.w, vb.h) / 40; // marks keep their size whatever the plan's
+      // On the side of the picture away from the finger.
+      const right = drag.uv[0] < 0.5;
+      return b`<div class="cv-mini ${right ? 'right' : ''}">
+      <svg viewBox="${vb.x} ${vb.y} ${vb.w} ${vb.h}" style="aspect-ratio: ${vb.w} / ${vb.h};">
+        ${plan.rooms.map((r) => w`<rect class="${r.outdoor ? 'outdoor' : ''}" x=${r.x} y=${r.y} width=${r.w} height=${r.h}></rect>`)}
+        <circle class="cam" cx=${item.x} cy=${item.y} r=${unit * 1.2}></circle>
+        <circle class="corner" cx=${x} cy=${y} r=${unit * 2}></circle>
+      </svg>
+      <span>${z > 0.01 ? 'Top of the wall' : 'Floor corner'}</span>
     </div>`;
     }
 
@@ -7722,24 +7911,6 @@ void main() {
       }
       const occ = this._occ;
       return (P) => sightBlocked(occ, C, P);
-    }
-
-    // Sets a camera's lens distortion (`distortion`) or the plan's correction (`correction`: values
-    // of CORRECTION_KEYS); a slider's moves make one undo step.
-    _setCameraLens(item, { distortion, correction }) {
-      this._editFloor((floor) => {
-        const e = floor.entities[item.index];
-        if (distortion !== undefined) {
-          if (Math.abs(distortion) < 1e-3) delete e.distortion;
-          else e.distortion = Math.round(distortion * 1000) / 1000;
-        }
-        if (correction) {
-          CORRECTION_KEYS.forEach((key, i) => {
-            if (Math.abs(correction[i] - CORRECTION_NONE[i]) < 1e-3) delete e[key];
-            else e[key] = Math.round(correction[i] * 1000) / 1000;
-          });
-        }
-      }, distortion !== undefined ? `${this._currentFloorIndex()}:distortion:${item.index}` : null);
     }
 
     // Whether the snapshot at `snapUrl` still looks like the reference picture (see matchPicture()),
@@ -7786,7 +7957,6 @@ void main() {
 
     _learnAspect(id, img) {
       if (!img.naturalWidth || !img.naturalHeight) return;
-      this._picWidths[id] = img.naturalWidth;
       const aspect = img.naturalWidth / img.naturalHeight;
       if (Math.abs(aspect - (this._aspects[id] || 16 / 9)) > 0.01) {
         this._aspects[id] = aspect;
@@ -7794,19 +7964,12 @@ void main() {
       }
     }
 
-    // Pinned corners ({ key, P, uv }) of a camera (an item, or anything with its index and id),
-    // if it is the one they were pinned on.
-    _pinsOf(item) {
-      const p = this._pins;
-      return p && p.index === item.index && p.id === item.id ? p.list : [];
-    }
-
     _cvPoint(el, ev) {
       const r = el.getBoundingClientRect();
       return [clamp((ev.clientX - r.left) / r.width, 0, 1), clamp((ev.clientY - r.top) / r.width, 0, r.height / r.width)];
     }
 
-    // Dragging on the camera's picture: a corner of the outline, or the picture itself to turn the
+    // Dragging on the camera's picture: a corner (pinned or not), or the picture itself to turn the
     // camera (only while nothing is pinned: the pins hold it).
     _cvDown(ev, item, aspect) {
       if (ev.button !== 0) return;
@@ -7820,7 +7983,7 @@ void main() {
         key = corner.dataset.key;
         P = key.split(',').map(Number);
       } else {
-        if (this._pinsOf(item).length) return;
+        if (cam.pins.length) return;
         // A point straight along the line of sight under the pointer (in the plan, uncorrected): it
         // stays under it.
         const pose = solvedPose(q, item.x, item.y, cam.center);
@@ -7828,7 +7991,11 @@ void main() {
       }
       ev.preventDefault();
       el.setPointerCapture(ev.pointerId);
-      this._camDrag = { pointerId: ev.pointerId, el, index: item.index, id: item.id, x: item.x, y: item.y, center: cam.center, aspect, key, P, q, start: [ev.clientX, ev.clientY], moved: false };
+      const handles = this._cvHandles && this._cvHandles.index === item.index && this._cvHandles.id === item.id ? this._cvHandles.list : null;
+      this._camDrag = {
+        pointerId: ev.pointerId, el, index: item.index, id: item.id, x: item.x, y: item.y, center: cam.center, aspect, key, P, q,
+        pins: cam.pins, handles, width: el.getBoundingClientRect().width, start: [ev.clientX, ev.clientY], moved: false,
+      };
     }
 
     _cvMove(ev) {
@@ -7836,44 +8003,61 @@ void main() {
       if (!c || ev.pointerId !== c.pointerId) return;
       if (!c.moved && Math.hypot(ev.clientX - c.start[0], ev.clientY - c.start[1]) < 4) return;
       const uv = this._cvPoint(c.el, ev);
-      const pins = c.key === null ? [] : this._pinsOf(c).filter((p) => p.key !== c.key);
-      // Alone, the corner turns the camera; with pins, all settings follow, the dragged corner first:
-      // the lens distortion from LENS_PINS corners, the plan's correction from CORRECTION_PINS (if asked).
-      const pairs = [...pins, { P: c.P, uv, w: pins.length > 1 ? 3 : 1 }];
-      const free = pins.length ? [0, 1, 2, 3] : [0, 1];
-      if (pairs.length >= LENS_PINS) free.push(4);
-      if (this._fitCorrection && pairs.length >= CORRECTION_PINS) free.push(5, 6, 7, 8, 9);
-      const { q } = solveCamera(c.q, c.x, c.y, c.center, pairs, c.aspect, free);
-      const r1 = (v) => Math.round(v * 10) / 10;
-      const r3 = (v) => Math.round(v * 1000) / 1000;
-      const settings = { direction: r1(q[0]), tilt: r1(q[1]) };
-      if (pins.length) Object.assign(settings, { fov: r1(q[2]), height: round2(q[3]) });
-      if (free.includes(4)) settings.distortion = r3(q[4]);
-      if (free.includes(5)) CORRECTION_KEYS.forEach((key, i) => (settings[key] = r3(q[5 + i])));
-      this._camDrag = { ...c, moved: true, uv, q, settings };
+      if (c.key === null) {
+        // Turning the camera: the point under the pointer follows it.
+        const { q } = solveCamera(c.q, c.x, c.y, c.center, [{ P: c.P, uv }], c.aspect, [0, 1]);
+        const r1 = (v) => Math.round(v * 10) / 10;
+        this._camDrag = { ...c, moved: true, uv, settings: { direction: r1(q[0]), tilt: r1(q[1]) } };
+        return;
+      }
+      const pins = [...c.pins.filter((p) => p.key !== c.key), { key: c.key, P: c.P, u: uv[0], v: uv[1] * c.aspect }];
+      this._camDrag = { ...c, moved: true, uv, settings: this._pinnedSettings(c, pins) };
     }
 
     _cvUp(ev) {
       const c = this._camDrag;
       if (!c || ev.pointerId !== c.pointerId) return;
       this._camDrag = null;
-      const list = this._pinsOf(c).filter((p) => p.key !== c.key);
+      let settings = c.settings;
       if (!c.moved) {
         // A tap on a pinned corner unpins it.
-        if (c.key !== null) this._pins = { index: c.index, id: c.id, list };
-        return;
+        if (c.key === null || !c.pins.some((p) => p.key === c.key)) return;
+        settings = this._pinnedSettings(c, c.pins.filter((p) => p.key !== c.key));
       }
       const defaults = this._cameraDefaults(this._floors()[this._currentFloorIndex()], c.index);
       this._editFloor((floor) => {
         const e = floor.entities[c.index];
-        Object.assign(e, c.settings);
+        Object.assign(e, settings);
         for (const key of ['tilt', 'fov', 'height']) if (num(e[key]) === defaults[key]) delete e[key];
         if (num(e.distortion) === 0) delete e.distortion;
-        CORRECTION_KEYS.forEach((key, i) => {
-          if (num(e[key], CORRECTION_NONE[i]) === CORRECTION_NONE[i]) delete e[key];
-        });
+        if (e.pins && !e.pins.length) delete e.pins;
       });
-      if (c.key !== null) this._pins = { index: c.index, id: c.id, list: [...list, { key: c.key, P: c.P, uv: c.uv }] };
+    }
+
+    // Settings of a camera being dragged (`c`, see _cvDown()) for these pins: the camera's model
+    // refitted to them (its direction and tilt from one pin, its field of view and height too from
+    // two, its lens distortion from LENS_PINS), and the pins themselves, which the picture's warp
+    // keeps exactly in place.
+    _pinnedSettings(c, pins) {
+      const settings = {
+        pins: pins.map((p) => ({ x: round2(p.P[0]), y: round2(p.P[1]), z: round2(p.P[2]), u: Math.round(p.u * 1e4) / 1e4, v: Math.round(p.v * 1e4) / 1e4 })),
+      };
+      if (!pins.length) return settings;
+      const pairs = pins.map((p) => ({ P: p.P, uv: [p.u, p.v / c.aspect] }));
+      const free = pins.length > 1 ? [0, 1, 2, 3] : [0, 1];
+      if (pins.length >= LENS_PINS) free.push(4);
+      const { q } = solveCamera(c.q, c.x, c.y, c.center, pairs, c.aspect, free);
+      const r1 = (v) => Math.round(v * 10) / 10;
+      Object.assign(settings, { direction: r1(q[0]), tilt: r1(q[1]) });
+      if (free.includes(2)) Object.assign(settings, { fov: r1(q[2]), height: round2(q[3]) });
+      if (free.includes(4)) settings.distortion = Math.round(q[4] * 1000) / 1000;
+      return settings;
+    }
+
+    _unpinAll(item) {
+      this._editFloor((floor) => {
+        delete floor.entities[item.index].pins;
+      });
     }
 
     // Cached: the editor re-renders on every pointer move while dragging.
@@ -8286,7 +8470,7 @@ void main() {
         if (!value.projection) delete value.projection;
         if (value.preview_position === 'auto') delete value.preview_position;
         if (domainOf(value.entity) !== 'camera') {
-          for (const key of ['direction', 'projection', 'preview_position', 'reference_picture', 'distortion', ...CORRECTION_KEYS, ...CAMERA_KEYS]) delete value[key];
+          for (const key of ['direction', 'projection', 'preview_position', 'reference_picture', 'distortion', 'pins', ...CORRECTION_KEYS, ...CAMERA_KEYS]) delete value[key];
         }
       }
       if (listKey === 'entities') {
@@ -8671,34 +8855,6 @@ void main() {
       .cv-line.outdoor {
         stroke-dasharray: 4 3;
       }
-      .cv-lens {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        font-size: 12px;
-        color: var(--secondary-text-color);
-      }
-      .cv-lens label {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-      .cv-lens input[type='range'] {
-        flex: 1;
-        min-width: 0;
-        accent-color: var(--primary-color);
-      }
-      .cv-value {
-        min-width: 3em;
-        text-align: right;
-        font-variant-numeric: tabular-nums;
-      }
-      .cv-stretch {
-        display: flex;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 6px;
-      }
       .cv-corner {
         position: absolute;
         width: 16px;
@@ -8725,15 +8881,105 @@ void main() {
         border-style: dashed;
         opacity: 0.8;
       }
-      .cv-pin {
+      .cv-corner.dragging {
+        width: 22px;
+        height: 22px;
+        border-color: var(--primary-color);
+        background: transparent;
+        box-shadow: 0 0 0 2px #fff, 0 0 10px var(--primary-color);
+      }
+      .cv-wrap {
+        position: relative;
+      }
+      /* Magnifier above the finger (see _renderLoupe()). */
+      .cv-loupe {
         position: absolute;
-        width: 8px;
-        height: 8px;
+        z-index: 2;
         border-radius: 50%;
-        background: var(--primary-color);
-        box-shadow: 0 0 0 1px #fff;
-        transform: translate(-50%, -50%);
+        overflow: hidden;
         pointer-events: none;
+        background-color: #000;
+        background-repeat: no-repeat;
+        border: 2px solid #fff;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+      }
+      .cv-loupe svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.9));
+      }
+      .cv-cross {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 26px;
+        height: 26px;
+        transform: translate(-50%, -50%);
+        background:
+          linear-gradient(var(--primary-color), var(--primary-color)) center / 2px 100% no-repeat,
+          linear-gradient(var(--primary-color), var(--primary-color)) center / 100% 2px no-repeat;
+      }
+      /* Small plan with the dragged corner (see _renderMiniPlan()). */
+      .cv-mini {
+        position: absolute;
+        z-index: 1;
+        top: 6px;
+        left: 6px;
+        width: 30%;
+        max-width: 130px;
+        padding: 4px;
+        border-radius: 6px;
+        background: rgba(0, 0, 0, 0.65);
+        color: #fff;
+        font-size: 10px;
+        text-align: center;
+        pointer-events: none;
+      }
+      .cv-mini.right {
+        left: auto;
+        right: 6px;
+      }
+      .cv-mini svg {
+        display: block;
+        width: 100%;
+      }
+      .cv-mini rect {
+        fill: rgba(255, 255, 255, 0.12);
+        stroke: #fff;
+        stroke-width: 1px;
+        vector-effect: non-scaling-stroke;
+      }
+      .cv-mini rect.outdoor {
+        fill: rgba(102, 160, 90, 0.3);
+        stroke-dasharray: 2 2;
+      }
+      .cv-mini .cam {
+        fill: #fff;
+      }
+      .cv-mini .corner {
+        fill: var(--primary-color);
+        stroke: #fff;
+        stroke-width: 1.5px;
+        vector-effect: non-scaling-stroke;
+        animation: cv-blink 0.8s ease-in-out infinite;
+      }
+      @keyframes cv-blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.4; }
+      }
+      .e-corner-hl {
+        position: absolute;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        border: 2px solid #fff;
+        background: var(--primary-color);
+        box-shadow: 0 0 0 2px var(--primary-color), 0 0 10px var(--primary-color);
+        pointer-events: none;
+        animation: cv-blink 0.8s ease-in-out infinite;
       }
       .cv:not(.pinned) {
         cursor: move;
