@@ -10239,7 +10239,7 @@ void main() {
     });
   }
 
-  const CARD_VERSION = '1.1.0';
+  const CARD_VERSION = '1.1.1';
 
   // States treated as "unavailable" (on top of an entity that doesn't exist).
   const UNAVAILABLE_STATES = ['unavailable', 'unknown'];
@@ -10320,7 +10320,7 @@ void main() {
 
       return b`
       <div 
-        class="card" 
+        class="card ${showTemp ? '' : 'compact'}" 
         style="${gridStyle} cursor:${cursorStyle};" 
         @click="${this._handleAction}"
       >
@@ -10432,6 +10432,13 @@ void main() {
         display: grid;
         row-gap: 4px;
         box-sizing: border-box;
+      }
+      /* Without the main value line, match the height of the other button cards (56px). */
+      .card.compact {
+        min-height: 56px;
+        padding: 4px 12px;
+        row-gap: 2px;
+        align-content: center;
       }
       .title {
         justify-self: center;
