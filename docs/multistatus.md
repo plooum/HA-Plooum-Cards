@@ -32,7 +32,8 @@ You can configure this card either through the Visual Editor or manually via YAM
 | `temp_entity` | string | Optional | The entity ID to display as the main value (e.g., `sensor.temperature`). |
 | `temp_unit` | string | Optional | The unit of measurement to display next to the value (e.g., `°C`). |
 | `status_items` | list | Optional | List of devices/entities to track. See **Status Items** below. |
-| `grid_options` | object | Optional | Layout options for the status items. See **Grid Options** below. |
+
+Like any card, its size in a sections view is set with Home Assistant's standard `grid_options`.
 
 ### Status Items (`status_items`)
 | Name | Type | Requirement | Description |
@@ -45,12 +46,6 @@ You can configure this card either through the Visual Editor or manually via YAM
 | `icon_on` | string | Optional* | The MDI icon for the 'On' state. *(Required if `type: icon`)* |
 | `icon_off` | string | Optional* | The MDI icon for the 'Off' state. *(Required if `type: icon`)* |
 | `svg_content` | string | Optional* | JS template string returning an SVG. Use `${color}` to inject the state color dynamically. *(Required if `type: svg`)* |
-
-### Grid Options (`grid_options`)
-| Name | Type | Requirement | Description |
-|---|---|---|---|
-| `columns` | integer | Optional | The number of columns in the status indicators grid (e.g., `3`). |
-| `rows` | string/int | Optional | Row sizing definition (e.g., `auto`). |
 
 ## Examples
 
@@ -78,7 +73,7 @@ status_items:
     color_off: "#757575"
 ```
 
-### Example 2: Dashboard with Custom SVG and Grid Layout
+### Example 2: Dashboard with Custom SVG Indicators
 
 ```yaml
 type: custom:ha-plooum-multi-status-card
@@ -99,9 +94,6 @@ status_items:
           <text x="12" y="15.5" font-size="10" font-weight="900" font-family="Roboto, sans-serif" text-anchor="middle" fill="${color}">UV</text>
         </svg>
       `
-grid_options:
-  columns: 3
-  rows: auto
 ```
 
 ### Example 3: Card with Toggle Tap Action

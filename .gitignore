@@ -2,3 +2,4 @@ node_modules/
 dist/
 .DS_Store
 .token
+.claude/settings.local.json

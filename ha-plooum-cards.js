@@ -8315,6 +8315,7 @@
           .hass="${this.hass}"
           .data="${this.config}"
           .schema="${schema}"
+          .computeLabel=${(s) => s.label || s.name}
           @value-changed="${this._formChanged}"
         ></ha-form>
 
@@ -8371,6 +8372,7 @@
                   .hass="${this.hass}"
                   .data="${item}"
                   .schema="${itemSchema}"
+                  .computeLabel=${(s) => s.label || s.name}
                   @value-changed="${e => this._itemFormChanged(index, e)}"
                 ></ha-form>
 
