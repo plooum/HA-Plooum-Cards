@@ -2116,6 +2116,8 @@
   const CORRECTION_NONE = [1, 1, 1, 0, 0];
   const CORRECTION_LO = [0.7, 0.7, 0.7, -2, -2];
   const CORRECTION_HI = [1.3, 1.3, 1.3, 2, 2];
+  const X_SCALE_RANGE = [0.7, 1.4]; // horizontal scale of a camera's picture (`x_scale`, see cameraPose())
+  const X_SCALE_PINS = 4; // pinned corners from which the editor's fit also sets it
   const LENS_PINS = 5; // pinned corners from which the editor's fit also sets the lens distortion
   const MAX_PINS = 16; // pinned corners of a camera (`pins`): the shader's warp takes this many
 
@@ -2706,6 +2708,7 @@
       height: isNum(c.height) ? num(c.height) : null, // default depends on the wall height (3D only)
       tilt: clamp(num(c.tilt, CAMERA_TILT), -45, 89),
       distortion: clamp(num(c.distortion, 0), ...DISTORTION_RANGE),
+      xScale: clamp(num(c.x_scale, 1), ...X_SCALE_RANGE),
       correction: CORRECTION_KEYS.map((key, i) => clamp(num(c[key], CORRECTION_NONE[i]), CORRECTION_LO[i], CORRECTION_HI[i])),
       pins: readPins(c.pins),
       center: planCenter(indoor),
@@ -2991,6 +2994,10 @@
   // 1 / sqrt(-k), like a fisheye), k > 0 a pincushion one. One parameter, never folding back, and
   // both ways in closed form.
   //
+  // Picture's horizontal scale (`x_scale`, sx): a stream scaled to another ratio than the sensor's (or
+  // with non-square pixels) shows everything sx times wider: the distorted point's x is scaled by sx
+  // around the picture's center.
+  //
   // Correction of the plan (`stretch_x`, `stretch_y`, `stretch_z`, `shift_x`, `shift_y`): makes up
   // for a plan measured a little wrong (or a camera placed a little off on it), as this camera sees
   // it: the camera sees the plan's point P at base + (P - base) · stretch + shift, the base being the
@@ -3022,6 +3029,7 @@
       up: cross3(fwd, right),
       f: 0.5 / Math.tan(toRad(cam.fov) / 2),
       k: cam.distortion || 0,
+      sx: cam.xScale || 1,
       base: [...(cam.center || C.slice(0, 2)), z0],
       stretch: (cam.correction || CORRECTION_NONE).slice(0, 3),
       shift: [...(cam.correction || CORRECTION_NONE).slice(3, 5), 0],
@@ -3056,7 +3064,7 @@
     const s = 1 - 4 * pose.k * (ux * ux + uy * uy);
     if (s < 0) return null;
     const g = 2 / (1 + Math.sqrt(s));
-    return [0.5 + 0.5 * ux * g, 0.5 / aspect - 0.5 * uy * g];
+    return [0.5 + 0.5 * ux * g * pose.sx, 0.5 / aspect - 0.5 * uy * g];
   }
 
   // Thin-plate spline kernel: r² log r, from r².
@@ -3151,14 +3159,17 @@
 
   // Direction (world, not normalized) of the line of sight through the picture point `uv`.
   function fromPicture(pose, uv, aspect) {
-    const dx = 2 * (uv[0] - 0.5);
+    const dx = (2 * (uv[0] - 0.5)) / pose.sx;
     const dy = 2 * (0.5 / aspect - uv[1]);
     const g = 1 / Math.max(0.05, 1 + pose.k * (dx * dx + dy * dy));
     return add3(add3(pose.fwd, mul3(pose.right, (dx * g) / (2 * pose.f))), mul3(pose.up, (dy * g) / (2 * pose.f)));
   }
 
   // How much wider than the picture (undistorted, in each direction) the field of a camera with a
-  // barrel distortion is: the shadow map must cover all of it. Capped for fisheye-like lenses.
+  // barrel distortion, or a picture squeezed horizontally (sx < 1), is: the shadow map must cover all
+  // of it. Capped for fisheye-like lenses.
+  const shadowScale = (proj) => Math.min(4, fieldScale(proj.k, proj.aspect) * Math.max(1, 1 / (proj.sx || 1)));
+
   function fieldScale(k, aspect) {
     if (k >= 0) return 1;
     let m = 1;
@@ -3225,6 +3236,7 @@ uniform vec3 uShift;
 uniform sampler2D uShadow;
 uniform int uShadowOn;
 uniform float uShadowScale;
+uniform float uXScale;
 uniform int uWarpN;
 uniform vec2 uWarpP[${MAX_PINS}];
 uniform vec2 uWarpW[${MAX_PINS}];
@@ -3257,7 +3269,7 @@ void main() {
     if (s < 0.0) discard;
     vec2 q = u * (2.0 / (1.0 + sqrt(s)));
     // Then the warp of the pinned corners (see warpPoint()), in picture widths.
-    vec2 w = vec2(0.5 + 0.5 * q.x, 0.5 / uAspect - 0.5 * q.y);
+    vec2 w = vec2(0.5 + 0.5 * q.x * uXScale, 0.5 / uAspect - 0.5 * q.y);
     vec2 dw = uWarpA0 + uWarpAx * w.x + uWarpAy * w.y;
     for (int i = 0; i < ${MAX_PINS}; i++) {
       if (i >= uWarpN) break;
@@ -3320,7 +3332,7 @@ void main() {
   // (rows of a WebGL texture go up).
   function pictureMatrix(proj) {
     const { C, fwd, right, up, aspect, reach } = proj;
-    const f = proj.f / fieldScale(proj.k, aspect);
+    const f = proj.f / shadowScale(proj);
     const near = 0.3;
     const A = (reach + near) / (reach - near);
     const B = (-2 * reach * near) / (reach - near);
@@ -3455,7 +3467,7 @@ void main() {
       this.depth = program(GL_DEPTH_VERTEX, GL_DEPTH_FRAGMENT, ['uView', 'uC', 'uFwd', 'uReach', 'uBase', 'uStretch', 'uShift']);
       this.u = program(GL_VERTEX, GL_FRAGMENT, [
         'uView', 'uMode', 'uTex', 'uC', 'uFwd', 'uRight', 'uUp', 'uF', 'uAspect', 'uReach', 'uK', 'uBase', 'uStretch', 'uShift', 'uShadow', 'uShadowOn', 'uShadowScale',
-        'uWarpN', 'uWarpP', 'uWarpW', 'uWarpA0', 'uWarpAx', 'uWarpAy',
+        'uXScale', 'uWarpN', 'uWarpP', 'uWarpW', 'uWarpA0', 'uWarpAx', 'uWarpAy',
       ]);
       gl.useProgram(this.u.prog);
       this.buffer = gl.createBuffer();
@@ -3641,7 +3653,8 @@ void main() {
           gl.uniform3fv(this.u.uBase, p.base);
           gl.uniform3fv(this.u.uStretch, p.stretch);
           gl.uniform3fv(this.u.uShift, p.shift);
-          gl.uniform1f(this.u.uShadowScale, fieldScale(p.k, p.aspect));
+          gl.uniform1f(this.u.uShadowScale, shadowScale(p));
+          gl.uniform1f(this.u.uXScale, p.sx || 1);
           const warp = p.warp || { pts: [], w: [], a0: [0, 0], ax: [0, 0], ay: [0, 0] };
           const flat = (list) => {
             const a = new Float32Array(2 * MAX_PINS);
@@ -3792,18 +3805,20 @@ void main() {
 
   // Settings of a camera standing at (x, y) that best show each world point `P` at `uv` (picture),
   // with weight `w` (default 1): Levenberg-Marquardt least squares from `start`, the settings
-  // [direction, tilt, fov, height, distortion, ...the plan's correction]. Only the settings whose indexes are
+  // [direction, tilt, fov, height, distortion, ...the plan's correction, x_scale]. Only the settings whose indexes are
   // in `free` change. A slight pull towards `start` keeps the camera's angles and height steady where
-  // the points leave them undetermined; the lens distortion and the plan's correction are pulled
-  // towards none, so that a few points can't bend or stretch the picture wildly.
+  // the points leave them undetermined; the lens distortion, the plan's correction and the picture's
+  // horizontal scale are pulled towards none, so that a few points can't bend or stretch the picture
+  // wildly.
   // `rms` is the remaining error of the points, in picture widths.
-  const SOLVE_LO = [-Infinity, -45, 20, 0.1, DISTORTION_RANGE[0], ...CORRECTION_LO];
-  const SOLVE_HI = [Infinity, 89, 170, 10, DISTORTION_RANGE[1], ...CORRECTION_HI];
-  const SOLVE_PULL = [1e-4, 1e-4, 1e-4, 1e-3, 0.01, 0.05, 0.05, 0.05, 0.01, 0.01]; // per degree, per unit
-  const SOLVE_REST = [null, null, null, null, 0, ...CORRECTION_NONE]; // what each setting is pulled to (null: its start)
-  const SOLVE_STEP = [1e-3, 1e-3, 1e-3, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4]; // for the derivatives
+  const SOLVE_LO = [-Infinity, -45, 20, 0.1, DISTORTION_RANGE[0], ...CORRECTION_LO, X_SCALE_RANGE[0]];
+  const SOLVE_HI = [Infinity, 89, 170, 10, DISTORTION_RANGE[1], ...CORRECTION_HI, X_SCALE_RANGE[1]];
+  const SOLVE_PULL = [1e-4, 1e-4, 1e-4, 1e-3, 0.01, 0.05, 0.05, 0.05, 0.01, 0.01, 0.05]; // per degree, per unit
+  const SOLVE_REST = [null, null, null, null, 0, ...CORRECTION_NONE, 1]; // what each setting is pulled to (null: its start)
+  const SOLVE_STEP = [1e-3, 1e-3, 1e-3, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4]; // for the derivatives
 
-  const solvedPose = (q, x, y, center) => poseOf(q[0], q[1], q[2], [x, y, q[3]], { distortion: q[4], correction: q.slice(5), center });
+  const solvedPose = (q, x, y, center) =>
+    poseOf(q[0], q[1], q[2], [x, y, q[3]], { distortion: q[4], correction: q.slice(5, 10), xScale: q[10], center });
 
   // `center`: the base of the plan's correction (see cameraPose()).
   function solveCamera(start, x, y, center, pairs, aspect, free = [0, 1, 2, 3]) {
@@ -5392,7 +5407,7 @@ void main() {
           }
           const snap = it.conf.projection ? this._projectionPicture(it) : null;
           if (snap) {
-            const { C, fwd, right, up, f, k, base, stretch, shift } = sc.pose;
+            const { C, fwd, right, up, f, k, sx, base, stretch, shift } = sc.pose;
             projectors.push({
               k: p.k,
               indoor,
@@ -5402,7 +5417,7 @@ void main() {
               mesh: () =>
                 new Mesh(MODE.picture, {
                   tex: { key: `picture:${snap.url}`, source: () => scaledPicture(snap.img, PICTURE_PX) },
-                  proj: { C, fwd, right, up, f, k, base, stretch, shift, warp: pinWarp(sc.pose, snap.aspect), aspect: snap.aspect, reach: PROJ_REACH, shadow: !indoor, key: it.id },
+                  proj: { C, fwd, right, up, f, k, sx, base, stretch, shift, warp: pinWarp(sc.pose, snap.aspect), aspect: snap.aspect, reach: PROJ_REACH, shadow: !indoor, key: it.id },
                 }),
             });
           }
@@ -7974,7 +7989,7 @@ void main() {
     _cvDown(ev, item, aspect) {
       if (ev.button !== 0) return;
       const cam = item.camera;
-      const q = [cam.direction, cam.tilt, cam.fov, cameraHeight(cam, this._wallHeight()), cam.distortion, ...cam.correction];
+      const q = [cam.direction, cam.tilt, cam.fov, cameraHeight(cam, this._wallHeight()), cam.distortion, ...cam.correction, cam.xScale];
       const el = ev.currentTarget;
       const corner = ev.target.closest ? ev.target.closest('.cv-corner') : null;
       let key = null;
@@ -8030,13 +8045,14 @@ void main() {
         Object.assign(e, settings);
         for (const key of ['tilt', 'fov', 'height']) if (num(e[key]) === defaults[key]) delete e[key];
         if (num(e.distortion) === 0) delete e.distortion;
+        if (num(e.x_scale, 1) === 1) delete e.x_scale;
         if (e.pins && !e.pins.length) delete e.pins;
       });
     }
 
     // Settings of a camera being dragged (`c`, see _cvDown()) for these pins: the camera's model
     // refitted to them (its direction and tilt from one pin, its field of view and height too from
-    // two, its lens distortion from LENS_PINS), and the pins themselves, which the picture's warp
+    // two, its picture's horizontal scale from X_SCALE_PINS, its lens distortion from LENS_PINS), and the pins themselves, which the picture's warp
     // keeps exactly in place.
     _pinnedSettings(c, pins) {
       const settings = {
@@ -8045,12 +8061,14 @@ void main() {
       if (!pins.length) return settings;
       const pairs = pins.map((p) => ({ P: p.P, uv: [p.u, p.v / c.aspect] }));
       const free = pins.length > 1 ? [0, 1, 2, 3] : [0, 1];
+      if (pins.length >= X_SCALE_PINS) free.push(10);
       if (pins.length >= LENS_PINS) free.push(4);
       const { q } = solveCamera(c.q, c.x, c.y, c.center, pairs, c.aspect, free);
       const r1 = (v) => Math.round(v * 10) / 10;
       Object.assign(settings, { direction: r1(q[0]), tilt: r1(q[1]) });
       if (free.includes(2)) Object.assign(settings, { fov: r1(q[2]), height: round2(q[3]) });
       if (free.includes(4)) settings.distortion = Math.round(q[4] * 1000) / 1000;
+      if (free.includes(10)) settings.x_scale = Math.round(q[10] * 1000) / 1000;
       return settings;
     }
 
@@ -8470,7 +8488,7 @@ void main() {
         if (!value.projection) delete value.projection;
         if (value.preview_position === 'auto') delete value.preview_position;
         if (domainOf(value.entity) !== 'camera') {
-          for (const key of ['direction', 'projection', 'preview_position', 'reference_picture', 'distortion', 'pins', ...CORRECTION_KEYS, ...CAMERA_KEYS]) delete value[key];
+          for (const key of ['direction', 'projection', 'preview_position', 'reference_picture', 'distortion', 'x_scale', 'pins', ...CORRECTION_KEYS, ...CAMERA_KEYS]) delete value[key];
         }
       }
       if (listKey === 'entities') {

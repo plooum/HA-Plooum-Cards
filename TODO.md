@@ -32,7 +32,7 @@ Issues noticed while working on something else. Each item should be fixable on i
   - **Fewer settings**: drop the lens distortion slider, "Correct the plan's proportions", the pin thresholds and the error shown in px from the camera view; the warp absorbs plan and lens errors. Keep reading the existing `distortion` / `stretch_*` / `shift_*` settings so current configs still work.
   - **Magnifier while dragging**: a loupe showing the picture zoomed around the dragged corner (offset above the finger), since on a phone the finger hides the very corner being aimed at.
   - **Feedback on the dragged corner**: highlight the corner being dragged in the camera view and on the plan (a small plan view or the editor's plan), so it's clear which corner of the house is being placed.
-- [ ] **Picture aspect correction.** Not done with the lens distortion: a camera whose stream is scaled to another ratio (or has non-square pixels) shows the plan squeezed horizontally. Add a picture-wide horizontal scale to the camera model (`toPicture()`, the `uMode == 5` branch of `GL_FRAGMENT`), fitted by `solveCamera()` like the distortion, pulled towards 1.
+- [x] **Picture aspect correction.** Not done with the lens distortion: a camera whose stream is scaled to another ratio (or has non-square pixels) shows the plan squeezed horizontally. Add a picture-wide horizontal scale to the camera model (`toPicture()`, the `uMode == 5` branch of `GL_FRAGMENT`), fitted by `solveCamera()` like the distortion, pulled towards 1.
 - [ ] **Fisheye lenses.** The division model (`distortion`) fits wide-angle lenses up to ~150°; a true fisheye (equidistant, `r = f·θ`) past 180° can't be shown by a pinhole-based model. Only if a real camera needs it.
 
 ### Projection and 3D view
