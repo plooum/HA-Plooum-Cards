@@ -51,6 +51,7 @@ Switch it to **3D** and the same plan becomes a model of your home and garden, w
    - **Correct the plan's proportions**: when the plan is a little off (a wall measured too short, the camera placed a little off), the pinned corners can't all fall in place. Turn this on and, from the sixth pinned corner on, the fit also stretches the plan's width, depth and wall height and shifts it, as this camera sees it (shown next to the button, ↺ to drop it). Only this camera's picture follows (here and projected in 3D): the plan doesn't change.
    - **Capture** (needs Home Assistant's *Image upload* integration, part of `default_config:`): keeps the camera's current picture as its reference picture, uploaded to Home Assistant. The camera view then shows it (the header says *reference picture*), you line the camera up on it, and it is the picture projected in 3D (see `projection_picture`). If the camera's current picture no longer looks like it, the camera view warns that the camera moved: capture a new one and line it up again. The 🗑 button forgets the reference picture.
 7. **Outdoor rooms**: draw a room for the garden or the terrace and tick **Outdoor**: it gets no walls and no roof.
+   **Rooms that aren't rectangles** (an L-shaped living room, the garden all around the home): draw them as several rooms with the same name. Rooms of a floor with the same name (all indoor, or all outdoor) make a single room: its name and climate are shown once (in its largest zone), its sensors, lights and devices are those of all its zones, a tap on any zone opens its panel, and no wall is drawn between its zones (in 2D and 3D).
 8. **Remove an entity**: drag it out of the plan, or select it and click **Remove from plan**.
 9. **Undo** (button or `Ctrl+Z`) reverts the last changes. With the plan focused, arrows move the selection, `Shift` + arrows resize a room, `Delete` removes it.
 10. **Floors**: `+ Floor` adds one (floors are stacked in this order in 3D, the first one on the ground); `+ Same walls` adds one with the same walls as the current floor (its indoor rooms, renamed `Room 1`, `Room 2`…, without their entities). Select no room nor entity to rename or delete the current floor.
@@ -91,7 +92,7 @@ The editor writes this configuration for you; it can also be written by hand. Po
 
 | Parameter | Type | Description |
 | :--- | :--- | :--- |
-| `name` | string | Room name, shown in its top-left corner. |
+| `name` | string | Room name, shown in its top-left corner. Rooms with the same name make one room drawn as several zones (see **Rooms that aren't rectangles** above). |
 | `icon` | string | Optional MDI icon shown before the name. |
 | `x`, `y` | number | Top-left corner. |
 | `w`, `h` | number | Width and height. |

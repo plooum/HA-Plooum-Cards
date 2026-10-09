@@ -226,6 +226,30 @@ views:
             roof: false
             screen_mode: billboard
             floors: *home_floors
+          - type: custom:ha-plooum-floorplan-card
+            title: Rooms in several zones
+            # Rooms with the same name make one room: an L-shaped Living Room (2 zones: light in
+            # one, sensors in the other, no wall between them), and a Garden around the home (4
+            # outdoor zones). Shown once, one panel, the motion outline goes around the whole room.
+            floors:
+              - name: Ground floor
+                rooms:
+                  - { name: Living Room, icon: "mdi:sofa", x: 0, y: 0, w: 6, h: 3 }
+                  - { name: Living Room, x: 0, y: 3, w: 3, h: 3 }
+                  - { name: Kitchen, icon: "mdi:stove", x: 3, y: 3, w: 3, h: 3 }
+                  - { name: Garden, icon: "mdi:flower", x: -2, y: -2, w: 10, h: 2, outdoor: true }
+                  - { name: Garden, x: 6, y: 0, w: 2, h: 8, outdoor: true }
+                  - { name: Garden, x: -2, y: 6, w: 8, h: 2, outdoor: true }
+                  - { name: Garden, x: -2, y: 0, w: 2, h: 6, outdoor: true }
+                entities:
+                  - { entity: light.living_room_light, x: 4.5, y: 1.5 }
+                  - { entity: sensor.living_room_temperature, x: 1, y: 5 }
+                  - { entity: sensor.living_room_humidity, x: 2, y: 5 }
+                  - { entity: binary_sensor.hallway_motion, x: 1.5, y: 4 }
+                  - { entity: light.kitchen_light, x: 4.5, y: 4.5 }
+                  - { entity: input_boolean.mower, x: 7, y: 6 }
+                  # Looks along the L: its cone and projection cover both zones.
+                  - { entity: camera.kitchen_camera, x: 0.25, y: 5.75, direction: 20, projection: true }
           - type: horizontal-stack
             cards:
               - type: custom:ha-plooum-floorplan-card

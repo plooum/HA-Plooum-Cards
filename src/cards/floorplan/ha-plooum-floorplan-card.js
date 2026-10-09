@@ -411,6 +411,51 @@ function roomEdges(r) {
   ];
 }
 
+// Group of a room (see groupZones()): the room itself when it isn't grouped.
+const groupOf = (r) => (r.group !== undefined ? r.group : r);
+
+// Zones of one room: the rooms of a floor with the same name (all indoor, or all outdoor) make a
+// single room (an L-shaped room, the garden around the home), shown once, with the sensors, lights
+// and devices of all its zones and no wall between them. Each zone gets `group` (index of the
+// largest zone, the room's main one), `zones` (all of them), `main` and `bbox` (the room's bounding box).
+function groupZones(rooms) {
+  const byKey = new Map();
+  for (const r of rooms) {
+    const key = r.name ? `${r.outdoor ? 'out' : 'in'}:${r.name}` : `#${r.index}`;
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key).push(r);
+  }
+  for (const zones of byKey.values()) {
+    const main = zones.reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a));
+    const x0 = Math.min(...zones.map((z) => z.x));
+    const y0 = Math.min(...zones.map((z) => z.y));
+    const x1 = Math.max(...zones.map((z) => z.x + z.w));
+    const y1 = Math.max(...zones.map((z) => z.y + z.h));
+    for (const z of zones) Object.assign(z, { group: main.index, zones, main: z === main, bbox: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } });
+  }
+  return rooms;
+}
+
+// Walls of a zone, minus what it shares with the other zones of its room (see groupZones()).
+function zoneEdges(r) {
+  const out = [];
+  for (const e of roomEdges(r)) {
+    let parts = [[e.a, e.b]];
+    for (const other of r.zones || []) {
+      if (other === r) continue;
+      for (const oe of roomEdges(other)) {
+        if (oe.o === e.o && Math.abs(oe.at - e.at) < ON_WALL_EPS) parts = subtractInterval(parts, oe.a, oe.b);
+      }
+    }
+    for (const [a, b] of parts) if (b - a > ON_WALL_EPS) out.push({ o: e.o, at: e.at, a, b });
+  }
+  return out;
+}
+
+// SVG path of wall segments (see roomEdges()).
+const edgesPath = (edges) =>
+  edges.map((e) => (e.o === 'h' ? `M ${e.a} ${e.at} H ${e.b}` : `M ${e.at} ${e.a} V ${e.b}`)).join(' ');
+
 // Closest wall to a point within maxDist, with the point projected onto it.
 function nearestWall(rooms, x, y, maxDist) {
   let best = null;
@@ -466,14 +511,21 @@ function exteriorSegments(rooms) {
 
 // Everything the card needs to draw one floor, derived from its config and the current states.
 function resolveFloor(hass, floor) {
-  const rooms = ((floor && floor.rooms) || []).map((r, i) => ({
-    ...normalizeRoom(r, i),
-    items: [],
-    temps: [],
-    hums: [],
-    lights: [],
-    presence: false,
-  }));
+  const rooms = groupZones(
+    ((floor && floor.rooms) || []).map((r, i) => ({
+      ...normalizeRoom(r, i),
+      items: [],
+      temps: [],
+      hums: [],
+      lights: [],
+      presence: false,
+    }))
+  );
+  // The zones of a room share its lists: whatever stands in one zone belongs to the whole room.
+  for (const r of rooms) {
+    const main = rooms[r.group];
+    for (const key of ['items', 'temps', 'hums', 'lights']) r[key] = main[key];
+  }
   // Outdoor rooms (garden, terrace) have no walls: no windows on them, no outer wall around them.
   const indoor = rooms.filter((r) => !r.outdoor);
   const items = ((floor && floor.entities) || []).map((e, index) => {
@@ -483,12 +535,15 @@ function resolveFloor(hass, floor) {
     const x = num(e.x);
     const y = num(e.y);
     const wall = role === 'cover' ? nearestWall(indoor, x, y, ON_WALL_EPS * 2) : null;
-    return { index, id, st, role, x, y, wall, roomIndex: roomAt(rooms, x, y), icon: e.icon, name: e.name, length: e.length, conf: e };
+    // roomIndex: the zone it stands in; room: its room's main zone (see groupZones()).
+    const roomIndex = roomAt(rooms, x, y);
+    const room = roomIndex >= 0 ? rooms[roomIndex].group : -1;
+    return { index, id, st, role, x, y, wall, roomIndex, room, icon: e.icon, name: e.name, length: e.length, conf: e };
   });
 
   for (const item of items) {
-    if (item.roomIndex < 0) continue;
-    const room = rooms[item.roomIndex];
+    if (item.room < 0) continue;
+    const room = rooms[item.room];
     room.items.push(item);
     if (isUnavailable(item.st)) continue;
     const value = parseFloat(item.st.state);
@@ -498,9 +553,10 @@ function resolveFloor(hass, floor) {
     if (item.role === 'light') room.lights.push(item);
   }
   // The room's own `temperature` / `humidity` sensors, unless they are also placed in it.
-  for (const room of rooms) {
+  for (const zone of rooms) {
+    const room = rooms[zone.group];
     for (const [key, list] of [['temperature', room.temps], ['humidity', room.hums]]) {
-      const id = room[key];
+      const id = zone[key];
       const st = id && hass.states[id];
       if (!st || isUnavailable(st) || !Number.isFinite(parseFloat(st.state)) || list.some((it) => it.id === id)) continue;
       list.push({ id, st, role: key, conf: { entity: id } });
@@ -515,6 +571,7 @@ function resolveFloor(hass, floor) {
     );
     if (climate) room.climateTemp = climate;
   }
+  for (const r of rooms) Object.assign(r, { presence: rooms[r.group].presence, climateTemp: rooms[r.group].climateTemp });
 
   let minX = Infinity;
   let minY = Infinity;
@@ -575,21 +632,19 @@ const directionOf = (dx, dy) => ((Math.round(((Math.atan2(dx, -dy) * 180) / Math
 // Distance from (x, y) along the unit vector (dx, dy) to the first wall further than `skip`, or null.
 function raycast(rooms, x, y, dx, dy, skip = 0.15) {
   let best = null;
-  for (const r of rooms) {
-    for (const e of roomEdges(r)) {
-      let t;
-      let along;
-      if (e.o === 'h') {
-        if (Math.abs(dy) < 1e-9) continue;
-        t = (e.at - y) / dy;
-        along = x + t * dx;
-      } else {
-        if (Math.abs(dx) < 1e-9) continue;
-        t = (e.at - x) / dx;
-        along = y + t * dy;
-      }
-      if (t > skip && along >= e.a - 1e-6 && along <= e.b + 1e-6 && (best === null || t < best)) best = t;
+  for (const e of wallSegments(rooms)) {
+    let t;
+    let along;
+    if (e.o === 'h') {
+      if (Math.abs(dy) < 1e-9) continue;
+      t = (e.at - y) / dy;
+      along = x + t * dx;
+    } else {
+      if (Math.abs(dx) < 1e-9) continue;
+      t = (e.at - x) / dx;
+      along = y + t * dy;
     }
+    if (t > skip && along >= e.a - 1e-6 && along <= e.b + 1e-6 && (best === null || t < best)) best = t;
   }
   return best;
 }
@@ -600,8 +655,9 @@ function defaultCameraDirection(rooms, indoor, x, y) {
   let tx;
   let ty;
   if (room && !room.outdoor) {
-    tx = room.x + room.w / 2 - x;
-    ty = room.y + room.h / 2 - y;
+    const b = room.bbox || room;
+    tx = b.x + b.w / 2 - x;
+    ty = b.y + b.h / 2 - y;
   } else if (indoor.length) {
     const x1 = Math.min(...indoor.map((r) => r.x));
     const y1 = Math.min(...indoor.map((r) => r.y));
@@ -686,19 +742,21 @@ const darken = (c, k, a = c[3]) => [c[0] * k, c[1] * k, c[2] * k, a];
 const mix = (c, d, k) => c.map((x, i) => x + (d[i] - x) * k);
 
 // Wall segments of a floor: shared walls (`normal` null) and outer walls with their outward normal.
+// Two zones of the same room (see groupZones()) have no wall between them.
 function wallSegments(rooms) {
   const lines = new Map();
-  const add = (o, at, a, b, side) => {
+  const add = (o, at, a, b, side, group) => {
     const key = `${o}:${round2(at)}`;
     if (!lines.has(key)) lines.set(key, { o, at, spans: [] });
-    lines.get(key).spans.push({ a, b, side });
+    lines.get(key).spans.push({ a, b, side, group });
   };
   for (const r of rooms) {
     // `side`: +1 when the room lies after the line (larger x or y), -1 before it.
-    add('h', r.y, r.x, r.x + r.w, 1);
-    add('h', r.y + r.h, r.x, r.x + r.w, -1);
-    add('v', r.x, r.y, r.y + r.h, 1);
-    add('v', r.x + r.w, r.y, r.y + r.h, -1);
+    const g = groupOf(r);
+    add('h', r.y, r.x, r.x + r.w, 1, g);
+    add('h', r.y + r.h, r.x, r.x + r.w, -1, g);
+    add('v', r.x, r.y, r.y + r.h, 1, g);
+    add('v', r.x + r.w, r.y, r.y + r.h, -1, g);
   }
   const out = [];
   for (const { o, at, spans } of lines.values()) {
@@ -715,6 +773,10 @@ function wallSegments(rooms) {
       }
       const after = covering.some((s) => s.side > 0);
       const before = covering.some((s) => s.side < 0);
+      if (after && before && covering.every((s) => s.group === covering[0].group)) {
+        current = null;
+        continue;
+      }
       let normal = null;
       if (!(after && before)) {
         const k = after ? -1 : 1; // outwards: towards the side without a room
@@ -1672,18 +1734,24 @@ function planCorners(rooms, wallHeight, outline = false) {
   return [...corners].map(([key, P]) => ({ key, P }));
 }
 
-// Lines of a floor's rooms, as seen by its cameras: floor outlines, and the corners and tops of the walls.
+// Lines of a floor's rooms, as seen by its cameras: floor outlines, and the corners and tops of the
+// walls. A room drawn as several zones has no line between them.
 function planLines(rooms, wallHeight) {
   const lines = [];
+  const corners = new Set(planCorners(rooms, 0, true).map((c) => c.key));
   for (const r of rooms) {
-    const c = [[r.x, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h], [r.x, r.y + r.h]];
-    c.forEach((p, i) => {
-      const q = c[(i + 1) % 4];
+    for (const e of r.zones ? zoneEdges(r) : roomEdges(r)) {
+      const [p, q] = e.o === 'h' ? [[e.a, e.at], [e.b, e.at]] : [[e.at, e.a], [e.at, e.b]];
       lines.push({ P: [...p, 0], Q: [...q, 0], outdoor: r.outdoor });
-      if (r.outdoor) return;
-      lines.push({ P: [...p, 0], Q: [...p, wallHeight] });
+      if (r.outdoor) continue;
       lines.push({ P: [...p, wallHeight], Q: [...q, wallHeight] });
-    });
+      for (const c of [p, q]) {
+        const key = `${round2(c[0])},${round2(c[1])},0`;
+        if (!corners.has(key)) continue;
+        corners.delete(key); // once
+        lines.push({ P: [...c, 0], Q: [...c, wallHeight] });
+      }
+    }
   }
   return lines;
 }
@@ -2199,8 +2267,8 @@ class HaPlooumFloorplanCard extends LitElement {
     const ph = (h) => (h / vb.h) * 100;
     const { min, max } = this._tempRange();
 
-    const dim = (room) => (selected && room !== selected ? 'dim' : '');
-    const dimItem = (it) => (selected && it.roomIndex !== selected.index ? 'dim' : '');
+    const dim = (room) => (selected && room.group !== selected.index ? 'dim' : '');
+    const dimItem = (it) => (selected && it.room !== selected.index ? 'dim' : '');
     const cameras = plan.items.filter((it) => it.camera && it.st && !isUnavailable(it.st));
     const cameraItems = plan.items.filter((it) => it.role === 'camera' && it.st);
     const planWidth = this._width - 2 * CARD_PADDING;
@@ -2219,16 +2287,16 @@ class HaPlooumFloorplanCard extends LitElement {
           <svg class="layer" viewBox="${vb.x} ${vb.y} ${vb.w} ${vb.h}" preserveAspectRatio="none">
             <defs>
               ${plan.rooms.map(
+                // A room's clip covers all its zones; its lights' glows are defined once.
                 (room) => svg`
                   <clipPath id="clip-${room.index}">
-                    <rect x=${room.x} y=${room.y} width=${room.w} height=${room.h}></rect>
+                    ${room.zones.map((z) => svg`<rect x=${z.x} y=${z.y} width=${z.w} height=${z.h}></rect>`)}
                   </clipPath>
-                  ${room.items
-                    .filter((it) => it.role === 'light')
+                  ${(room.main ? room.lights : [])
                     .map(
                       (it) => svg`
                         <radialGradient id="glow-${it.index}" gradientUnits="userSpaceOnUse"
-                          cx=${it.x} cy=${it.y} r=${Math.max(room.w, room.h) * 0.8}>
+                          cx=${it.x} cy=${it.y} r=${Math.max(room.bbox.w, room.bbox.h) * 0.8}>
                           <stop offset="0" stop-color=${rgba(lightRgb(it.st), 0.75)}></stop>
                           <stop offset="0.45" stop-color=${rgba(lightRgb(it.st), 0.3)}></stop>
                           <stop offset="1" stop-color=${rgba(lightRgb(it.st), 0)}></stop>
@@ -2256,11 +2324,10 @@ class HaPlooumFloorplanCard extends LitElement {
             ${cameras.map(
               // An indoor camera's cone stays in its room.
               (it) => svg`<path class="cone ${dimItem(it)}" d=${conePath(it)} fill="url(#cone-${it.index})"
-                clip-path=${it.camera.indoor && it.roomIndex >= 0 ? `url(#clip-${it.roomIndex})` : nothing}></path>`
+                clip-path=${it.camera.indoor && it.room >= 0 ? `url(#clip-${it.room})` : nothing}></path>`
             )}
             ${plan.rooms.map((room) =>
-              room.items
-                .filter((it) => it.role === 'light')
+              room.lights
                 .map((it) => {
                   const on = isActive(it.st);
                   const brightness = on && typeof it.st.attributes.brightness === 'number' ? it.st.attributes.brightness / 255 : 1;
@@ -2269,14 +2336,20 @@ class HaPlooumFloorplanCard extends LitElement {
                     fill="url(#glow-${it.index})" style="opacity: ${on ? 0.45 + 0.55 * brightness : 0};"></rect>`;
                 })
             )}
-            ${plan.rooms.map(
-              (room) => svg`<rect class="wall ${room.outdoor ? 'outdoor' : ''} ${dim(room)}" x=${room.x} y=${room.y} width=${room.w} height=${room.h}></rect>`
+            ${plan.rooms.map((room) =>
+              room.zones.length > 1
+                ? // A zone's walls, without the ones it shares with the other zones of its room.
+                  svg`<path class="wall ${room.outdoor ? 'outdoor' : ''} ${dim(room)}" d=${edgesPath(zoneEdges(room))}></path>`
+                : svg`<rect class="wall ${room.outdoor ? 'outdoor' : ''} ${dim(room)}" x=${room.x} y=${room.y} width=${room.w} height=${room.h}></rect>`
             )}
             ${plan.rooms
-              .filter((room) => room.presence)
-              .map(
-                (room) => svg`<rect class="presence" x=${room.x + 0.12} y=${room.y + 0.12}
-                  width=${Math.max(0, room.w - 0.24)} height=${Math.max(0, room.h - 0.24)}></rect>`
+              .filter((room) => room.presence && room.main)
+              .map((room) =>
+                room.zones.length > 1
+                  ? // Along the walls of all its zones, inside: a wide stroke cut by the room's outline.
+                    svg`<path class="presence zones" clip-path="url(#clip-${room.index})" d=${edgesPath(room.zones.flatMap(zoneEdges))}></path>`
+                  : svg`<rect class="presence" x=${room.x + 0.12} y=${room.y + 0.12}
+                      width=${Math.max(0, room.w - 0.24)} height=${Math.max(0, room.h - 0.24)}></rect>`
               )}
             ${plan.exterior.map((s) =>
               s.o === 'h'
@@ -2308,15 +2381,16 @@ class HaPlooumFloorplanCard extends LitElement {
     if (!selected || planWidth <= 0) return none;
 
     const unit = planWidth / vb.w; // px per grid unit, unzoomed
-    const viewW = selected.w + 2 * ZOOM_MARGIN;
-    const viewH = selected.h + 2 * ZOOM_MARGIN;
+    const box = selected.bbox; // all the room's zones
+    const viewW = box.w + 2 * ZOOM_MARGIN;
+    const viewH = box.h + 2 * ZOOM_MARGIN;
     const maxHeight = Math.max(baseHeight, planWidth * ZOOM_MAX_HEIGHT);
     const s = Math.min(vb.w / viewW, maxHeight / (viewH * unit), ZOOM_MAX);
     if (s < 1.1) return none; // the room already fills the plan: highlighting it is enough
 
     const height = clamp(viewH * unit * s, baseHeight, maxHeight);
-    const cx = (selected.x + selected.w / 2 - vb.x) * unit;
-    const cy = (selected.y + selected.h / 2 - vb.y) * unit;
+    const cx = (box.x + box.w / 2 - vb.x) * unit;
+    const cy = (box.y + box.h / 2 - vb.y) * unit;
     // Center the room, without showing empty space past the plan's edges when avoidable.
     let tx = planWidth / 2 - cx * s;
     let ty = height / 2 - cy * s;
@@ -2328,9 +2402,9 @@ class HaPlooumFloorplanCard extends LitElement {
   // A room's tap target, under the markers.
   _renderRoom(room, dimClass, { px, py, pw, ph }) {
     return html`<div
-      class="room ${dimClass} ${this._selectedRoom === room.index ? 'selected' : ''}"
+      class="room ${dimClass} ${this._selectedRoom === room.group ? 'selected' : ''}"
       style="left: ${px(room.x)}%; top: ${py(room.y)}%; width: ${pw(room.w)}%; height: ${ph(room.h)}%;"
-      @click=${(ev) => this._selectRoom(ev, room.index)}
+      @click=${(ev) => this._selectRoom(ev, room.group)}
     ></div>`;
   }
 
@@ -2338,7 +2412,8 @@ class HaPlooumFloorplanCard extends LitElement {
   // through it to the markers and the room).
   _renderRoomLabel(room, dimClass, { px, py, pw, ph }) {
     const { temp: tempText, hum: humText } = roomClimate(this.hass, room);
-    if (!room.name && !tempText && !humText) return nothing;
+    // Shown once for a room drawn as several zones, in its largest one.
+    if (!room.main || (!room.name && !tempText && !humText)) return nothing;
     return html`
       <div class="room-label ${dimClass}" style="left: ${px(room.x)}%; top: ${py(room.y)}%; width: ${pw(room.w)}%; height: ${ph(room.h)}%;">
         <div class="label">
@@ -2361,8 +2436,8 @@ class HaPlooumFloorplanCard extends LitElement {
   _renderItem(item, plan, { px, py, pw, ph }) {
     if (item.role === 'cover' && item.wall && item.st) return this._renderWindow(item, { px, py, pw, ph });
     // Temperature and humidity sensors inside a room are shown in its label.
-    if ((item.role === 'temperature' || item.role === 'humidity') && item.roomIndex >= 0 && item.st) return nothing;
-    const dim = this._selectedRoom !== null && item.roomIndex !== this._selectedRoom ? 'dim' : '';
+    if ((item.role === 'temperature' || item.role === 'humidity') && item.room >= 0 && item.st) return nothing;
+    const dim = this._selectedRoom !== null && item.room !== this._selectedRoom ? 'dim' : '';
     const pos = `left: ${px(item.x)}%; top: ${py(item.y)}%;`;
     const events = {
       down: (ev) => this._itemDown(ev, item),
@@ -2707,7 +2782,7 @@ class HaPlooumFloorplanCard extends LitElement {
     if (pending && Date.now() < pending.until && Math.abs(pending.pos - pos) > 1) pos = pending.pos;
     if (this._coverDrag && this._coverDrag.id === item.id) pos = this._coverDrag.pos;
     const moving = st.state === 'opening' || st.state === 'closing';
-    const dim = this._selectedRoom !== null && item.roomIndex !== this._selectedRoom ? 'dim' : '';
+    const dim = this._selectedRoom !== null && item.room !== this._selectedRoom ? 'dim' : '';
 
     return html`
       <div
@@ -3177,7 +3252,7 @@ class HaPlooumFloorplanCard extends LitElement {
     // A projected picture goes onto the floor and walls of the camera's room, or outdoors onto the
     // ground, the outdoor rooms of its floor, and the outer walls and roof slopes facing it (minus
     // what the occluders hide from the camera).
-    const indoorProjectors = (k, room = null) => projectors.filter((pr) => pr.indoor && pr.room && pr.k === k && (!room || pr.room === room));
+    const indoorProjectors = (k, room = null) => projectors.filter((pr) => pr.indoor && pr.room && pr.k === k && (!room || pr.room.group === room.group));
     const outdoorProjectors = (k) => projectors.filter((pr) => !pr.indoor && (k === null || pr.k === k));
     // Pictures of `list` cast onto the polygon `pts`, over `mesh`.
     const project = (mesh, list, pts, alpha = 1) => list.forEach((pr) => mesh.overlay(pr.mesh().poly(pts, [1, 1, 1, alpha])));
@@ -3221,11 +3296,11 @@ class HaPlooumFloorplanCard extends LitElement {
           if (!isActive(it.st)) continue;
           const c = lightRgb(it.st).map((v) => v / 255);
           const b = typeof it.st.attributes.brightness === 'number' ? it.st.attributes.brightness / 255 : 1;
-          const R = Math.max(room.w, room.h) * 0.7;
+          const R = Math.max(room.bbox.w, room.bbox.h) * 0.7;
           floor.overlay(new Mesh(MODE.glow).poly(pts, [...c, 0.35 + 0.5 * b], pts.map((q) => [(q[0] - it.x) / R, (q[1] - it.y) / R, 0, 0])));
         }
         project(floor, room.outdoor ? outdoorProjectors(p.k) : indoorProjectors(p.k, room), pts);
-        if (cutaway && (room.name || room.temps.length || room.hums.length)) this._roomLabel(floor, room, f0z, labelTurn, colors);
+        if (cutaway && room.main && (room.name || room.temps.length || room.hums.length)) this._roomLabel(floor, room, f0z, labelTurn, colors);
       }
 
       // Walls: the outer ones on every floor shown (they also cover the slab), the inner ones only
@@ -3248,11 +3323,15 @@ class HaPlooumFloorplanCard extends LitElement {
         const wall = add(new Mesh(MODE.flat, { transparent: !outer }).poly(quad(o, u, [0, 0, bottom - top]), darken(colors.wall, shade(n), alpha)));
         // Pictures of the cameras of the rooms along this wall, above their floor.
         for (const pr of indoorProjectors(p.k)) {
-          const r = pr.room;
-          const edge = roomEdges(r).find((e) => e.o === seg.o && Math.abs(e.at - seg.at) < ON_WALL_EPS);
-          const a = edge ? Math.max(seg.a, edge.a) : 0;
-          const b = edge ? Math.min(seg.b, edge.b) : 0;
-          if (b - a < ON_WALL_EPS) continue;
+          // The zone of the camera's room along this wall, if any.
+          let r = null;
+          let a = 0;
+          let b = 0;
+          for (const z of pr.room.zones) {
+            const edge = roomEdges(z).find((e) => e.o === seg.o && Math.abs(e.at - seg.at) < ON_WALL_EPS && Math.min(seg.b, e.b) - Math.max(seg.a, e.a) >= ON_WALL_EPS);
+            if (edge) [r, a, b] = [z, Math.max(seg.a, edge.a), Math.min(seg.b, edge.b)];
+          }
+          if (!r) continue;
           // Seen from the room only: from the other side, the wall hides what the camera sees.
           const roomSide = (seg.o === 'h' ? r.y + r.h / 2 : r.x + r.w / 2) - seg.at;
           if (roomSide * ((seg.o === 'h' ? eye[1] : eye[0]) - seg.at) <= 0) continue;
@@ -4112,6 +4191,11 @@ class HaPlooumFloorplanCard extends LitElement {
         stroke-width: 2px;
         vector-effect: non-scaling-stroke;
         animation: pulse 2s ease-in-out infinite;
+      }
+      /* Drawn on the walls and cut by the room's outline: only its inner half shows, past the outer walls. */
+      .presence.zones {
+        stroke-width: 10px;
+        stroke-linecap: square;
       }
       @keyframes pulse {
         0%, 100% { stroke-opacity: 0.15; }
@@ -5320,6 +5404,7 @@ class HaPlooumFloorplanCardEditor extends LitElement {
     const sel = this._selection;
     if (sel && sel.kind === 'room' && floor.rooms && floor.rooms[sel.index]) {
       const room = floor.rooms[sel.index];
+      const zones = room.name ? floor.rooms.filter((r) => r.name === room.name && !!r.outdoor === !!room.outdoor).length : 1;
       return html`<div class="selection">
         <div class="selection-header">
           <ha-icon icon=${room.icon || 'mdi:floor-plan'}></ha-icon>
@@ -5346,6 +5431,12 @@ class HaPlooumFloorplanCardEditor extends LitElement {
           .computeLabel=${(s) => s.label || s.name}
           @value-changed=${(ev) => this._selectionChanged(ev, 'rooms')}
         ></ha-form>
+        <div class="hint">
+          <ha-icon icon="mdi:information-outline"></ha-icon>
+          <span>${zones > 1
+            ? `One of the ${zones} zones of this room: rooms with the same name make a single room (shown once, with no wall between its zones).`
+            : 'An L-shaped room? Draw it as several rooms with the same name: they make a single room.'}</span>
+        </div>
       </div>`;
     }
     if (sel && sel.kind === 'entity' && floor.entities && floor.entities[sel.index]) {
@@ -5523,7 +5614,7 @@ class HaPlooumFloorplanCardEditor extends LitElement {
     // An indoor camera only sees its room: the lines of the others would show through its walls.
     // An outdoor one sees the outer walls facing it, and nothing the house hides from it.
     const ownRoom = item.camera.indoor ? plan.indoor[roomAt(plan.indoor, item.x, item.y)] : null;
-    const rooms = ownRoom ? [ownRoom] : plan.rooms;
+    const rooms = ownRoom ? ownRoom.zones : plan.rooms;
     const hidden = ownRoom ? null : this._sightTest(plan, pose.C, wallHeight);
     const lines = (ownRoom ? planLines(rooms, wallHeight) : facingLines(rooms, wallHeight, pose.C)).flatMap((l) =>
       segmentToPicture(pose, l.P, l.Q, aspect, hidden).map(
@@ -5534,7 +5625,7 @@ class HaPlooumFloorplanCardEditor extends LitElement {
     const pinned = new Map(pins.map((p) => [p.key, p]));
     const near = (uv) => uv && uv[0] > -1 && uv[0] < 2 && uv[1] > -1 / aspect && uv[1] < 2 / aspect;
     const edge = 0.02;
-    const corners = planCorners(rooms, wallHeight, !ownRoom)
+    const corners = planCorners(rooms, wallHeight, true)
       .filter((c) => !hidden || !hidden(c.P))
       .map((c) => ({ ...c, uv: toPicture(pose, c.P, aspect) }))
       .filter((c) => near(c.uv))
