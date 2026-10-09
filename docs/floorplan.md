@@ -49,7 +49,7 @@ Switch it to **3D** and the same plan becomes a model of your home and garden, w
 7. **Outdoor rooms**: draw a room for the garden or the terrace and tick **Outdoor**: it gets no walls and no roof.
 8. **Remove an entity**: drag it out of the plan, or select it and click **Remove from plan**.
 9. **Undo** (button or `Ctrl+Z`) reverts the last changes. With the plan focused, arrows move the selection, `Shift` + arrows resize a room, `Delete` removes it.
-10. **Floors**: `+ Floor` adds one (floors are stacked in this order in 3D, the first one on the ground); select no room nor entity to rename or delete the current floor.
+10. **Floors**: `+ Floor` adds one (floors are stacked in this order in 3D, the first one on the ground); `+ Same walls` adds one with the same walls as the current floor (its indoor rooms, renamed `Room 1`, `Room 2`…, without their entities). Select no room nor entity to rename or delete the current floor.
 
 **From my areas** regenerates the whole plan from your areas (after confirmation).
 

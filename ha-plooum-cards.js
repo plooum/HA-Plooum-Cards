@@ -5979,6 +5979,11 @@ void main() {
             </button>`
           )}
           <button class="chip add" title="Add a floor" @click=${this._addFloor}>+ Floor</button>
+          ${(floors[fi].rooms || []).some((r) => !r.outdoor)
+            ? b`<button class="chip add" title="Add a floor with the same walls as ${floors[fi].name || 'this floor'}" @click=${this._addFloorSameWalls}>
+                + Same walls
+              </button>`
+            : A}
           <span class="spacer"></span>
           <button class="btn flat" title="Undo (Ctrl+Z)" ?disabled=${!this._history.length} @click=${this._undo}>
             <ha-icon icon="mdi:undo"></ha-icon> Undo
@@ -6962,6 +6967,18 @@ void main() {
     _addFloor() {
       const floors = JSON.parse(JSON.stringify(this._floors()));
       floors.push({ name: `Floor ${floors.length + 1}`, rooms: [], entities: [] });
+      this._commitFloors(floors);
+      this._floorIndex = floors.length - 1;
+      this._selection = null;
+    }
+
+    // A new floor on top with the indoor rooms of the current one (same walls), renamed: they are
+    // usually not the same rooms. Outdoor rooms and entities stay on their floor.
+    _addFloorSameWalls() {
+      const floors = JSON.parse(JSON.stringify(this._floors()));
+      const indoor = (floors[this._currentFloorIndex()].rooms || []).filter((r) => !r.outdoor);
+      const rooms = indoor.map(({ x, y, w, h }, i) => ({ name: `Room ${i + 1}`, x, y, w, h }));
+      floors.push({ name: `Floor ${floors.length + 1}`, rooms, entities: [] });
       this._commitFloors(floors);
       this._floorIndex = floors.length - 1;
       this._selection = null;
