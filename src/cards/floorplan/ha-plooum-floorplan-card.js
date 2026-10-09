@@ -55,7 +55,7 @@ const PALETTE_FILTERS = [
 ];
 
 // Card options shown in the editor with their default value, and left out of the config when unchanged.
-const CARD_DEFAULTS = { view: '2d', camera_view: 'snapshot', screen_mode: 'world', roof: true };
+const CARD_DEFAULTS = { view: '2d', camera_view: 'snapshot', camera_previews: 'hover', screen_mode: 'world', roof: true };
 // Where camera screens are shown in 3D: in the scene in front of their camera, floating flat on the
 // view next to it, or nowhere (the camera bar still flies to them).
 const SCREEN_MODES = ['world', 'billboard', 'none'];
@@ -74,6 +74,9 @@ const PROJ_PX = 640; // picture width (px) assumed by the editor until the pictu
 const PICTURE_PX = 1024; // max width of a camera picture projected in 3D (texture)
 const PROJ_REACH = 25; // projected pictures stop this far from their camera (grid units)
 const REFRESH_INTERVAL = 3; // s between two snapshots of a camera
+const THUMB_INTERVAL = 300; // s between two snapshots of the thumbnails always shown in 2D (`camera_previews: always`)
+const THUMB_PX = 96; // thumbnail width in 2D (px, before the plan's zoom)
+const BLACK_LEVEL = 20; // a snapshot whose brightest pixel is darker than this (0-255) is considered black
 const AIM_HANDLE = 1.25; // distance from a camera to its aim handle in the editor (grid units)
 // Camera options left out of the config when they keep their default value.
 const CAMERA_KEYS = ['fov', 'tilt', 'height', 'screen_size', 'screen_distance'];
@@ -108,6 +111,25 @@ const domainOf = (entityId) => (entityId || '').split('.')[0];
 
 function isUnavailable(st) {
   return !st || UNAVAILABLE_STATES.includes(st.state);
+}
+
+// True when a loaded image is (almost) all black: a camera that sends a black frame. An image the
+// canvas can't read (another origin) counts as not black.
+function isBlack(img) {
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 32;
+    canvas.height = 18;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    for (let i = 0; i < data.length; i += 4) {
+      if (Math.max(data[i], data[i + 1], data[i + 2]) >= BLACK_LEVEL) return false;
+    }
+    return true;
+  } catch (err) {
+    return false;
+  }
 }
 
 function isActive(st) {
@@ -1504,6 +1526,8 @@ class HaPlooumFloorplanCard extends LitElement {
     this._tick = 0; // bumps every refresh_interval: reloads camera snapshots
     this._camHover = null; // camera previewed in 2D while the mouse is on its marker
     this._camPinned = null; // camera previewed in 2D after a tap on its marker
+    this._thumbs = {}; // camera id -> thumbnail always shown in 2D, see _thumb()
+    this._thumbTick = 0; // bumps every THUMB_INTERVAL: reloads the thumbnails
     this._panelCameras = false; // the room panel shows camera pictures
     this._wheelListener = { handleEvent: (ev) => this._wheel3d(ev), passive: false };
     this._onKeyDown = (ev) => {
@@ -1557,6 +1581,7 @@ class HaPlooumFloorplanCard extends LitElement {
     clearTimeout(this._holdTimer);
     clearTimeout(this._previewTimer);
     clearInterval(this._refreshTimer);
+    clearInterval(this._thumbTimer);
     clearTimeout(this._iconTimer);
     cancelAnimationFrame(this._easeFrame);
     this._easeFrame = null;
@@ -1573,6 +1598,9 @@ class HaPlooumFloorplanCard extends LitElement {
     if (config.screen_mode !== undefined && !SCREEN_MODES.includes(config.screen_mode)) {
       throw new Error(`screen_mode must be one of ${SCREEN_MODES.join(', ')}`);
     }
+    if (config.camera_previews !== undefined && !['hover', 'always'].includes(config.camera_previews)) {
+      throw new Error('camera_previews must be hover or always');
+    }
     // A new `view` or `roof` in the config (editor) is applied; otherwise the user's choice stays.
     if (!this.config || this.config.view !== config.view) this._view = config.view || '2d';
     if (!this.config || this.config.roof !== config.roof) this._level3d = null;
@@ -1583,13 +1611,19 @@ class HaPlooumFloorplanCard extends LitElement {
 
   // Camera snapshots are reloaded periodically, only while some are shown: in 3D, or in 2D in a
   // camera's preview or the room panel. Projected pictures are snapshots even with `camera_view: live`.
+  // The thumbnails always shown in 2D (`camera_previews: always`) have their own, much slower refresh.
   _startRefresh() {
     clearInterval(this._refreshTimer);
+    clearInterval(this._thumbTimer);
     if (!this.config) return;
     const seconds = Math.max(1, num(this.config.refresh_interval, REFRESH_INTERVAL));
     this._refreshTimer = setInterval(() => {
       if (this._snapshotsShown() && !document.hidden) this._tick++;
     }, seconds * 1000);
+    this._thumbTimer = setInterval(() => {
+      this._thumbTick++;
+      if (this.config.camera_previews === 'always' && this._view !== '3d' && !document.hidden) this.requestUpdate();
+    }, THUMB_INTERVAL * 1000);
   }
 
   _snapshotsShown() {
@@ -1710,6 +1744,7 @@ class HaPlooumFloorplanCard extends LitElement {
     const dim = (room) => (selected && room !== selected ? 'dim' : '');
     const dimItem = (it) => (selected && it.roomIndex !== selected.index ? 'dim' : '');
     const cameras = plan.items.filter((it) => it.camera && it.st && !isUnavailable(it.st));
+    const cameraItems = plan.items.filter((it) => it.role === 'camera' && it.st);
     const planWidth = this._width - 2 * CARD_PADDING;
     const markerSize = planWidth > 0 ? clamp(Math.round((planWidth / vb.w) * 0.8), 18, 28) : 28;
     const zoom = this._zoomView(vb, selected, planWidth);
@@ -1793,6 +1828,9 @@ class HaPlooumFloorplanCard extends LitElement {
 
           <div class="overlay">
             ${plan.rooms.map((room) => this._renderRoom(room, dim(room), { px, py, pw, ph }))}
+            ${this.config.camera_previews === 'always'
+              ? cameraItems.map((it) => this._renderThumb(it, vb, planWidth, markerSize, dimItem(it), { px, py }))
+              : nothing}
             ${plan.items.map((item) => this._renderItem(item, plan, { px, py, pw, ph }))}
           </div>
         </div>
@@ -1963,7 +2001,7 @@ class HaPlooumFloorplanCard extends LitElement {
         ev.stopPropagation();
         this._moreInfo(id);
       }}>
-      ${this._screenContent(item)}
+      ${this._screenContent(item, false)}
       ${pinned
         ? html`<button class="campop-close" title="Close" @click=${(ev) => {
             ev.stopPropagation();
@@ -1971,6 +2009,70 @@ class HaPlooumFloorplanCard extends LitElement {
           }}><ha-icon icon="mdi:close"></ha-icon></button>`
         : nothing}
     </div>`;
+  }
+
+  // Thumbnail always shown next to a camera (`camera_previews: always`), behind it so that its cone
+  // stays visible, under the markers. Hidden while the camera's full preview is open. A tap on it
+  // opens the camera's details, with its live view.
+  _renderThumb(item, vb, planWidth, markerSize, dimClass, { px, py }) {
+    const id = item.id;
+    if (planWidth <= 0 || id === this._camHover || id === this._camPinned) return nothing;
+    const unavailable = isUnavailable(item.st);
+    const url = this._thumb(item.st);
+    if (!url && unavailable) return nothing;
+    const w = clamp(Math.round(markerSize * 3.4), 64, THUMB_PX + 24);
+    const h = w / (this._aspects[id] || 16 / 9);
+    const dir = item.camera ? (item.camera.direction * Math.PI) / 180 : 0;
+    const back = [-Math.sin(dir), Math.cos(dir)];
+    // Center of the thumbnail from the marker (px): behind the camera, or else on the side closest
+    // to behind where it fits inside the plan.
+    const unit = planWidth / vb.w;
+    const x = (item.x - vb.x) * unit;
+    const y = (item.y - vb.y) * unit;
+    const m = 4;
+    const fits = (v) => {
+      const reach = markerSize / 2 + 4 + Math.abs(v[0]) * (w / 2) + Math.abs(v[1]) * (h / 2);
+      const c = [x + v[0] * reach, y + v[1] * reach];
+      const inside = c[0] - w / 2 >= m && c[0] + w / 2 <= planWidth - m && c[1] - h / 2 >= m && c[1] + h / 2 <= vb.h * unit - m;
+      return { c, inside };
+    };
+    const sides = [[1, 0], [-1, 0], [0, 1], [0, -1]].sort((a, b) => b[0] * back[0] + b[1] * back[1] - (a[0] * back[0] + a[1] * back[1]));
+    const spot = [back, ...sides].map(fits).find((f) => f.inside) || fits(back);
+    const dx = clamp(spot.c[0], w / 2 + m, planWidth - w / 2 - m) - x;
+    const dy = clamp(spot.c[1], h / 2 + m, vb.h * unit - h / 2 - m) - y;
+    const k = (v) => `calc(${round2(v)}px * var(--k, 1))`;
+    return html`<button class="camthumb ${unavailable ? 'unavailable' : ''} ${dimClass}" title="Open the live view"
+      style="left: ${px(item.x)}%; top: ${py(item.y)}%; width: ${k(w)}; height: ${k(h)};
+        transform: translate(calc(-50% + ${k(dx)}), calc(-50% + ${k(dy)}));"
+      @click=${(ev) => {
+        ev.stopPropagation();
+        this._moreInfo(id);
+      }}>
+      ${url ? html`<img alt="" src=${url} />` : html`<ha-icon icon="mdi:cctv"></ha-icon>`}
+    </button>`;
+  }
+
+  // Latest good thumbnail of a camera (an image URL), or null until one has loaded. A new snapshot
+  // is loaded every THUMB_INTERVAL; one that fails to load or comes out black is dropped, and the
+  // previous one stays (also while the camera is unavailable).
+  _thumb(st) {
+    const id = st.entity_id;
+    const thumb = this._thumbs[id] || (this._thumbs[id] = { url: null, tick: -1 });
+    const pic = !isUnavailable(st) && st.attributes.entity_picture;
+    if (pic && thumb.tick !== this._thumbTick) {
+      thumb.tick = this._thumbTick;
+      const url = `${pic}${pic.includes('?') ? '&' : '?'}t=thumb${this._thumbTick}`;
+      const img = new Image();
+      img.onload = () => {
+        if (thumb.tick !== this._thumbTick && thumb.url) return; // a newer one is loading
+        if (isBlack(img)) return;
+        thumb.url = url;
+        this._learnAspect(id, img);
+        this.requestUpdate();
+      };
+      img.src = url;
+    }
+    return thumb.url;
   }
 
   _previewEnter(ev, item) {
@@ -2105,7 +2207,7 @@ class HaPlooumFloorplanCard extends LitElement {
       </div>
       ${domain === 'camera' && !unavailable
         ? html`<button class="row-cam" title="Open the live view" style="aspect-ratio: ${this._aspects[item.id] || 16 / 9};"
-            @click=${() => this._moreInfo(item.id)}>${this._cameraImage(st)}</button>`
+            @click=${() => this._moreInfo(item.id)}>${this._cameraImage(st, false)}</button>`
         : nothing}`;
   }
 
@@ -2791,8 +2893,8 @@ class HaPlooumFloorplanCard extends LitElement {
     return item.name || (item.st ? friendlyName(this.hass, item.id) : item.id);
   }
 
-  // What a camera's screen shows: its picture (`live`: its live stream) and its name, or why it can't.
-  _screenContent(item, live = false) {
+  // What a camera's screen shows: its picture and its name, or why it can't. `live`: see _cameraImage().
+  _screenContent(item, live) {
     const st = item.st;
     let content;
     if (!st) {
@@ -2912,11 +3014,12 @@ class HaPlooumFloorplanCard extends LitElement {
     this._focusCamera(cams[(i + step + cams.length) % cams.length].id);
   }
 
-  // Snapshot reloaded every refresh_interval, or the live stream (`camera_view: live`, or `live`).
-  _cameraImage(st, live = false) {
+  // Snapshot reloaded every refresh_interval, or the live stream: `live` true or false forces it,
+  // undefined follows `camera_view`. The 2D plan only shows snapshots: its previews open the live view.
+  _cameraImage(st, live) {
     const id = st.entity_id;
     const learn = (ev) => this._learnAspect(id, ev.target);
-    if (live || this.config.camera_view === 'live') {
+    if (live === undefined ? this.config.camera_view === 'live' : live) {
       if (customElements.get('ha-camera-stream')) {
         return html`<ha-camera-stream .hass=${this.hass} .stateObj=${st} muted></ha-camera-stream>`;
       }
@@ -3639,6 +3742,32 @@ class HaPlooumFloorplanCard extends LitElement {
         height: 100%;
         object-fit: cover;
       }
+      .camthumb {
+        position: absolute;
+        box-sizing: border-box;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        background: #000;
+        color: #9aa0a6;
+        border: 1.5px solid #1b1e22;
+        border-radius: 6px;
+        overflow: hidden;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+        --mdc-icon-size: 20px;
+      }
+      .camthumb img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .camthumb.unavailable img {
+        filter: grayscale(1);
+        opacity: 0.5;
+      }
       .campop {
         position: absolute;
         z-index: 2;
@@ -4124,6 +4253,19 @@ class HaPlooumFloorplanCardEditor extends LitElement {
             label: 'Camera screens (3D)',
             selector: {
               select: { mode: 'dropdown', options: [{ value: 'snapshot', label: 'Snapshots' }, { value: 'live', label: 'Live streams' }] },
+            },
+          },
+          {
+            name: 'camera_previews',
+            label: 'Camera previews (2D)',
+            selector: {
+              select: {
+                mode: 'dropdown',
+                options: [
+                  { value: 'hover', label: 'On hover or tap' },
+                  { value: 'always', label: 'Always (thumbnails)' },
+                ],
+              },
             },
           },
           { name: 'refresh_interval', label: 'Snapshot refresh (s)', selector: { number: { min: 1, max: 60, step: 1, mode: 'box' } } },

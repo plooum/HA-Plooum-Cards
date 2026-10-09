@@ -207,6 +207,13 @@ views:
                   # Unavailable when input_boolean.garage_camera_available is off.
                   - { entity: camera.garage_camera, x: 4.75, y: 3.75, direction: 315 }
           - type: custom:ha-plooum-floorplan-card
+            title: Home, camera thumbnails
+            # Thumbnails always shown next to the cameras. camera_view: live must not reach the
+            # 2D plan (previews, room panel): snapshots only, the live stream opens on a tap.
+            camera_previews: always
+            camera_view: live
+            floors: *home_floors
+          - type: custom:ha-plooum-floorplan-card
             title: Home in 3D
             view: 3d
             floors: *home_floors
