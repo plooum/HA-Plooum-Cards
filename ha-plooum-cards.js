@@ -2165,9 +2165,9 @@
   // Edges of a loaded picture scaled down to MATCH_W x MATCH_H: the brightness gradient (x and y) of
   // each pixel, blurred a little (a camera that shakes slightly still matches), with a unit norm, so
   // that two pictures' edges compare by a dot product whatever their brightness. Unlike colors, edges
-  // hardly change with the light of the day; a turn of a few degrees moves all of them. Also `black`
-  // (see readSnapshot()) and `color` (false for a gray picture, like an infrared night view). Null when
-  // the canvas can't read the picture (another origin).
+  // hardly change with the light of the day, nor in a gray infrared night view; a turn of a few
+  // degrees moves all of them. Also `black` (see readSnapshot()). Null when the canvas can't read the
+  // picture (another origin).
   function pictureEdges(img) {
     const w = MATCH_W;
     const h = MATCH_H;
@@ -2182,12 +2182,10 @@
     }
     const gray = new Float32Array(w * h);
     let brightest = 0;
-    let chroma = 0;
     for (let i = 0; i < w * h; i++) {
       const [r, g, b] = [px[4 * i], px[4 * i + 1], px[4 * i + 2]];
       gray[i] = 0.299 * r + 0.587 * g + 0.114 * b;
       brightest = Math.max(brightest, r, g, b);
-      chroma += Math.max(r, g, b) - Math.min(r, g, b);
     }
     const grad = new Float32Array(2 * w * h);
     for (let y = 1; y < h - 1; y++) {
@@ -2211,14 +2209,14 @@
     }
     norm = Math.sqrt(norm) || 1;
     for (let i = 0; i < edges.length; i++) edges[i] /= norm;
-    return { edges, black: brightest < BLACK_LEVEL, color: chroma / (w * h) > 8 };
+    return { edges, black: brightest < BLACK_LEVEL };
   }
 
   // Whether a snapshot still shows what the reference picture shows (their pictureEdges()):
-  // `match`, `moved` (the camera turned), or `rejected` (black, gray at night while the reference
-  // has colors, or unreadable), which tells nothing about the camera.
+  // `match`, `moved` (the camera turned), or `rejected` (black or unreadable), which tells nothing
+  // about the camera. A gray infrared night view is compared like any other.
   function matchPicture(ref, snap) {
-    if (!ref || !snap || snap.black || (ref.color && !snap.color)) return 'rejected';
+    if (!ref || !snap || snap.black) return 'rejected';
     let corr = 0;
     for (let i = 0; i < ref.edges.length; i++) corr += ref.edges[i] * snap.edges[i];
     return corr >= MATCH_MIN ? 'match' : 'moved';
