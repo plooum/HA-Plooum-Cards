@@ -68,7 +68,7 @@ The editor writes this configuration for you; it can also be written by hand. Po
 | `view` | string | `2d` | View shown when the card opens: `2d` or `3d`. |
 | `roof` | boolean | `true` | In 3D, start with the whole home closed, with its roof. `false` starts on the top floor, open. |
 | `wall_height` | number | `2.5` | Wall height in 3D, in grid units. |
-| `camera_view` | string | `snapshot` | Camera pictures (3D screens, 2D previews and the room panel): `snapshot` (an image refreshed every `refresh_interval`) or `live` (the live stream). |
+| `camera_view` | string | `snapshot` | Camera pictures (3D floating screens, 2D previews and the room panel): `snapshot` (an image refreshed every `refresh_interval`) or `live` (the live stream). In 3D, the screens standing in the scene always show snapshots, and the screen zoomed on the live stream. |
 | `refresh_interval` | number | `3` | Seconds between two snapshots of a camera (3D screens, 2D previews and the room panel). |
 | `screen_mode` | string | `world` | Camera screens in 3D: `world` (in the scene, in front of the camera), `billboard` (floating flat on the view next to the camera) or `none`. |
 | `floors` | list | generated | The plan, one item per floor (see below). Leave it out to generate the plan from your areas. |

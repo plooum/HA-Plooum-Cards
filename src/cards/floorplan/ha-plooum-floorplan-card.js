@@ -67,10 +67,11 @@ const CAMERA_TILT = 15; // downwards
 const CAMERA_REACH = 2.5; // 2D cone length when no wall is in front of the camera
 const SCREEN_SIZE = 2.4; // max screen width in 3D (grid units)
 const SCREEN_DISTANCE = 2.5; // max distance from the camera to its screen in 3D (grid units)
-const SCREEN_PX = 480; // raster width of a screen: keeps the image sharp when zoomed in
+const SCREEN_PX = 480; // width of a camera screen's texture in 3D: keeps the image sharp when zoomed in
 const SHORT_BEAM = 0.7; // beam length when the screen isn't in the scene (grid units)
 const STRIP_HEIGHT = 44; // px kept free at the bottom of the 3D view for the camera bar
-const PROJ_PX = 640; // raster width of a picture projected onto the floor and walls
+const PROJ_PX = 640; // picture width (px) assumed by the editor until the picture has loaded
+const PICTURE_PX = 1024; // max width of a camera picture projected in 3D (texture)
 const PROJ_REACH = 25; // projected pictures stop this far from their camera (grid units)
 const REFRESH_INTERVAL = 3; // s between two snapshots of a camera
 const AIM_HANDLE = 1.25; // distance from a camera to its aim handle in the editor (grid units)
@@ -79,15 +80,8 @@ const CALIB_COLORS = ['#ff5252', '#ffd740', '#69f0ae', '#40c4ff']; // numbered p
 const CAMERA_KEYS = ['fov', 'tilt', 'height', 'screen_size', 'screen_distance'];
 
 // 3D view. Grid units are meant as meters: walls are 2.5 units high by default.
-const U3 = 100; // px per grid unit in the 3D scene
-// Faces are drawn at their own density (`r`, px per grid unit, at most U3) and scaled up to U3 by
-// their transform. Browsers keep a texture of each face at the screen's pixel ratio, however small
-// it ends up on screen: drawn at U3, a home takes hundreds of MB of GPU memory on a phone, and its
-// biggest faces (ground, roofs) flicker or vanish.
-const RASTER_MARGIN = 1.5; // faces are drawn this much sharper than they show at the point looked at
-const RASTER_BUDGET = 8e6; // device px of faces per card (4 bytes each)
-const RASTER_MAX_SIDE = 4096; // device px: bigger faces are tiled, which fails in 3D on some phones
-const RASTER_MIN = 4;
+const U3 = 100; // px per grid unit of the 3D view (orbit distances, perspective, overlays)
+const ORBIT_EASE_MS = 800; // the 3D view eases this long to a new point of view
 const WALL_HEIGHT = 2.5;
 const SLAB = 0.25; // thickness between two floors
 const WALL_CAP = 0.12; // wall thickness, drawn as a cap on top of each wall
@@ -454,8 +448,9 @@ function conePath(item) {
 }
 
 // --- 3D geometry -------------------------------------------------------------
-// The scene is made of flat HTML elements placed with CSS 3D transforms. World axes: x and y
-// as on the plan, z upwards; 1 grid unit = U3 px.
+// The scene is drawn with WebGL (see GlScene). World axes: x and y as on the plan (y downwards),
+// z upwards, in grid units. The view is that of a CSS perspective of `vp.p` px on a scene of U3 px
+// per grid unit (see viewMatrix()), which _project() and the overlays follow.
 
 const add3 = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -466,17 +461,15 @@ const len3 = (a) => Math.hypot(a[0], a[1], a[2]);
 const norm3 = (a) => mul3(a, 1 / (len3(a) || 1));
 const LIGHT_DIR = norm3([-0.5, -0.75, 0.6]);
 
-// A flat element whose top-left corner is at `o` and whose top and left edges follow `u` and `v`
-// (world units; they need not be perpendicular). `w` x `h` is its size in px: by default its size
-// at `r` px per grid unit, the density the scene is drawn at.
-function face(o, u, v, r, w = len3(u) * r, h = len3(v) * r) {
-  const n = norm3(cross3(u, v));
-  const m = [...mul3(u, U3 / w), 0, ...mul3(v, U3 / h), 0, ...n, 0, ...mul3(o, U3), 1];
-  return { w: round2(w), h: round2(h), n, transform: `matrix3d(${m.map((x) => +x.toFixed(5)).join(',')})` };
-}
+// Corners of the parallelogram with a corner at `o` and edges `u` and `v`, in order.
+const quad = (o, u, v) => [o, add3(o, u), add3(add3(o, u), v), add3(o, v)];
+const UV_QUAD = [[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [0, 1, 0, 0]];
 
-// Brightness (%) of a face lit by a fixed light, whichever side is seen.
-const shade = (n, min = 58) => Math.round(min + (100 - min) * Math.abs(dot3(n, LIGHT_DIR)));
+// Brightness (0-1) of a face of normal `n` lit by a fixed light, whichever side is seen.
+const shade = (n, min = 58) => (min + (100 - min) * Math.abs(dot3(n, LIGHT_DIR))) / 100;
+// A color (RGBA, 0-1) darkened by `k`, with alpha `a`.
+const darken = (c, k, a = c[3]) => [c[0] * k, c[1] * k, c[2] * k, a];
+const mix = (c, d, k) => c.map((x, i) => x + (d[i] - x) * k);
 
 // Wall segments of a floor: shared walls (`normal` null) and outer walls with their outward normal.
 function wallSegments(rooms) {
@@ -574,8 +567,9 @@ function roofRects(rooms, above) {
   return rects.filter((a) => !rects.some((b) => inside(a, b)));
 }
 
-// The 4 slopes of a hip roof on a rectangle whose walls stop at height z.
-function hipRoof(rect, z, r) {
+// The 4 slopes of a hip roof on a rectangle whose walls stop at height z: their corners, normal,
+// and plane (top-left corner at the eave, unit edges, upward normal) for projected pictures.
+function hipRoof(rect, z) {
   const o = ROOF_OVERHANG;
   const x0 = rect.x - o;
   const y0 = rect.y - o;
@@ -592,27 +586,28 @@ function hipRoof(rect, z, r) {
   return sides.map(({ p, q, d }) => {
     const u = [q[0] - p[0], q[1] - p[1], 0];
     const v = [d[0] * run, d[1] * run, run * ROOF_PITCH];
-    const k = round2((run / len3(u)) * 100);
+    const k = run / len3(u);
+    const O = [p[0], p[1], eave];
     return {
-      ...face([p[0], p[1], eave], u, v, r),
-      clip: `polygon(0 0, 100% 0, ${100 - k}% 100%, ${k}% 100%)`,
-      // Plane of the slope, for projected pictures: top-left corner, unit edges, upward normal.
-      plane: { o: [p[0], p[1], eave], a: norm3(u), b: norm3(v), up: norm3(cross3(u, v)) },
+      pts: [O, add3(O, u), add3(add3(O, v), mul3(u, 1 - k)), add3(add3(O, v), mul3(u, k))],
+      n: norm3(cross3(u, v)),
+      slope: len3(v),
+      plane: { o: O, a: norm3(u), b: norm3(v), up: norm3(cross3(u, v)) },
     };
   });
 }
 
 // The 6 faces of a box centered on c, with half-extent vectors X, Y, Z. The +X face comes first.
-function boxFaces(c, X, Y, Z, r) {
+function boxFaces(c, X, Y, Z) {
   const p = (sx, sy, sz) => add3(add3(add3(c, mul3(X, sx)), mul3(Y, sy)), mul3(Z, sz));
   return [
-    face(p(1, -1, 1), mul3(Y, 2), mul3(Z, -2), r),
-    face(p(-1, -1, 1), mul3(Y, 2), mul3(Z, -2), r),
-    face(p(-1, -1, 1), mul3(X, 2), mul3(Y, 2), r),
-    face(p(-1, 1, -1), mul3(X, 2), mul3(Y, -2), r),
-    face(p(-1, -1, 1), mul3(X, 2), mul3(Z, -2), r),
-    face(p(-1, 1, 1), mul3(X, 2), mul3(Z, -2), r),
-  ];
+    [p(1, -1, 1), mul3(Y, 2), mul3(Z, -2)],
+    [p(-1, -1, 1), mul3(Y, 2), mul3(Z, -2)],
+    [p(-1, -1, 1), mul3(X, 2), mul3(Y, 2)],
+    [p(-1, 1, -1), mul3(X, 2), mul3(Y, -2)],
+    [p(-1, -1, 1), mul3(X, 2), mul3(Z, -2)],
+    [p(-1, 1, 1), mul3(X, 2), mul3(Z, -2)],
+  ].map(([o, u, v]) => ({ pts: quad(o, u, v), n: norm3(cross3(u, v)), w: len3(u), h: len3(v) }));
 }
 
 // Do segments p1-p2 and q1-q2 (2D) cross?
@@ -655,89 +650,402 @@ function fromPicture(pose, uv, aspect, planeZ) {
   return s > 0 ? add3(pose.C, mul3(dir, s)) : null;
 }
 
-// Keeps the part of a convex polygon where g(p) >= 0.
-function clipPolygon(poly, g) {
-  const out = [];
-  poly.forEach((p, i) => {
-    const q = poly[(i + 1) % poly.length];
-    const gp = g(p);
-    const gq = g(q);
-    if (gp >= 0) out.push(p);
-    if (gp >= 0 !== gq >= 0) {
-      const t = gp / (gp - gq);
-      out.push([p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]);
+// --- WebGL renderer ------------------------------------------------------------
+// The scene is a few hundred triangles in meshes, rebuilt for each frame. A depth buffer sorts
+// them; only the transparent meshes (inner walls, beams) are sorted, back to front.
+
+// How a mesh's fragments are colored. Vertices carry a color and 4 numbers (`uv`) used by the mode.
+const MODE = {
+  flat: 0, // the color
+  glow: 1, // the color, fading out from uv (0, 0) to a distance of 1
+  texture: 2, // the color times the texture at uv
+  stripes: 3, // the color, darkened by uv.w where fract(uv.y) > uv.z
+  lens: 4, // a camera lens drawn over the color, centered on uv (0, 0)
+  picture: 5, // the camera picture that `proj` casts onto the mesh
+};
+
+const GL_VERTEX = `
+attribute vec3 aPos;
+attribute vec4 aColor;
+attribute vec4 aUV;
+uniform mat4 uView;
+varying vec3 vPos;
+varying vec4 vColor;
+varying vec4 vUV;
+void main() {
+  vPos = aPos;
+  vColor = aColor;
+  vUV = aUV;
+  gl_Position = uView * vec4(aPos, 1.0);
+}`;
+
+const GL_FRAGMENT = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+uniform int uMode;
+uniform sampler2D uTex;
+uniform vec3 uC;
+uniform vec3 uFwd;
+uniform vec3 uRight;
+uniform vec3 uUp;
+uniform float uF;
+uniform float uAspect;
+uniform float uReach;
+varying vec3 vPos;
+varying vec4 vColor;
+varying vec4 vUV;
+void main() {
+  vec4 c = vColor;
+  if (uMode == 1) {
+    c.a *= max(0.0, 1.0 - length(vUV.xy));
+  } else if (uMode == 2) {
+    c *= texture2D(uTex, vUV.xy);
+  } else if (uMode == 3) {
+    if (fract(vUV.y) > vUV.z) c.rgb *= vUV.w;
+  } else if (uMode == 4) {
+    float d = length(vUV.xy);
+    if (d < 0.2) c.rgb = vec3(0.62, 0.85, 1.0);
+    else if (d < 0.44) c.rgb = vec3(0.063, 0.086, 0.11);
+  } else if (uMode == 5) {
+    vec3 d = vPos - uC;
+    float z = dot(d, uFwd);
+    if (z < 0.001) discard;
+    vec2 p = vec2(0.5 + dot(d, uRight) / z * uF, (0.5 / uAspect - dot(d, uUp) / z * uF) * uAspect);
+    if (p.x < 0.0 || p.x > 1.0 || p.y < 0.0 || p.y > 1.0) discard;
+    c *= texture2D(uTex, p);
+    c.a *= 0.92 * clamp((uReach - z) / (0.3 * uReach), 0.0, 1.0);
+  }
+  if (c.a < 0.004) discard;
+  gl_FragColor = vec4(c.rgb * c.a, c.a);
+}`;
+
+const GL_FLOATS = 11; // per vertex: position (3), color (4), uv (4)
+const UV_NONE = [0, 0, 0, 0];
+
+// Triangles drawn together. `opts`: `transparent` (sorted, doesn't hide what is behind it),
+// `tex` ({ key, source }: the texture, made from the canvas or image `source()` returns, once per key)
+// and `proj` (for MODE.picture: the camera pose, picture aspect and reach). Overlays are drawn
+// right after it, on top of it (they lie in its plane).
+class Mesh {
+  constructor(mode = MODE.flat, opts = {}) {
+    this.mode = mode;
+    this.data = [];
+    this.overlays = [];
+    Object.assign(this, opts);
+  }
+
+  // A convex polygon (a fan of triangles). `color`: one RGBA color, or one per corner; `uvs`: one per corner.
+  poly(pts, color, uvs = null) {
+    const each = Array.isArray(color[0]);
+    for (let i = 1; i + 1 < pts.length; i++) {
+      for (const j of [0, i, i + 1]) {
+        const p = pts[j];
+        const c = each ? color[j] : color;
+        const uv = uvs ? uvs[j] : UV_NONE;
+        this.data.push(p[0], p[1], p[2], c[0], c[1], c[2], c[3], uv[0], uv[1], uv[2], uv[3]);
+      }
     }
-  });
-  return out;
+    return this;
+  }
+
+  overlay(mesh) {
+    if (mesh.data.length) this.overlays.push(mesh);
+    return mesh;
+  }
+
+  center() {
+    const c = [0, 0, 0];
+    const n = this.data.length / GL_FLOATS;
+    for (let i = 0; i < this.data.length; i += GL_FLOATS) for (let k = 0; k < 3; k++) c[k] += this.data[i + k] / n;
+    return c;
+  }
 }
 
-const mul33 = (A, B) => A.map((row) => [0, 1, 2].map((j) => row[0] * B[0][j] + row[1] * B[1][j] + row[2] * B[2][j]));
-const cssNum = (v) => +v.toPrecision(8);
-
-// A camera's picture as projected onto a plane, the way a projector standing where the camera is
-// would light it. The plane is a face whose top-left corner is `o` and whose edges follow the
-// orthonormal vectors `a` and `b` (`r` px per grid unit). Returns an element of `w` x `h` px placed
-// in the face with `transform`, holding the picture (`iw` x `ih` px) placed with `img`; or null when
-// the camera doesn't see the plane.
-//
-// The picture-to-face mapping is a homography, which matrix3d() can express. It is only valid where
-// the camera's rays hit the plane in front of it (w > 0): the element is cut to that part of the
-// picture (and to PROJ_REACH), along the line where it ends, so that none of its corners is past it.
-function projectedPicture(pose, aspect, o, a, b, r) {
-  const iw = Math.max(160, Math.round((PROJ_PX * r) / U3));
-  const ih = iw / aspect;
-  const { C, fwd, right, up, f } = pose;
-  // Ray through the picture pixel (x, y): c0 x + c1 y + c2.
-  const c0 = mul3(right, 1 / (f * iw));
-  const c1 = mul3(up, -1 / (f * iw));
-  const c2 = add3(sub3(fwd, mul3(right, 0.5 / f)), mul3(up, 0.5 / (aspect * f)));
-  const row = (n) => [dot3(n, c0), dot3(n, c1), dot3(n, c2)];
-  const n = cross3(a, b);
-  const k = dot3(sub3(o, C), n); // signed distance from the camera to the plane
-  if (Math.abs(k) < 1e-6) return null;
-  // The ray (x, y) hits the plane at s = |k| / W(x, y): in front of the camera when W > 0.
-  const W = row(n).map((v) => v * Math.sign(k));
-  const ra = row(a);
-  const rb = row(b);
-  const ca = dot3(sub3(C, o), a);
-  const cb = dot3(sub3(C, o), b);
-  const ak = Math.abs(k);
-  const Hm = [
-    [0, 1, 2].map((i) => r * (ca * W[i] + ak * ra[i])),
-    [0, 1, 2].map((i) => r * (cb * W[i] + ak * rb[i])),
-    W,
+// Matrix (column-major) from world to clip coordinates for a point of view: the same projection as
+// _project(), with depths from `near` to `far` (px from the viewer).
+function viewMatrix(orbit, vp, near, far) {
+  const a = toRad(orbit.az);
+  const t = toRad(orbit.tilt);
+  const [ca, sa, ct, st] = [Math.cos(a), Math.sin(a), Math.cos(t), Math.sin(t)];
+  const [tx, ty, tz] = orbit.target;
+  // Linear forms [x, y, z, 1] of the view's axes (px): across, down the view, and depth.
+  const x1 = [U3 * ca, -U3 * sa, 0, -U3 * (ca * tx - sa * ty)];
+  const y1 = [U3 * sa, U3 * ca, 0, -U3 * (sa * tx + ca * ty)];
+  const z1 = [0, 0, U3, -U3 * tz];
+  const down = x1.map((_, i) => ct * y1[i] - st * z1[i]);
+  const depth = x1.map((_, i) => (i === 3 ? orbit.dist : 0) - st * y1[i] - ct * z1[i]);
+  const A = (far + near) / (far - near);
+  const B = (-2 * far * near) / (far - near);
+  const rows = [
+    x1.map((v) => (v * 2 * vp.p) / vp.w),
+    down.map((v) => (-v * 2 * vp.p) / vp.h),
+    depth.map((v, i) => A * v + (i === 3 ? B : 0)),
+    depth,
   ];
+  const m = new Float32Array(16);
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) m[c * 4 + r] = rows[r][c];
+  return m;
+}
 
-  const wmin = ak / PROJ_REACH;
-  const rect = [[0, 0], [iw, 0], [iw, ih], [0, ih]];
-  const poly = clipPolygon(rect, (p) => W[0] * p[0] + W[1] * p[1] + W[2] - wmin);
-  if (poly.length < 3) return null;
-  // Element axes: e2 points away from the cut line (towards the camera), e1 along it.
-  const gl = Math.hypot(W[0], W[1]);
-  const e2 = gl > 1e-12 ? [W[0] / gl, W[1] / gl] : [0, 1];
-  const e1 = [e2[1], -e2[0]];
-  const s = poly.map((p) => p[0] * e1[0] + p[1] * e1[1]);
-  const t = poly.map((p) => p[0] * e2[0] + p[1] * e2[1]);
-  const s0 = Math.min(...s);
-  const t0 = Math.min(...t);
-  const w = Math.max(...s) - s0;
-  const h = Math.max(...t) - t0;
-  if (w < 1 || h < 1) return null;
-  const O = [s0 * e1[0] + t0 * e2[0], s0 * e1[1] + t0 * e2[1]];
-  // Element (x, y) -> picture O + x e1 + y e2 -> face.
-  const M = mul33(Hm, [[e1[0], e2[0], O[0]], [e1[1], e2[1], O[1]], [0, 0, 1]]);
-  const scale = Math.max(...M.flat().map(Math.abs));
-  const m = M.map((r) => r.map((v) => cssNum(v / scale)));
-  return {
-    w: round2(w),
-    h: round2(h),
-    iw,
-    ih: round2(ih),
-    transform: `matrix3d(${m[0][0]},${m[1][0]},0,${m[2][0]},${m[0][1]},${m[1][1]},0,${m[2][1]},0,0,1,0,${m[0][2]},${m[1][2]},0,${m[2][2]})`,
-    img: `matrix(${cssNum(e1[0])},${cssNum(e2[0])},${cssNum(e1[1])},${cssNum(e2[1])},${cssNum(-(O[0] * e1[0] + O[1] * e1[1]))},${cssNum(-(O[0] * e2[0] + O[1] * e2[1]))})`,
-    // Cut before the end of the picture: fade out towards the cut.
-    fade: poly.length !== 4 || poly.some((p, i) => p[0] !== rect[i][0] || p[1] !== rect[i][1]),
-  };
+// The WebGL context of a canvas, its shader and the textures of the scene.
+class GlScene {
+  constructor(canvas, onRestored) {
+    this.canvas = canvas;
+    this.textures = new Map(); // key -> { tex, frame }
+    this.frame = 0;
+    this.lost = false;
+    canvas.addEventListener('webglcontextlost', (ev) => {
+      ev.preventDefault();
+      this.lost = true;
+      this.textures.clear();
+    });
+    canvas.addEventListener('webglcontextrestored', () => {
+      this.lost = false;
+      this._init();
+      onRestored();
+    });
+    this._init();
+  }
+
+  get ok() {
+    return !!this.gl && !this.lost;
+  }
+
+  _init() {
+    const opts = { alpha: true, antialias: true, premultipliedAlpha: true, depth: true };
+    const gl = this.canvas.getContext('webgl', opts) || this.canvas.getContext('experimental-webgl', opts);
+    this.gl = gl;
+    if (!gl) return;
+    const shader = (type, src) => {
+      const s = gl.createShader(type);
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS) && !gl.isContextLost()) throw new Error(gl.getShaderInfoLog(s));
+      return s;
+    };
+    const prog = gl.createProgram();
+    gl.attachShader(prog, shader(gl.VERTEX_SHADER, GL_VERTEX));
+    gl.attachShader(prog, shader(gl.FRAGMENT_SHADER, GL_FRAGMENT));
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS) && !gl.isContextLost()) throw new Error(gl.getProgramInfoLog(prog));
+    gl.useProgram(prog);
+    this.u = {};
+    for (const name of ['uView', 'uMode', 'uTex', 'uC', 'uFwd', 'uRight', 'uUp', 'uF', 'uAspect', 'uReach']) {
+      this.u[name] = gl.getUniformLocation(prog, name);
+    }
+    this.buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+    const stride = GL_FLOATS * 4;
+    [['aPos', 3, 0], ['aColor', 4, 3], ['aUV', 4, 7]].forEach(([name, size, offset]) => {
+      const loc = gl.getAttribLocation(prog, name);
+      gl.enableVertexAttribArray(loc);
+      gl.vertexAttribPointer(loc, size, gl.FLOAT, false, stride, offset * 4);
+    });
+    gl.uniform1i(this.u.uTex, 0);
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.LEQUAL);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.polygonOffset(-1, -2);
+    this.aniso = gl.getExtension('EXT_texture_filter_anisotropic') || gl.getExtension('WEBKIT_EXT_texture_filter_anisotropic');
+    this.anisoMax = this.aniso ? Math.min(8, gl.getParameter(this.aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT)) : 1;
+  }
+
+  // The texture of `spec` ({ key, source }), made once per key; null when it can't be made.
+  // It is resized to powers of 2 for mipmaps: without them, pictures seen far away or at a grazing
+  // angle (the lawn) shimmer.
+  _texture(spec) {
+    let t = this.textures.get(spec.key);
+    if (!t) {
+      const src = spec.source();
+      if (!src) return null;
+      const gl = this.gl;
+      const pot = (n) => clamp(2 ** Math.round(Math.log2(n)), 1, 2048);
+      const [c, ctx] = canvas2d(pot(src.width || src.naturalWidth), pot(src.height || src.naturalHeight));
+      ctx.drawImage(src, 0, 0, c.width, c.height);
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      try {
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
+        gl.generateMipmap(gl.TEXTURE_2D);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        if (this.aniso) gl.texParameterf(gl.TEXTURE_2D, this.aniso.TEXTURE_MAX_ANISOTROPY_EXT, this.anisoMax);
+        t = { tex };
+      } catch (err) {
+        // A picture from another origin without CORS headers can't be used.
+        gl.deleteTexture(tex);
+        t = { tex: null };
+      }
+      this.textures.set(spec.key, t);
+    }
+    t.frame = this.frame;
+    return t.tex;
+  }
+
+  // Draws `meshes` (opaque ones in their order, then the transparent ones from the farthest from
+  // `eye`) on a canvas of `w` x `h` CSS px, with the `view` matrix.
+  draw(meshes, view, w, h, eye) {
+    const gl = this.gl;
+    this.frame++;
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const cw = Math.max(1, Math.round(w * dpr));
+    const ch = Math.max(1, Math.round(h * dpr));
+    if (this.canvas.width !== cw || this.canvas.height !== ch) {
+      this.canvas.width = cw;
+      this.canvas.height = ch;
+    }
+    gl.viewport(0, 0, cw, ch);
+    gl.clearColor(0, 0, 0, 0);
+    gl.depthMask(true);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    const opaque = meshes.filter((m) => !m.transparent);
+    const far = meshes
+      .filter((m) => m.transparent)
+      .map((m) => ({ m, d: len3(sub3(m.center(), eye)) }))
+      .sort((a, b) => b.d - a.d)
+      .map((x) => x.m);
+    const list = [];
+    for (const m of [...opaque, ...far]) {
+      list.push({ m, over: false });
+      for (const o of m.overlays) list.push({ m: o, over: true, transparent: m.transparent });
+    }
+    let total = 0;
+    for (const x of list) total += x.m.data.length;
+    const data = new Float32Array(total);
+    let at = 0;
+    for (const x of list) {
+      x.first = at / GL_FLOATS;
+      x.count = x.m.data.length / GL_FLOATS;
+      data.set(x.m.data, at);
+      at += x.m.data.length;
+    }
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
+    gl.uniformMatrix4fv(this.u.uView, false, view);
+
+    for (const x of list) {
+      const m = x.m;
+      if (!x.count) continue;
+      if (m.tex) {
+        const tex = this._texture(m.tex);
+        if (!tex) continue;
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+      }
+      if (m.proj) {
+        const p = m.proj;
+        gl.uniform3fv(this.u.uC, p.C);
+        gl.uniform3fv(this.u.uFwd, p.fwd);
+        gl.uniform3fv(this.u.uRight, p.right);
+        gl.uniform3fv(this.u.uUp, p.up);
+        gl.uniform1f(this.u.uF, p.f);
+        gl.uniform1f(this.u.uAspect, p.aspect);
+        gl.uniform1f(this.u.uReach, p.reach);
+      }
+      gl.uniform1i(this.u.uMode, m.mode);
+      // Overlays and transparent meshes don't hide what is drawn after them.
+      gl.depthMask(!x.over && !m.transparent);
+      if (x.over) gl.enable(gl.POLYGON_OFFSET_FILL);
+      else gl.disable(gl.POLYGON_OFFSET_FILL);
+      gl.drawArrays(gl.TRIANGLES, x.first, x.count);
+    }
+
+    // Textures not used by this frame (an old snapshot, a label no longer shown) are freed.
+    for (const [key, t] of this.textures) {
+      if (t.frame !== this.frame) {
+        if (t.tex) gl.deleteTexture(t.tex);
+        this.textures.delete(key);
+      }
+    }
+  }
+
+  // Frees the context right away (browsers only keep a few of them).
+  destroy() {
+    if (!this.gl) return;
+    const ext = this.gl.getExtension('WEBGL_lose_context');
+    if (ext) ext.loseContext();
+    this.gl = null;
+    this.textures.clear();
+  }
+}
+
+// A canvas of `w` x `h` px and its 2D context, for textures.
+function canvas2d(w, h) {
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(w));
+  c.height = Math.max(1, Math.round(h));
+  return [c, c.getContext('2d')];
+}
+
+// An image scaled down to `maxWidth` px at most, as a canvas.
+function scaledPicture(img, maxWidth) {
+  const k = Math.min(1, maxWidth / img.naturalWidth);
+  const [c, ctx] = canvas2d(img.naturalWidth * k, img.naturalHeight * k);
+  ctx.drawImage(img, 0, 0, c.width, c.height);
+  return c;
+}
+
+// Text cut with an ellipsis to fit `maxWidth` px in a 2D context.
+function fitText(ctx, text, maxWidth) {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let lo = 0;
+  let hi = text.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (ctx.measureText(`${text.slice(0, mid)}…`).width <= maxWidth) lo = mid;
+    else hi = mid - 1;
+  }
+  return `${text.slice(0, lo)}…`;
+}
+
+// Draws an icon (an SVG path in a 24 x 24 box) of `size` px at (x, y).
+function drawIcon(ctx, path, x, y, size) {
+  if (!path) return;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(size / 24, size / 24);
+  ctx.fill(new Path2D(path));
+  ctx.restore();
+}
+
+// A CSS color as RGBA (0-1).
+let colorProbe = null;
+function parseColor(value, fallback = [0, 0, 0, 1]) {
+  colorProbe = colorProbe || canvas2d(1, 1)[1];
+  colorProbe.fillStyle = '#000';
+  colorProbe.fillStyle = (value || '').trim() || '#000';
+  const s = colorProbe.fillStyle;
+  if (s[0] === '#') return [1, 3, 5].map((i) => parseInt(s.slice(i, i + 2), 16) / 255).concat(1);
+  const m = s.match(/[\d.]+/g);
+  if (!m || m.length < 3) return fallback;
+  return [m[0] / 255, m[1] / 255, m[2] / 255, m.length > 3 ? +m[3] : 1];
+}
+
+// CSS matrix3d() placing an element of `w` x `h` px onto the quadrilateral `q` (4 points, px, in the
+// order of its corners from the top-left one, clockwise).
+function rectToQuad(w, h, q) {
+  const [[x0, y0], [x1, y1], [x2, y2], [x3, y3]] = q;
+  const dx1 = x1 - x2;
+  const dx2 = x3 - x2;
+  const dx3 = x0 - x1 + x2 - x3;
+  const dy1 = y1 - y2;
+  const dy2 = y3 - y2;
+  const dy3 = y0 - y1 + y2 - y3;
+  const den = dx1 * dy2 - dx2 * dy1;
+  const g = den ? (dx3 * dy2 - dx2 * dy3) / den : 0;
+  const hh = den ? (dx1 * dy3 - dx3 * dy1) / den : 0;
+  const a = (x1 - x0 + g * x1) / w;
+  const b = (x3 - x0 + hh * x3) / h;
+  const d = (y1 - y0 + g * y1) / w;
+  const e = (y3 - y0 + hh * y3) / h;
+  const n = (v) => +v.toPrecision(8);
+  return `matrix3d(${n(a)},${n(d)},0,${n(g / w)},${n(b)},${n(e)},0,${n(hh / h)},0,0,1,0,${n(x0)},${n(y0)},0,1)`;
 }
 
 // Solves A x = b (Gaussian elimination), or null when A is singular.
@@ -1001,6 +1309,7 @@ class HaPlooumFloorplanCard extends LitElement {
       _orbit: { state: true },
       _focus: { state: true },
       _dragging3d: { state: true },
+      _glFailed: { state: true },
       _tick: { state: true },
       _camHover: { state: true },
       _camPinned: { state: true },
@@ -1022,7 +1331,9 @@ class HaPlooumFloorplanCard extends LitElement {
     this._view = null; // '2d' | '3d', from the config until the user switches
     this._level3d = null; // floors shown in 3D: up to this index; floors.length = the closed house, with its roof
     this._orbit = null; // 3D point of view, null = framed automatically
-    this._r3 = null; // density the 3D faces are drawn at (px per grid unit), see _raster3d()
+    this._gl = null; // WebGL context of the 3D view (GlScene)
+    this._snaps = {}; // camera id -> snapshots loaded for the 3D scene, see _snapshot()
+    this._iconPaths = new Map(); // icon -> SVG path, for the 3D textures, see _iconPath()
     this._focus = null; // camera whose screen the 3D view is zoomed on
     this._dragging3d = false;
     this._pointers = new Map();
@@ -1068,6 +1379,12 @@ class HaPlooumFloorplanCard extends LitElement {
       const chip = bar && bar.querySelector('.camchip.active');
       if (chip) bar.scrollTo({ left: chip.offsetLeft - (bar.clientWidth - chip.offsetWidth) / 2, behavior: 'smooth' });
     }
+    if (this._view === '3d') {
+      this._draw3d();
+      this._probeIcons();
+    } else {
+      this._dropGl();
+    }
   }
 
   disconnectedCallback() {
@@ -1077,6 +1394,9 @@ class HaPlooumFloorplanCard extends LitElement {
     clearTimeout(this._holdTimer);
     clearTimeout(this._previewTimer);
     clearInterval(this._refreshTimer);
+    clearTimeout(this._iconTimer);
+    cancelAnimationFrame(this._easeFrame);
+    this._easeFrame = null;
   }
 
   setConfig(config) {
@@ -1684,7 +2004,9 @@ class HaPlooumFloorplanCard extends LitElement {
     const vp = this._viewport3d();
     const s = this._plans3d(floors, level);
     const home = this._homeView(s, vp);
-    const orbit = this._orbit || home;
+    const target = this._orbit || home;
+    // Drawn now: on its way to `target` after a jump (a tap on a camera, the home button…).
+    const orbit = this._shownOrbit(target);
     const a = toRad(orbit.az);
     const t = toRad(orbit.tilt);
     const d = orbit.dist / U3;
@@ -1694,28 +2016,21 @@ class HaPlooumFloorplanCard extends LitElement {
       orbit.target[2] + Math.cos(t) * d,
     ];
     const mode = this.config.screen_mode || 'world';
-    const toViewer = [Math.sin(a), Math.cos(a)];
-    let r = this._r3 || U3;
-    let scene = this._buildScene(s, eye, toViewer, mode, r);
-    // The density is kept while the view moves: changing it redraws every face.
-    if (!this._dragging3d) {
-      const next = this._raster3d(scene.faces, r, orbit, vp);
-      if (next !== r) scene = this._buildScene(s, eye, toViewer, mode, (r = next));
-      this._r3 = r;
-    }
-    const { faces, screens } = scene;
+    const dark = !!(this.hass.themes && this.hass.themes.darkMode);
+    const { meshes, screens, radius } = this._buildScene(s, eye, [Math.sin(a), Math.cos(a)], mode, this._colors3d(dark));
     // Every camera of the home, for the camera bar, even those whose floor isn't shown.
     const cameras = s.all.flatMap((p) => p.items.filter((it) => it.role === 'camera').map((it) => ({ id: it.id, item: it, k: p.k })));
-    this._scene3dState = { vp, home, screens, cameras, floors: floors.length };
-    const boards = mode === 'billboard' && !this._focus ? this._layoutBillboards(screens, orbit, vp) : [];
+    this._scene3dState = { vp, home, screens, cameras, floors: floors.length, orbit };
+    const near = Math.max(1, orbit.dist * 0.01);
+    this._frame3d = { meshes, view: viewMatrix(orbit, vp, near, orbit.dist + 2 * radius * U3 + 100), vp, eye };
+    // Billboards are laid out for where the view goes: they slide there (CSS transition).
+    const boards = mode === 'billboard' && !this._focus ? this._layoutBillboards(screens, target, vp) : [];
+    const focused = this._focus ? screens.find((sc) => sc.id === this._focus) : null;
 
-    const [tx, ty, tz] = orbit.target.map((v) => round2(-v * U3));
-    const world = `translateZ(${round2(vp.p - orbit.dist)}px) rotateX(${round2(orbit.tilt)}deg) rotateZ(${round2(orbit.az)}deg) translate3d(${tx}px, ${ty}px, ${tz}px)`;
-    const dark = this.hass.themes && this.hass.themes.darkMode;
     return html`
       <div
         class="view3d ${this._dragging3d ? 'dragging' : ''} ${dark ? 'dark' : ''}"
-        style="height: ${vp.h}px; perspective: ${vp.p}px;"
+        style="height: ${vp.h}px;"
         @pointerdown=${this._down3d}
         @pointermove=${this._move3d}
         @pointerup=${this._up3d}
@@ -1724,10 +2039,9 @@ class HaPlooumFloorplanCard extends LitElement {
         @dblclick=${this._resetView}
         @contextmenu=${(ev) => ev.preventDefault()}
       >
-        <div class="world" style="transform: ${world}; --r3: ${r / U3};">
-          <div class="group">${faces.map((x) => this._face3d(x))}</div>
-          <div class="group">${repeat(screens.filter((sc) => sc.inWorld), (sc) => sc.id, (sc) => this._renderScreen(sc))}</div>
-        </div>
+        <canvas class="gl3d"></canvas>
+        ${this._glFailed ? html`<div class="gl-error">The 3D view needs WebGL, which this browser doesn't provide.</div>` : nothing}
+        ${focused ? this._renderFocusScreen(focused, orbit, vp) : nothing}
         ${boards.length ? this._renderBillboards(boards) : nothing}
         ${this._renderCameraBar()}
         <div class="tools">
@@ -1736,46 +2050,161 @@ class HaPlooumFloorplanCard extends LitElement {
           <button class="tool" title="Whole home (Escape)" @click=${this._resetView}><ha-icon icon="mdi:home-outline"></ha-icon></button>
         </div>
         ${this._focus ? html`<div class="hint3d">Tap the screen again for the camera's details</div>` : nothing}
+        <div class="icon-probe">${[...this._iconPaths].filter(([, p]) => !p).map(([icon]) => html`<ha-icon .icon=${icon} data-icon=${icon}></ha-icon>`)}</div>
       </div>
     `;
   }
 
-  // Density (px per grid unit) to draw the scene's faces at, from those drawn at density `r`: sharp
-  // enough for the point of view, within the GPU memory budget. It goes by steps of a factor √2, so
-  // that small changes (walls cut away as the view turns) don't redraw the whole scene.
-  _raster3d(faces, r, orbit, vp) {
-    const dpr = window.devicePixelRatio || 1;
-    let area = 0;
-    let side = 0;
-    for (const { f } of faces) {
-      area += f.w * f.h;
-      side = Math.max(side, f.w, f.h);
+  // Draws the frame that render() prepared, once the canvas is in the page.
+  _draw3d() {
+    const frame = this._frame3d;
+    const canvas = this.renderRoot.querySelector('canvas.gl3d');
+    if (!frame || !canvas) {
+      this._dropGl();
+      return;
     }
-    const need = (RASTER_MARGIN * U3 * vp.p) / orbit.dist;
-    const most = Math.min(U3, (r * Math.sqrt(RASTER_BUDGET / Math.max(area, 1))) / dpr, (r * RASTER_MAX_SIDE) / Math.max(side, 1) / dpr);
-    const step = (x) => Math.log2(U3 / x) * 2; // U3 / √2^step = x
-    const level = Math.max(Math.floor(step(need)), Math.ceil(step(most)));
-    return Math.max(RASTER_MIN, round2(U3 / Math.SQRT2 ** Math.max(0, level)));
+    if (!this._gl || this._gl.canvas !== canvas) {
+      this._dropGl();
+      try {
+        this._gl = new GlScene(canvas, () => this.requestUpdate());
+      } catch (err) {
+        console.error('Floorplan card: WebGL setup failed', err);
+      }
+      const failed = !this._gl || !this._gl.gl;
+      if (failed !== !!this._glFailed) this._glFailed = failed;
+    }
+    if (this._gl && this._gl.ok) this._gl.draw(frame.meshes, frame.view, frame.vp.w, frame.vp.h, frame.eye);
   }
 
-  _face3d(x) {
-    return html`<div
-      class="f ${x.cls}"
-      style="width: ${x.f.w}px; height: ${x.f.h}px; transform: ${x.f.transform};${x.clip ? ` clip-path: ${x.clip};` : ''} ${x.style || ''}"
-    >${x.content || nothing}</div>`;
+  _dropGl() {
+    if (this._gl) this._gl.destroy();
+    this._gl = null;
   }
 
-  // Faces of the scene for a point of view: `eye` is the viewer's position, `toViewer` the
+  // Point of view to draw now, for the one wanted (`target`): it eases there in ORBIT_EASE_MS when
+  // `target` jumps, and follows it right away while the user drags.
+  _shownOrbit(target) {
+    const now = performance.now();
+    const key = JSON.stringify(target);
+    let anim = this._orbitAnim;
+    if (!anim || anim.key !== key) {
+      const from = anim && !this._dragging3d ? this._orbitAt(anim, now) : target;
+      anim = this._orbitAnim = { key, from, to: target, t0: now };
+    }
+    const orbit = this._orbitAt(anim, now);
+    if (orbit !== anim.to && !this._easeFrame) {
+      this._easeFrame = requestAnimationFrame(() => {
+        this._easeFrame = null;
+        this.requestUpdate();
+      });
+    }
+    return orbit;
+  }
+
+  _orbitAt(anim, now) {
+    const k = clamp((now - anim.t0) / ORBIT_EASE_MS, 0, 1);
+    if (k >= 1) return anim.to;
+    const e = 1 - (1 - k) ** 3;
+    const { from, to } = anim;
+    const lerp = (x, y) => x + (y - x) * e;
+    return {
+      az: lerp(from.az, to.az),
+      tilt: lerp(from.tilt, to.tilt),
+      dist: from.dist * (to.dist / from.dist) ** e,
+      target: [0, 1, 2].map((i) => lerp(from.target[i], to.target[i])),
+    };
+  }
+
+  // Colors of the 3D scene, from the --fp3-* tokens (a theme can change them).
+  _colors3d(dark) {
+    const cached = this._colors3dCache;
+    if (cached && cached.dark === dark && cached.themes === this.hass.themes) return cached.colors;
+    const cs = getComputedStyle(this);
+    const get = (name) => parseColor(cs.getPropertyValue(name));
+    const ground = get('--fp3-ground');
+    const colors = {
+      wall: get('--fp3-wall'),
+      cap: get('--fp3-cap'),
+      floor: get('--fp3-floor'),
+      roof: get('--fp3-roof'),
+      ground: dark ? darken(ground, 0.55) : ground,
+      terrace: get('--fp3-terrace'),
+      beam: parseColor(`rgb(${cs.getPropertyValue('--fp3-beam')})`),
+      camera: parseColor('#4a5058'),
+      frame: parseColor('#f5f2ec'),
+      glass: [parseColor('#b9e4ff'), parseColor('#6fb6e6')],
+      shutter: parseColor('#87909a'),
+      warning: cs.getPropertyValue('--warning-color').trim() || '#ffa600',
+      font: cs.fontFamily || 'sans-serif',
+    };
+    this._colors3dCache = { dark, themes: this.hass.themes, colors };
+    return colors;
+  }
+
+  // SVG path of an icon (mdi:…), or null until Home Assistant has loaded it: hidden ha-icon
+  // elements (.icon-probe) load the icons asked for, then _probeIcons() reads their paths.
+  _iconPath(icon) {
+    if (!this._iconPaths.has(icon)) this._iconPaths.set(icon, null);
+    return this._iconPaths.get(icon);
+  }
+
+  _probeIcons(tries = 0) {
+    clearTimeout(this._iconTimer);
+    const probes = [...this.renderRoot.querySelectorAll('.icon-probe ha-icon')];
+    if (!probes.length) return;
+    let found = false;
+    for (const el of probes) {
+      const svg = el.shadowRoot && el.shadowRoot.querySelector('ha-svg-icon');
+      if (svg && svg.path) {
+        this._iconPaths.set(el.dataset.icon, svg.path);
+        found = true;
+      }
+    }
+    if (found) this.requestUpdate();
+    else if (tries < 50) this._iconTimer = setTimeout(() => this._probeIcons(tries + 1), 100);
+  }
+
+  // Latest snapshot of a camera loaded for the 3D scene ({ url, img, aspect }), or null until one
+  // has loaded. A new one is loaded at each refresh tick; the previous one stays shown meanwhile.
+  _snapshot(st) {
+    const pic = st && !isUnavailable(st) && st.attributes.entity_picture;
+    if (!pic) return null;
+    const id = st.entity_id;
+    const url = `${pic}${pic.includes('?') ? '&' : '?'}t=${this._tick}`;
+    const snap = this._snaps[id] || (this._snaps[id] = { shown: null, loading: null, failed: null });
+    if (snap.loading !== url && snap.failed !== url && (!snap.shown || snap.shown.url !== url)) {
+      snap.loading = url;
+      const img = new Image();
+      if (new URL(url, location.href).origin !== location.origin) img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        if (snap.loading !== url) return;
+        snap.loading = null;
+        snap.shown = { url, img, aspect: img.naturalWidth / img.naturalHeight };
+        this._learnAspect(id, img);
+        this.requestUpdate();
+      };
+      img.onerror = () => {
+        if (snap.loading === url) snap.loading = null;
+        snap.failed = url;
+      };
+      img.src = url;
+    }
+    return snap.shown;
+  }
+
+  // Meshes of the scene for a point of view: `eye` is the viewer's position, `toViewer` the
   // horizontal direction from the scene towards the viewer (walls facing it are cut away).
-  // `r`: density the faces are drawn at (px per grid unit).
-  _buildScene(s, eye, toViewer, mode, r) {
+  _buildScene(s, eye, toViewer, mode, colors) {
     const H = s.H;
-    const faces = [];
+    const meshes = [];
     const screens = [];
     const { min, max } = this._tempRange();
-    const wallColor = (n) => `background: color-mix(in srgb, var(--fp3-wall) ${shade(n)}%, #000);`;
     const X = [1, 0, 0];
     const Y = [0, 1, 0];
+    const add = (mesh) => {
+      meshes.push(mesh);
+      return mesh;
+    };
     // Room names on the floor turn by quarter turns, so that they read upright from the viewer.
     const labelTurn = (((Math.round(-Math.atan2(toViewer[0], toViewer[1]) / (Math.PI / 2)) * 90) % 360) + 360) % 360;
 
@@ -1789,11 +2218,24 @@ class HaPlooumFloorplanCard extends LitElement {
         // Hidden inside the home (under the roof or a floor above): not rendered, no snapshot loaded.
         if (indoor && (s.roof || p.k < s.top)) continue;
         // The screen zoomed on is always in the scene, whatever the screen mode.
-        const sc = this._camera3d(it, p, indoor, H, eye, faces, mode === 'world' || this._focus === it.id, r);
+        const sc = this._camera3d(it, p, indoor, H, eye, add, mode === 'world' || this._focus === it.id, colors);
         screens.push(sc);
         if (this._focus === it.id) sight = [[eye[0], eye[1]], [sc.center[0], sc.center[1]]];
-        if (it.conf.projection && it.st && !isUnavailable(it.st) && it.st.attributes.entity_picture) {
-          projectors.push({ it, k: p.k, indoor, pose: sc.pose, room: indoor ? p.indoor[roomAt(p.indoor, it.x, it.y)] : null });
+        else if (sc.inWorld) add(new Mesh(MODE.texture, { tex: this._screenTexture(sc, colors) })).poly(sc.pts, [1, 1, 1, 1], sc.back ? [UV_QUAD[1], UV_QUAD[0], UV_QUAD[3], UV_QUAD[2]] : UV_QUAD);
+        const snap = it.conf.projection ? this._snapshot(it.st) : null;
+        if (snap) {
+          const { C, fwd, right, up, f } = sc.pose;
+          projectors.push({
+            k: p.k,
+            indoor,
+            pose: sc.pose,
+            room: indoor ? p.indoor[roomAt(p.indoor, it.x, it.y)] : null,
+            mesh: () =>
+              new Mesh(MODE.picture, {
+                tex: { key: `picture:${snap.url}`, source: () => scaledPicture(snap.img, PICTURE_PX) },
+                proj: { C, fwd, right, up, f, aspect: snap.aspect, reach: PROJ_REACH },
+              }),
+          });
         }
       }
     }
@@ -1801,8 +2243,10 @@ class HaPlooumFloorplanCard extends LitElement {
     // ground, the outdoor rooms of its floor, and the outer walls and roof slopes facing it.
     const indoorProjectors = (k, room = null) => projectors.filter((pr) => pr.indoor && pr.room && pr.k === k && (!room || pr.room === room));
     const outdoorProjectors = (k) => projectors.filter((pr) => !pr.indoor && (k === null || pr.k === k));
+    // Pictures of `list` cast onto the polygon `pts`, over `mesh`.
+    const project = (mesh, list, pts, alpha = 1) => list.forEach((pr) => mesh.overlay(pr.mesh().poly(pts, [1, 1, 1, alpha])));
 
-    // Lawn around the home.
+    // Lawn around the home: an ellipse fading out at its edge.
     const g = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
     for (const p of s.all) {
       g.minX = Math.min(g.minX, p.bounds.minX - GROUND_MARGIN);
@@ -1810,12 +2254,21 @@ class HaPlooumFloorplanCard extends LitElement {
       g.maxX = Math.max(g.maxX, p.bounds.maxX + GROUND_MARGIN);
       g.maxY = Math.max(g.maxY, p.bounds.maxY + GROUND_MARGIN);
     }
-    const ground = face([g.minX, g.minY, -0.02], [g.maxX - g.minX, 0, 0], [0, g.maxY - g.minY, 0], r);
-    faces.push({
-      f: ground,
-      cls: 'ground',
-      content: this._projections(outdoorProjectors(null), [g.minX, g.minY, -0.02], X, Y, [0, 0, ground.w, ground.h], r, 'on-ground'),
-    });
+    const lawn = (mesh, color) => {
+      const c = [(g.minX + g.maxX) / 2, (g.minY + g.maxY) / 2, -0.02];
+      const at = (i, k) => {
+        const ang = (i / 48) * 2 * Math.PI;
+        return [c[0] + (Math.cos(ang) * k * (g.maxX - g.minX)) / 2, c[1] + (Math.sin(ang) * k * (g.maxY - g.minY)) / 2, c[2]];
+      };
+      const clear = [...color.slice(0, 3), 0];
+      for (let i = 0; i < 48; i++) {
+        mesh.poly([c, at(i, 0.7), at(i + 1, 0.7)], color);
+        mesh.poly([at(i, 0.7), at(i, 1), at(i + 1, 1), at(i + 1, 0.7)], [color, clear, clear, color]);
+      }
+      return mesh;
+    };
+    const ground = add(lawn(new Mesh(), colors.ground));
+    outdoorProjectors(null).forEach((pr) => ground.overlay(lawn(pr.mesh(), [1, 1, 1, 1])));
 
     for (const p of s.shown) {
       const isTop = p.k === s.top;
@@ -1823,27 +2276,20 @@ class HaPlooumFloorplanCard extends LitElement {
 
       for (const room of p.rooms) {
         const f0z = p.z0 + (room.outdoor ? 0.005 : 0.01);
-        const f = face([room.x, room.y, f0z], [room.w, 0, 0], [0, room.h, 0], r);
-        const layers = [];
+        const pts = quad([room.x, room.y, f0z], [room.w, 0, 0], [0, room.h, 0]);
+        let color = room.outdoor ? mix(colors.terrace, colors.ground, 0.2) : colors.floor;
+        const temp = room.outdoor ? null : roomTemperature(room);
+        if (temp !== null) color = mix(color, [...tempRgb(temp, min, max).map((v) => v / 255), 1], 0.25);
+        const floor = add(new Mesh().poly(pts, color));
         for (const it of room.lights) {
           if (!isActive(it.st)) continue;
-          const c = lightRgb(it.st);
+          const c = lightRgb(it.st).map((v) => v / 255);
           const b = typeof it.st.attributes.brightness === 'number' ? it.st.attributes.brightness / 255 : 1;
-          const cx = round2((it.x - room.x) * r);
-          const cy = round2((it.y - room.y) * r);
-          layers.push(`radial-gradient(circle at ${cx}px ${cy}px, ${rgba(c, 0.35 + 0.5 * b)}, ${rgba(c, 0)} ${round2(Math.max(room.w, room.h) * 0.7 * r)}px)`);
+          const R = Math.max(room.w, room.h) * 0.7;
+          floor.overlay(new Mesh(MODE.glow).poly(pts, [...c, 0.35 + 0.5 * b], pts.map((q) => [(q[0] - it.x) / R, (q[1] - it.y) / R, 0, 0])));
         }
-        const temp = room.outdoor ? null : roomTemperature(room);
-        if (temp !== null) layers.push(`linear-gradient(${rgba(tempRgb(temp, min, max), 0.25)}, ${rgba(tempRgb(temp, min, max), 0.25)})`);
-        layers.push(room.outdoor ? 'var(--fp3-terrace)' : 'var(--fp3-floor)');
-        faces.push({
-          f,
-          cls: room.outdoor ? 'floor3d outdoor' : 'floor3d',
-          style: `background: ${layers.join(', ')};`,
-          content: html`${this._projections(room.outdoor ? outdoorProjectors(p.k) : indoorProjectors(p.k, room), [room.x, room.y, f0z], X, Y, [0, 0, f.w, f.h], r)}${
-            cutaway && room.name ? this._label3d(room, labelTurn, r) : nothing
-          }`,
-        });
+        project(floor, room.outdoor ? outdoorProjectors(p.k) : indoorProjectors(p.k, room), pts);
+        if (cutaway && room.name) this._roomLabel(floor, room, f0z, labelTurn, colors);
       }
 
       // Walls: the outer ones on every floor shown (they also cover the slab), the inner ones only
@@ -1858,32 +2304,34 @@ class HaPlooumFloorplanCard extends LitElement {
           (!!sight && segmentsCross(sight[0], sight[1], ends[0], ends[1]));
         const top = p.z0 + (seg.cut ? CUT_HEIGHT : H);
         const bottom = p.k > 0 ? p.z0 - SLAB : 0;
-        const len = seg.b - seg.a;
-        const u = seg.o === 'h' ? [len, 0, 0] : [0, len, 0];
-        const f = face([...ends[0], top], u, [0, 0, bottom - top], r);
+        const dir = seg.o === 'h' ? X : Y;
+        const u = mul3(dir, seg.b - seg.a);
+        const o = [...ends[0], top];
+        const n = seg.o === 'h' ? Y : X;
+        const alpha = outer ? 1 : 0.55;
+        const wall = add(new Mesh(MODE.flat, { transparent: !outer }).poly(quad(o, u, [0, 0, bottom - top]), darken(colors.wall, shade(n), alpha)));
         // Pictures of the cameras of the rooms along this wall, above their floor.
-        const pictures = indoorProjectors(p.k).map((pr) => {
-          const room = pr.room;
-          const edge = roomEdges(room).find((e) => e.o === seg.o && Math.abs(e.at - seg.at) < ON_WALL_EPS);
+        for (const pr of indoorProjectors(p.k)) {
+          const r = pr.room;
+          const edge = roomEdges(r).find((e) => e.o === seg.o && Math.abs(e.at - seg.at) < ON_WALL_EPS);
           const a = edge ? Math.max(seg.a, edge.a) : 0;
           const b = edge ? Math.min(seg.b, edge.b) : 0;
-          if (b - a < ON_WALL_EPS) return nothing;
+          if (b - a < ON_WALL_EPS) continue;
           // Seen from the room only: from the other side, the wall hides what the camera sees.
-          const roomSide = (seg.o === 'h' ? room.y + room.h / 2 : room.x + room.w / 2) - seg.at;
-          if (roomSide * ((seg.o === 'h' ? eye[1] : eye[0]) - seg.at) <= 0) return nothing;
-          return this._projections([pr], [...ends[0], top], seg.o === 'h' ? X : Y, [0, 0, -1], [(a - seg.a) * r, 0, (b - a) * r, (top - p.z0) * r], r);
-        });
+          const roomSide = (seg.o === 'h' ? r.y + r.h / 2 : r.x + r.w / 2) - seg.at;
+          if (roomSide * ((seg.o === 'h' ? eye[1] : eye[0]) - seg.at) <= 0) continue;
+          project(wall, [pr], quad(add3(o, mul3(dir, a - seg.a)), mul3(dir, b - a), [0, 0, p.z0 - top]), alpha);
+        }
         // Outer walls facing an outdoor camera, seen from outside.
         if (outer) {
           const k = seg.o === 'h' ? 1 : 0;
           for (const pr of outdoorProjectors(null)) {
             if ((pr.pose.C[k] - seg.at) * seg.normal[k] <= 0.05 || (eye[k] - seg.at) * seg.normal[k] <= 0) continue;
-            pictures.push(this._projections([pr], [...ends[0], top], seg.o === 'h' ? X : Y, [0, 0, -1], [0, 0, f.w, f.h], r));
+            project(wall, [pr], quad(o, u, [0, 0, bottom - top]));
           }
         }
-        faces.push({ f, cls: outer ? 'wall' : 'wall inner', style: wallColor(f.n), content: pictures.length ? pictures : nothing });
         const capOrigin = seg.o === 'h' ? [seg.a, seg.at - WALL_CAP / 2, top] : [seg.at - WALL_CAP / 2, seg.a, top];
-        faces.push({ f: face(capOrigin, u, seg.o === 'h' ? [0, WALL_CAP, 0] : [WALL_CAP, 0, 0], r), cls: 'cap' });
+        add(new Mesh().poly(quad(capOrigin, u, seg.o === 'h' ? [0, WALL_CAP, 0] : [WALL_CAP, 0, 0]), colors.cap));
       }
 
       // Windows: covers on an outer wall, on both sides of it.
@@ -1900,12 +2348,7 @@ class HaPlooumFloorplanCard extends LitElement {
         const top = p.z0 + H * 0.84;
         for (const side of [0.02, -0.02]) {
           const o = seg.o === 'h' ? [center - len / 2, seg.at + seg.normal[1] * side, top] : [seg.at + seg.normal[0] * side, center - len / 2, top];
-          faces.push({
-            f: face(o, seg.o === 'h' ? [len, 0, 0] : [0, len, 0], [0, 0, sill - top], r),
-            cls: `window3d ${isUnavailable(it.st) ? 'unavailable' : ''}`,
-            style: `--closed: ${100 - coverPosition(it.st)}%;`,
-            content: html`<div class="shutter3d"></div>`,
-          });
+          this._window3d(add, o, seg.o === 'h' ? X : Y, len, top - sill, isUnavailable(it.st), coverPosition(it.st), colors);
         }
       }
     }
@@ -1914,26 +2357,148 @@ class HaPlooumFloorplanCard extends LitElement {
     for (const p of s.roof ? s.shown : s.shown.slice(0, -1)) {
       const above = s.shown.filter((q) => q.k > p.k).flatMap((q) => q.indoor);
       for (const rect of roofRects(p.indoor, above)) {
-        for (const slope of hipRoof(rect, p.z0 + H, r)) {
+        for (const slope of hipRoof(rect, p.z0 + H)) {
+          // Tiles: a darker line every 25 cm up the slope.
+          const t = [0, 0, 22 / 25, 0.84];
+          const top = slope.slope / 0.25;
+          const roof = add(new Mesh(MODE.stripes).poly(slope.pts, darken(colors.roof, shade(slope.n, 45)), [t, t, [0, top, t[2], t[3]], [0, top, t[2], t[3]]]));
           // Slopes facing an outdoor camera get its picture.
-          const { o, a, b, up } = slope.plane;
-          const seenBy = outdoorProjectors(null).filter((pr) => dot3(sub3(pr.pose.C, o), up) > 0.05 && dot3(sub3(eye, o), up) > 0);
-          faces.push({
-            f: slope,
-            cls: 'roof',
-            clip: slope.clip,
-            style: `background-color: color-mix(in srgb, var(--fp3-roof) ${shade(slope.n, 45)}%, #000);`,
-            content: this._projections(seenBy, o, a, b, [0, 0, slope.w, slope.h], r),
-          });
+          const { o, up } = slope.plane;
+          project(roof, outdoorProjectors(null).filter((pr) => dot3(sub3(pr.pose.C, o), up) > 0.05 && dot3(sub3(eye, o), up) > 0), slope.pts);
         }
       }
     }
-    return { faces, screens };
+    const radius = Math.hypot(g.maxX - g.minX, g.maxY - g.minY, s.all.length * (H + SLAB) + H);
+    return { meshes, screens, radius };
+  }
+
+  // A window of `len` x `height` on a wall, its top-left corner at `o` and its length along `dir`:
+  // a frame, the glass, and the shutter coming down as the cover closes.
+  _window3d(add, o, dir, len, height, unavailable, position, colors) {
+    const alpha = unavailable ? 0.5 : 1;
+    const frame = add(new Mesh().poly(quad(o, mul3(dir, len), [0, 0, -height]), [...colors.frame.slice(0, 3), alpha]));
+    const b = 0.04; // frame width
+    const io = add3(add3(o, mul3(dir, b)), [0, 0, -b]);
+    const iu = mul3(dir, len - 2 * b);
+    const ih = height - 2 * b;
+    // Glass: a gradient from the top-left corner (160deg in CSS terms).
+    const [g0, g1] = colors.glass;
+    const along = [0, len - 2 * b, len - 2 * b, 0].map((x, i) => x * 0.342 + (i > 1 ? ih : 0) * 0.94);
+    const span = Math.max(...along) || 1;
+    frame.overlay(new Mesh().poly(quad(io, iu, [0, 0, -ih]), along.map((v) => [...mix(g0, g1, v / span).slice(0, 3), alpha])));
+    const closed = (100 - position) / 100;
+    if (closed > 0) {
+      const sh = [0, 0, 0.5, 0.8];
+      const end = (ih * closed) / 0.12; // a slat every 12 cm
+      frame.overlay(
+        new Mesh(MODE.stripes).poly(quad(io, iu, [0, 0, -ih * closed]), [...colors.shutter.slice(0, 3), alpha], [sh, sh, [0, end, 0.5, 0.8], [0, end, 0.5, 0.8]])
+      );
+    }
+  }
+
+  // Name of a room on its floor (at height z), turned by `turn` degrees (a multiple of 90) around
+  // the room, so that it reads upright from the viewer.
+  _roomLabel(floor, room, z, turn, colors) {
+    const PX = 200; // label px per grid unit
+    const along = turn % 180 ? room.h : room.w;
+    const maxWidth = Math.max(0, along - 0.32) * PX;
+    if (maxWidth < 40) return;
+    const icon = room.icon ? this._iconPath(room.icon) : null;
+    const font = `500 60px ${colors.font}`;
+    const [, measure] = canvas2d(1, 1);
+    measure.font = font;
+    const iconW = room.icon ? 76 : 0;
+    const text = fitText(measure, room.name, maxWidth - iconW);
+    const w = Math.min(maxWidth, iconW + measure.measureText(text).width + 4);
+    const h = 76;
+    const key = `label:${room.name}:${room.icon || ''}:${!!icon}:${Math.round(maxWidth)}:${colors.font}`;
+    const source = () => {
+      const [c, ctx] = canvas2d(w, h);
+      ctx.fillStyle = 'rgba(40, 30, 20, 0.75)';
+      if (icon) drawIcon(ctx, icon, 0, 8, 60);
+      ctx.font = font;
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, iconW, h / 2 + 2);
+      return c;
+    };
+    // The label's frame: its corner of the room, then its axes turned by `turn`.
+    const th = toRad(turn);
+    const ex = [Math.cos(th), Math.sin(th), 0];
+    const ey = [-Math.sin(th), Math.cos(th), 0];
+    const corner = { 0: [0, 0], 90: [room.w, 0], 180: [room.w, room.h], 270: [0, room.h] }[turn];
+    const o = add3(add3([room.x + corner[0], room.y + corner[1], z], mul3(ex, 0.16)), mul3(ey, 0.12));
+    floor.overlay(new Mesh(MODE.texture, { tex: { key, source } }).poly(quad(o, mul3(ex, w / PX), mul3(ey, h / PX)), [1, 1, 1, 1], UV_QUAD));
+  }
+
+  // Texture of a camera's screen in the scene: its snapshot (or why there is none) and its name.
+  _screenTexture(sc, colors) {
+    const item = sc.item;
+    const st = item.st;
+    const snap = this._snapshot(st);
+    const aspect = this._aspects[item.id] || 16 / 9;
+    const w = SCREEN_PX;
+    const h = Math.round(SCREEN_PX / aspect);
+    const name = this._cameraName(item);
+    let icon = null;
+    let message = '';
+    if (!st) {
+      icon = 'mdi:help-circle-outline';
+      message = `${item.id}: entity not found`;
+    } else if (isUnavailable(st)) {
+      icon = 'mdi:cctv-off';
+      message = formatState(this.hass, st);
+    } else if (!st.attributes.entity_picture) icon = 'mdi:cctv';
+    const path = icon ? this._iconPath(icon) : null;
+    const key = `screen:${item.id}:${snap && !icon ? snap.url : ''}:${name}:${message}:${icon}:${!!path}:${h}`;
+    const source = () => {
+      const [c, ctx] = canvas2d(w, h);
+      const round = (x, y, rw, rh, r) => {
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(x, y, rw, rh, r);
+        else ctx.rect(x, y, rw, rh);
+      };
+      const border = st ? 8 : 6;
+      round(0, 0, w, h, 8);
+      ctx.fillStyle = st ? '#1b1e22' : colors.warning;
+      ctx.fill();
+      ctx.fillStyle = st ? '#000' : '#222';
+      ctx.fillRect(border, border, w - 2 * border, h - 2 * border);
+      const iw = w - 2 * border;
+      const ih = h - 2 * border;
+      if (snap && !icon) {
+        // object-fit: cover
+        const k = Math.max(iw / snap.img.naturalWidth, ih / snap.img.naturalHeight);
+        const sw = iw / k;
+        const sh = ih / k;
+        ctx.drawImage(snap.img, (snap.img.naturalWidth - sw) / 2, (snap.img.naturalHeight - sh) / 2, sw, sh, border, border, iw, ih);
+      } else if (icon) {
+        ctx.fillStyle = st ? '#9aa0a6' : colors.warning;
+        const size = Math.min(72, ih * 0.4);
+        drawIcon(ctx, path, (w - size) / 2, h / 2 - size * 0.8, size);
+        ctx.font = `24px ${colors.font}`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(fitText(ctx, message, iw - 32), w / 2, h / 2 + size * 0.3);
+        ctx.textAlign = 'left';
+      }
+      // Name, bottom left.
+      ctx.font = `20px ${colors.font}`;
+      const label = fitText(ctx, name, iw - 36);
+      const lw = ctx.measureText(label).width + 20;
+      round(border + 8, h - border - 8 - 30, lw, 30, 6);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, border + 18, h - border - 8 - 15);
+      return c;
+    };
+    return { key, source };
   }
 
   // A camera in 3D: its body, its screen in front of it (up to the first wall), and the beam between them.
   // `inWorld` false: the screen is shown elsewhere (or not at all), and a short beam shows where it looks.
-  _camera3d(it, p, indoor, H, eye, faces, inWorld, r) {
+  _camera3d(it, p, indoor, H, eye, add, inWorld, colors) {
     const cam = it.camera;
     const conf = it.conf;
     const pose = cameraPose(cam, [it.x, it.y, p.z0 + cameraHeight(cam, H)]);
@@ -1964,39 +2529,80 @@ class HaPlooumFloorplanCard extends LitElement {
     const tl = add3(sub3(center, mul3(right, w / 2)), mul3(up, h / 2));
     const u = mul3(right, w);
     const v = mul3(up, -h);
-    const f = face(tl, u, v, r, SCREEN_PX, SCREEN_PX / aspect);
-
+    const n = norm3(cross3(u, v));
     // From the other side (in front of the camera), the image is flipped so that it stays readable.
-    const screen = { id: it.id, item: it, f, back: dot3(sub3(eye, center), f.n) < 0, center, w, h, cam, k: p.k, indoor, pose, inWorld };
+    const screen = { id: it.id, item: it, pts: quad(tl, u, v), tl, u, v, back: dot3(sub3(eye, center), n) < 0, center, w, h, cam, k: p.k, indoor, pose, inWorld };
     // Zoomed on: the view stands right behind the camera, whose body and beam would hide the screen.
     if (this._focus === it.id) return screen;
 
     const lens = add3(C, mul3(fwd, 0.17));
-    let corners = [tl, add3(tl, u), add3(add3(tl, u), v), add3(tl, v)];
+    let corners = screen.pts;
     if (!inWorld) corners = corners.map((c) => add3(C, mul3(sub3(c, C), SHORT_BEAM / dist)));
-    corners.forEach((c, i) => {
-      const next = corners[(i + 1) % 4];
-      faces.push({ f: face(c, sub3(next, c), sub3(lens, c), r), cls: 'beam', clip: 'polygon(0 0, 100% 0, 0 100%)' });
+    const beam = add(new Mesh(MODE.flat, { transparent: true }));
+    const edge = [...colors.beam.slice(0, 3), 0.3];
+    const tip = [...colors.beam.slice(0, 3), 0.04];
+    corners.forEach((c, i) => beam.poly([c, corners[(i + 1) % 4], lens], [edge, edge, tip]));
+    boxFaces(C, mul3(fwd, 0.17), mul3(right, 0.1), mul3(up, 0.09)).forEach((bf, i) => {
+      const color = darken(colors.camera, shade(bf.n, 40));
+      if (i) {
+        add(new Mesh().poly(bf.pts, color));
+        return;
+      }
+      // The lens, on the front face: uv reaches 1 at its corners.
+      const r = Math.hypot(bf.w, bf.h) / 2;
+      const [a, b] = [bf.w / 2 / r, bf.h / 2 / r];
+      add(new Mesh(MODE.lens).poly(bf.pts, color, [[-a, -b, 0, 0], [a, -b, 0, 0], [a, b, 0, 0], [-a, b, 0, 0]]));
     });
-    boxFaces(C, mul3(fwd, 0.17), mul3(right, 0.1), mul3(up, 0.09), r).forEach((bf, i) =>
-      faces.push({ f: bf, cls: i === 0 ? 'cam lens' : 'cam', style: `background-color: color-mix(in srgb, #4a5058 ${shade(bf.n, 40)}%, #000);` })
-    );
     return screen;
   }
 
-  _renderScreen(sc) {
+  // The screen zoomed on, over the scene, where it stands in it: it plays the live stream.
+  _renderFocusScreen(sc, orbit, vp) {
+    const q = sc.pts.map((P) => this._project(orbit, vp, P));
+    if (q.some((x) => !x)) return nothing;
+    const aspect = this._aspects[sc.id] || 16 / 9;
+    const w = SCREEN_PX;
+    const h = Math.round(SCREEN_PX / aspect);
+    const corners = sc.back ? [q[1], q[0], q[3], q[2]] : q;
     const st = sc.item.st;
-    const classes = [
-      'f',
-      'screen',
-      sc.back ? 'back' : '',
-      this._focus === sc.id ? 'focused' : '',
-      !st ? 'missing' : isUnavailable(st) ? 'unavailable' : '',
-    ].join(' ');
-    return html`<div class=${classes} data-id=${sc.id} title=${this._cameraName(sc.item)}
-      style="width: ${sc.f.w}px; height: ${sc.f.h}px; transform: ${sc.f.transform};">
-      ${this._screenContent(sc.item, this._focus === sc.id)}
+    return html`<div class="f screen focused ${!st ? 'missing' : isUnavailable(st) ? 'unavailable' : ''}" data-id=${sc.id}
+      title=${this._cameraName(sc.item)} style="width: ${w}px; height: ${h}px; transform: ${rectToQuad(w, h, corners)};">
+      ${this._screenContent(sc.item, true)}
     </div>`;
+  }
+
+  // Camera screen of the scene under a point of the view (px from its top-left corner), or null.
+  _screenAt(x, y) {
+    const state = this._scene3dState;
+    if (!state) return null;
+    const { vp, orbit } = state;
+    const a = toRad(orbit.az);
+    const t = toRad(orbit.tilt);
+    // World point seen at (x, y), at a depth D (px) from the viewer: inverse of _project().
+    const at = (D) => {
+      const x1 = ((x - vp.w / 2) * D) / vp.p;
+      const yd = ((y - vp.h / 2) * D) / vp.p;
+      const e = orbit.dist - D;
+      const y1 = yd * Math.cos(t) + e * Math.sin(t);
+      const z = -yd * Math.sin(t) + e * Math.cos(t);
+      return add3(orbit.target, mul3([x1 * Math.cos(a) + y1 * Math.sin(a), -x1 * Math.sin(a) + y1 * Math.cos(a), z], 1 / U3));
+    };
+    const o = at(0);
+    const dir = sub3(at(U3), o);
+    let best = null;
+    for (const sc of state.screens) {
+      if (!sc.inWorld) continue;
+      const n = cross3(sc.u, sc.v);
+      const den = dot3(dir, n);
+      if (Math.abs(den) < 1e-9) continue;
+      const s = dot3(sub3(sc.tl, o), n) / den;
+      if (s <= 0 || (best && s >= best.s)) continue;
+      const P = sub3(add3(o, mul3(dir, s)), sc.tl);
+      const u = dot3(P, sc.u) / dot3(sc.u, sc.u);
+      const v = dot3(P, sc.v) / dot3(sc.v, sc.v);
+      if (u >= 0 && u <= 1 && v >= 0 && v <= 1) best = { s, id: sc.id };
+    }
+    return best && best.id;
   }
 
   _cameraName(item) {
@@ -2124,38 +2730,6 @@ class HaPlooumFloorplanCard extends LitElement {
     this._focusCamera(cams[(i + step + cams.length) % cams.length].id);
   }
 
-  // Name of a room on its floor in 3D, turned by `turn` degrees (a multiple of 90) around the room.
-  _label3d(room, turn, r) {
-    const w = room.w * r;
-    const h = room.h * r;
-    const k = r / U3;
-    const corner = { 0: [0, 0], 90: [w, 0], 180: [w, h], 270: [0, h] }[turn];
-    return html`<div class="label3d" style="transform: translate(${round2(corner[0])}px, ${round2(corner[1])}px) rotate(${turn}deg) translate(${round2(16 * k)}px, ${round2(12 * k)}px);
-      max-width: ${round2(Math.max(0, (turn % 180 ? h : w) - 32 * k))}px;">
-      ${room.icon ? html`<ha-icon icon=${room.icon}></ha-icon>` : nothing}<span>${room.name}</span>
-    </div>`;
-  }
-
-  // Pictures of `projectors` cast onto a face whose top-left corner is `o` and whose edges follow the
-  // unit vectors `a` and `b`, kept within `box` ([left, top, width, height], px of the face drawn at
-  // `r` px per grid unit).
-  _projections(projectors, o, a, b, box, r, cls = '') {
-    if (!projectors.length) return nothing;
-    const origin = add3(add3(o, mul3(a, box[0] / r)), mul3(b, box[1] / r));
-    return projectors.map(({ it, pose }) => {
-      const st = it.st;
-      const pr = projectedPicture(pose, this._aspects[it.id] || 16 / 9, origin, a, b, r);
-      if (!pr) return nothing;
-      const pic = st.attributes.entity_picture;
-      return html`<div class="proj ${cls}" style="left: ${round2(box[0])}px; top: ${round2(box[1])}px; width: ${round2(box[2])}px; height: ${round2(box[3])}px;">
-        <div class="proj-e ${pr.fade ? 'fade' : ''}" style="width: ${pr.w}px; height: ${pr.h}px; transform: ${pr.transform};">
-          <img alt="" src="${pic}${pic.includes('?') ? '&' : '?'}t=${this._tick}" style="width: ${pr.iw}px; height: ${pr.ih}px; transform: ${pr.img};"
-            @load=${(ev) => this._learnAspect(it.id, ev.target)} />
-        </div>
-      </div>`;
-    });
-  }
-
   // Snapshot reloaded every refresh_interval, or the live stream (`camera_view: live`, or `live`).
   _cameraImage(st, live = false) {
     const id = st.entity_id;
@@ -2186,8 +2760,14 @@ class HaPlooumFloorplanCard extends LitElement {
     if (path.some((n) => n.classList && (n.classList.contains('tools') || n.classList.contains('cambar')))) return;
     ev.currentTarget.setPointerCapture(ev.pointerId);
     this._pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
-    const screen = path.find((n) => n.classList && n.classList.contains('screen'));
-    this._startGesture(this._pointers.size === 1 && screen ? screen.dataset.id : null, ev.button === 2 || ev.shiftKey);
+    // A screen: the one zoomed on or a billboard (HTML), or one drawn in the scene.
+    let screenId = null;
+    if (this._pointers.size === 1) {
+      const screen = path.find((n) => n.classList && n.classList.contains('screen'));
+      const box = ev.currentTarget.getBoundingClientRect();
+      screenId = screen ? screen.dataset.id : this._screenAt(ev.clientX - box.left, ev.clientY - box.top);
+    }
+    this._startGesture(screenId, ev.button === 2 || ev.shiftKey);
   }
 
   _startGesture(screenId = null, pan = false) {
@@ -2982,7 +3562,6 @@ class HaPlooumFloorplanCard extends LitElement {
         overflow: hidden;
         border-radius: 8px;
         background: var(--fp3-sky);
-        perspective-origin: 50% 50%;
         touch-action: none;
         user-select: none;
         -webkit-user-select: none;
@@ -2994,24 +3573,32 @@ class HaPlooumFloorplanCard extends LitElement {
       .view3d.dragging {
         cursor: grabbing;
       }
-      .world {
+      .gl3d {
         position: absolute;
-        left: 50%;
-        top: 50%;
+        inset: 0;
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      .gl-error {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 24px;
+        text-align: center;
+        color: var(--secondary-text-color);
+      }
+      /* Hidden icons, loaded for their SVG path (3D textures). */
+      .icon-probe {
+        position: absolute;
         width: 0;
         height: 0;
-        transform-style: preserve-3d;
-        transition: transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+        overflow: hidden;
+        visibility: hidden;
       }
-      .view3d.dragging .world {
-        transition: none;
-      }
-      .group {
-        position: absolute;
-        left: 0;
-        top: 0;
-        transform-style: preserve-3d;
-      }
+      /* The camera screen zoomed on, placed over the scene. */
       .f {
         position: absolute;
         left: 0;
@@ -3019,104 +3606,6 @@ class HaPlooumFloorplanCard extends LitElement {
         transform-origin: 0 0;
         box-sizing: border-box;
         pointer-events: none;
-      }
-      .f.ground {
-        background: radial-gradient(closest-side, var(--fp3-ground) 70%, transparent);
-      }
-      .view3d.dark .f.ground {
-        background: radial-gradient(closest-side, color-mix(in srgb, var(--fp3-ground) 55%, #000) 70%, transparent);
-      }
-      /* Sizes inside the faces follow their density: --r3 is 1 when drawn at U3 px per grid unit. */
-      .f.floor3d {
-        box-shadow: inset 0 0 0 calc(2px * var(--r3)) rgba(0, 0, 0, 0.08);
-      }
-      .f.floor3d.outdoor {
-        box-shadow: none;
-        opacity: 0.8;
-      }
-      .label3d {
-        position: absolute;
-        left: 0;
-        top: 0;
-        transform-origin: 0 0;
-        display: flex;
-        align-items: center;
-        gap: calc(8px * var(--r3));
-        font-size: calc(30px * var(--r3));
-        font-weight: 500;
-        white-space: nowrap;
-        color: rgba(40, 30, 20, 0.75);
-        --mdc-icon-size: calc(30px * var(--r3));
-      }
-      .label3d ha-icon {
-        flex: none;
-      }
-      .label3d span {
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      /* Camera pictures projected onto the floor and walls. */
-      .proj {
-        position: absolute;
-        overflow: hidden;
-        opacity: 0.92;
-      }
-      .proj.on-ground {
-        -webkit-mask-image: radial-gradient(closest-side, #000 70%, transparent);
-        mask-image: radial-gradient(closest-side, #000 70%, transparent);
-      }
-      .proj-e {
-        position: absolute;
-        left: 0;
-        top: 0;
-        overflow: hidden;
-        transform-origin: 0 0;
-      }
-      .proj-e.fade {
-        -webkit-mask-image: linear-gradient(to bottom, transparent, #000 30%);
-        mask-image: linear-gradient(to bottom, transparent, #000 30%);
-      }
-      .proj-e img {
-        position: absolute;
-        left: 0;
-        top: 0;
-        display: block;
-        transform-origin: 0 0;
-      }
-      .f.wall.inner {
-        opacity: 0.55;
-      }
-      .f.cap {
-        background: var(--fp3-cap);
-      }
-      .f.roof {
-        background-image: repeating-linear-gradient(
-          to bottom,
-          transparent 0 calc(22px * var(--r3)),
-          rgba(0, 0, 0, 0.16) calc(22px * var(--r3)) calc(25px * var(--r3))
-        );
-      }
-      .f.beam {
-        background: linear-gradient(to bottom, rgba(var(--fp3-beam), 0.3), rgba(var(--fp3-beam), 0.04));
-      }
-      .f.cam.lens {
-        background-image: radial-gradient(circle, #9fd8ff 0 18%, #10161c 22% 42%, transparent 46%);
-      }
-      .f.window3d {
-        background: linear-gradient(160deg, #b9e4ff, #6fb6e6);
-        border: calc(4px * var(--r3)) solid #f5f2ec;
-      }
-      .f.window3d.unavailable {
-        opacity: 0.5;
-      }
-      .shutter3d {
-        height: var(--closed);
-        background: repeating-linear-gradient(
-          180deg,
-          #6d7680 0 calc(6px * var(--r3)),
-          #87909a calc(6px * var(--r3)) calc(12px * var(--r3))
-        );
-        transition: height 0.4s ease;
       }
       .f.screen {
         pointer-events: auto;
@@ -3141,9 +3630,6 @@ class HaPlooumFloorplanCard extends LitElement {
         width: 100%;
         height: 100%;
         overflow: hidden;
-      }
-      .f.screen.back .screen-inner {
-        transform: scaleX(-1);
       }
       .screen-inner img,
       .screen-inner ha-camera-stream {
