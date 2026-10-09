@@ -29,6 +29,8 @@ homeassistant:
 # must be confirmed in the UI. dev/ha.sh seeds .storage/http (listens on 127.0.0.1:8123).
 
 frontend:
+# Lets the floorplan editor capture a camera's reference picture (/api/image/upload).
+image_upload:
 config:
 # The frontend calls recorder/info: without recorder, every page load logs an
 # "unknown_command" rejection (console noise). history is used by more-info dialogs.

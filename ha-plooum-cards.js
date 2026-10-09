@@ -2063,7 +2063,7 @@
   ];
 
   // Card options shown in the editor with their default value, and left out of the config when unchanged.
-  const CARD_DEFAULTS = { view: '2d', camera_view: 'snapshot', camera_previews: 'hover', screen_mode: 'world', roof: true };
+  const CARD_DEFAULTS = { view: '2d', camera_view: 'snapshot', camera_previews: 'hover', projection_picture: 'frozen', screen_mode: 'world', roof: true };
   // Where camera screens are shown in 3D: in the scene in front of their camera, floating flat on the
   // view next to it, or nowhere (the camera bar still flies to them).
   const SCREEN_MODES = ['world', 'billboard', 'none'];
@@ -2076,6 +2076,7 @@
   const SCREEN_SIZE = 2.4; // max screen width in 3D (grid units)
   const SCREEN_DISTANCE = 2.5; // max distance from the camera to its screen in 3D (grid units)
   const SCREEN_PX = 480; // width of a camera screen's texture in 3D: keeps the image sharp when zoomed in
+  const PROJECTING_SCREEN = { size: 0.55, alpha: 0.35 }; // screen of a camera projecting its picture in 3D: smaller and faint
   const SHORT_BEAM = 0.7; // beam length when the screen isn't in the scene (grid units)
   const STRIP_HEIGHT = 44; // px kept free at the bottom of the 3D view for the camera bar
   const PROJ_PX = 640; // picture width (px) assumed by the editor until the picture has loaded
@@ -2090,6 +2091,12 @@
   // Sides a thumbnail can be put on (a camera's `preview_position`), as directions from its camera.
   const THUMB_SIDES = { top: [0, -1], bottom: [0, 1], left: [-1, 0], right: [1, 0] };
   const BLACK_LEVEL = 20; // a snapshot whose brightest pixel is darker than this (0-255) is considered black
+  const PROJECTION_PICTURES = ['frozen', 'live', 'snapshot']; // `projection_picture` values
+  const LIVE_PROJECTION_INTERVAL = 300; // s between two snapshots checked for `projection_picture: live`
+  const MATCH_W = 64; // px: pictures are compared at this size (`projection_picture: live`)
+  const MATCH_H = 36;
+  const MATCH_MIN = 0.5; // edge correlation under which a snapshot no longer looks like the reference (a turn of ~3% of the picture)
+  const MOVED_MESSAGE = 'Camera moved? Re-align it';
   const AIM_HANDLE = 1.25; // distance from a camera to its aim handle in the editor (grid units)
   // Camera options left out of the config when they keep their default value.
   const CAMERA_KEYS = ['fov', 'tilt', 'height', 'screen_size', 'screen_distance'];
@@ -2150,6 +2157,82 @@
     } catch (err) {
       return { black: false, data: null };
     }
+  }
+
+  // URL of a picture uploaded through Home Assistant's image upload (a camera's reference picture).
+  const uploadedImageUrl = (id) => `/api/image/serve/${encodeURIComponent(id)}/original`;
+
+  // Edges of a loaded picture scaled down to MATCH_W x MATCH_H: the brightness gradient (x and y) of
+  // each pixel, blurred a little (a camera that shakes slightly still matches), with a unit norm, so
+  // that two pictures' edges compare by a dot product whatever their brightness. Unlike colors, edges
+  // hardly change with the light of the day; a turn of a few degrees moves all of them. Also `black`
+  // (see readSnapshot()) and `color` (false for a gray picture, like an infrared night view). Null when
+  // the canvas can't read the picture (another origin).
+  function pictureEdges(img) {
+    const w = MATCH_W;
+    const h = MATCH_H;
+    let px;
+    try {
+      const [c, ctx] = canvas2d(w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      px = ctx.getImageData(0, 0, w, h).data;
+      c.width = 0;
+    } catch (err) {
+      return null;
+    }
+    const gray = new Float32Array(w * h);
+    let brightest = 0;
+    let chroma = 0;
+    for (let i = 0; i < w * h; i++) {
+      const [r, g, b] = [px[4 * i], px[4 * i + 1], px[4 * i + 2]];
+      gray[i] = 0.299 * r + 0.587 * g + 0.114 * b;
+      brightest = Math.max(brightest, r, g, b);
+      chroma += Math.max(r, g, b) - Math.min(r, g, b);
+    }
+    const grad = new Float32Array(2 * w * h);
+    for (let y = 1; y < h - 1; y++) {
+      for (let x = 1; x < w - 1; x++) {
+        const i = y * w + x;
+        grad[2 * i] = gray[i + 1] - gray[i - 1];
+        grad[2 * i + 1] = gray[i + w] - gray[i - w];
+      }
+    }
+    const edges = new Float32Array(2 * w * h);
+    let norm = 0;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        for (let k = 0; k < 2; k++) {
+          let sum = 0;
+          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) sum += grad[2 * (clamp(y + dy, 0, h - 1) * w + clamp(x + dx, 0, w - 1)) + k];
+          edges[2 * (y * w + x) + k] = sum;
+          norm += sum * sum;
+        }
+      }
+    }
+    norm = Math.sqrt(norm) || 1;
+    for (let i = 0; i < edges.length; i++) edges[i] /= norm;
+    return { edges, black: brightest < BLACK_LEVEL, color: chroma / (w * h) > 8 };
+  }
+
+  // Whether a snapshot still shows what the reference picture shows (their pictureEdges()):
+  // `match`, `moved` (the camera turned), or `rejected` (black, gray at night while the reference
+  // has colors, or unreadable), which tells nothing about the camera.
+  function matchPicture(ref, snap) {
+    if (!ref || !snap || snap.black || (ref.color && !snap.color)) return 'rejected';
+    let corr = 0;
+    for (let i = 0; i < ref.edges.length; i++) corr += ref.edges[i] * snap.edges[i];
+    return corr >= MATCH_MIN ? 'match' : 'moved';
+  }
+
+  // Loads a picture: resolves with the Image, or null when it fails.
+  function loadImage(url) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      if (new URL(url, location.href).origin !== location.origin) img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
   }
 
   // Thumbnails of the 2D plan (`camera_previews: always`), shared by every card of the page and kept
@@ -2672,11 +2755,74 @@
       return {
         pts: [O, add3(O, u), add3(add3(O, v), mul3(u, 1 - k)), add3(add3(O, v), mul3(u, k))],
         n: norm3(cross3(u, v)),
-        slope: len3(v),
         plane: { o: O, a: norm3(u), b: norm3(v), up: norm3(cross3(u, v)) },
       };
     });
   }
+
+  // Side of a roof rectangle that leans on a floor above: the floor above stands beyond it, along
+  // all of it or partly (the rest being more of this roof). Null when there's none, or when a lean-to
+  // roof against it would reach higher than the wall above.
+  function leanSide(rect, rooms, above) {
+    const strictly = (r, x, y) => x > r.x && x < r.x + r.w && y > r.y && y < r.y + r.h;
+    const eps = 0.01;
+    const sides = [
+      { n: [0, -1], a: [rect.x, rect.y], u: [rect.w, 0], depth: rect.h },
+      { n: [1, 0], a: [rect.x + rect.w, rect.y], u: [0, rect.h], depth: rect.w },
+      { n: [0, 1], a: [rect.x, rect.y + rect.h], u: [rect.w, 0], depth: rect.h },
+      { n: [-1, 0], a: [rect.x, rect.y], u: [0, rect.h], depth: rect.w },
+    ];
+    let best = null;
+    for (const side of sides) {
+      const length = Math.abs(side.u[0] + side.u[1]);
+      // Its lean-to roof rises up to the hips' run (half the doubled rectangle's smaller side).
+      if ((Math.min(length, 2 * side.depth) / 2) * ROOF_PITCH > SLAB + WALL_HEIGHT * 0.8) continue;
+      const steps = Math.max(2, Math.ceil(length / 0.25));
+      let leaning = 0;
+      let open = false;
+      for (let i = 0; i < steps; i++) {
+        const t = (i + 0.5) / steps;
+        const x = side.a[0] + side.u[0] * t + side.n[0] * eps;
+        const y = side.a[1] + side.u[1] * t + side.n[1] * eps;
+        if (above.some((r) => strictly(r, x, y))) leaning++;
+        else if (!rooms.some((r) => strictly(r, x, y))) open = true;
+      }
+      if (!open && leaning && (!best || leaning / steps > best.share)) best = { ...side, share: leaning / steps };
+    }
+    return best;
+  }
+
+  // Slopes of the roof on a rectangle whose walls stop at height z (see hipRoof()). A rectangle that
+  // leans on a floor above gets a lean-to roof: half of a hip roof twice as deep, its ridge against
+  // the wall above (a hip roof would leave a ledge along that wall).
+  function roofSlopes(rect, z, lean) {
+    if (!lean) return hipRoof(rect, z);
+    const [nx, ny] = lean.n;
+    const doubled = {
+      x: rect.x + Math.min(0, nx) * rect.w,
+      y: rect.y + Math.min(0, ny) * rect.h,
+      w: rect.w * (1 + Math.abs(nx)),
+      h: rect.h * (1 + Math.abs(ny)),
+    };
+    // Keep what lies on the rectangle's side of the wall line.
+    const keep = (P) => -((P[0] - lean.a[0]) * nx + (P[1] - lean.a[1]) * ny);
+    const out = [];
+    for (const slope of hipRoof(doubled, z)) {
+      const pts = [];
+      slope.pts.forEach((P, i) => {
+        const Q = slope.pts[(i + 1) % slope.pts.length];
+        const kp = keep(P);
+        const kq = keep(Q);
+        if (kp >= -1e-9) pts.push(P);
+        if ((kp > 1e-9 && kq < -1e-9) || (kp < -1e-9 && kq > 1e-9)) pts.push(add3(P, mul3(sub3(Q, P), kp / (kp - kq))));
+      });
+      if (pts.length >= 3) out.push({ ...slope, pts });
+    }
+    return out;
+  }
+
+  // Every roof slope of a floor whose walls stop at height z, under the floors above.
+  const floorRoof = (rooms, above, z) => roofRects(rooms, above).flatMap((rect) => roofSlopes(rect, z, leanSide(rect, rooms, above)));
 
   // The 6 faces of a box centered on c, with half-extent vectors X, Y, Z. The +X face comes first.
   function boxFaces(c, X, Y, Z) {
@@ -3578,6 +3724,7 @@ void main() {
       this._orbit = null; // 3D point of view, null = framed automatically
       this._gl = null; // WebGL context of the 3D view (GlScene)
       this._snaps = {}; // camera id -> snapshots loaded for the 3D scene, see _snapshot()
+      this._projPics = {}; // camera id -> pictures projected in 3D from a reference picture, see _projectionPicture()
       this._iconPaths = new Map(); // icon -> SVG path, for the 3D textures, see _iconPath()
       this._focus = null; // camera whose screen the 3D view is zoomed on
       this._dragging3d = false;
@@ -3660,6 +3807,9 @@ void main() {
       }
       if (config.camera_previews !== undefined && !['hover', 'always'].includes(config.camera_previews)) {
         throw new Error('camera_previews must be hover or always');
+      }
+      if (config.projection_picture !== undefined && !PROJECTION_PICTURES.includes(config.projection_picture)) {
+        throw new Error(`projection_picture must be one of ${PROJECTION_PICTURES.join(', ')}`);
       }
       // A new `view` or `roof` in the config (editor) is applied; otherwise the user's choice stays.
       if (!this.config || this.config.view !== config.view) this._view = config.view || '2d';
@@ -4647,6 +4797,55 @@ void main() {
       return snap.shown;
     }
 
+    // Picture a camera projects in 3D ({ url, img, aspect }), or null until one has loaded. With a
+    // reference picture (captured in the editor, `reference_picture`), `projection_picture: frozen`
+    // always projects it: the camera was aligned on it. `live` projects a snapshot taken every
+    // LIVE_PROJECTION_INTERVAL instead, as long as it still looks like the reference; one that doesn't
+    // is never projected and flags the camera as moved. `snapshot`, or no reference: see _snapshot().
+    _projectionPicture(it) {
+      const mode = this.config.projection_picture || 'frozen';
+      const refId = it.conf.reference_picture;
+      if (mode === 'snapshot' || !refId) return this._snapshot(it.st);
+      const id = it.id;
+      const pp = this._projPics[id] || (this._projPics[id] = { ref: null, refUrl: null, good: null, moved: false, checking: false, checked: 0 });
+      const refUrl = uploadedImageUrl(refId);
+      if (pp.refUrl !== refUrl) {
+        Object.assign(pp, { ref: null, refUrl, refFailed: false, good: null, moved: false, checked: 0 });
+        loadImage(refUrl).then((img) => {
+          if (pp.refUrl !== refUrl) return;
+          if (img) {
+            pp.ref = { url: refUrl, img, aspect: img.naturalWidth / img.naturalHeight, edges: pictureEdges(img) };
+            this._learnAspect(id, img);
+          } else pp.refFailed = true;
+          this.requestUpdate();
+        });
+      }
+      // The reference is gone (deleted from the uploaded images): back to the snapshots.
+      if (pp.refFailed) return this._snapshot(it.st);
+      if (!pp.ref) return null;
+      const pic = mode === 'live' && it.st && !isUnavailable(it.st) && it.st.attributes.entity_picture;
+      if (pic && !pp.checking && Date.now() - pp.checked >= LIVE_PROJECTION_INTERVAL * 1000) {
+        pp.checking = true;
+        pp.checked = Date.now();
+        const url = `${pic}${pic.includes('?') ? '&' : '?'}t=live${pp.checked}`;
+        loadImage(url).then((img) => {
+          pp.checking = false;
+          if (pp.refUrl !== refUrl || !img) return;
+          const verdict = matchPicture(pp.ref.edges, pictureEdges(img));
+          if (verdict === 'match') pp.good = { url, img, aspect: img.naturalWidth / img.naturalHeight };
+          if (verdict !== 'rejected') pp.moved = verdict === 'moved';
+          this.requestUpdate();
+        });
+      }
+      return (mode === 'live' && pp.good) || pp.ref;
+    }
+
+    // Whether a camera's last snapshot no longer looks like its reference picture (`projection_picture: live`).
+    _cameraMoved(item) {
+      const pp = this._projPics[item.id];
+      return !!(pp && pp.moved && item.conf.projection && this.config.projection_picture === 'live' && pp.refUrl === uploadedImageUrl(item.conf.reference_picture));
+    }
+
     // Meshes of the scene for a point of view: `eye` is the viewer's position, `toViewer` the
     // horizontal direction from the scene towards the viewer (walls facing it are cut away).
     _buildScene(s, eye, toViewer, mode, colors) {
@@ -4676,8 +4875,16 @@ void main() {
           const sc = this._camera3d(it, p, indoor, H, eye, add, mode === 'world' || this._focus === it.id, colors);
           screens.push(sc);
           if (this._focus === it.id) sight = [[eye[0], eye[1]], [sc.center[0], sc.center[1]]];
-          else if (sc.inWorld) add(new Mesh(MODE.texture, { tex: this._screenTexture(sc, colors) })).poly(sc.pts, [1, 1, 1, 1], sc.back ? [UV_QUAD[1], UV_QUAD[0], UV_QUAD[3], UV_QUAD[2]] : UV_QUAD);
-          const snap = it.conf.projection ? this._snapshot(it.st) : null;
+          else if (sc.inWorld) {
+            // A projecting camera's screen would hide part of its projection and repeat it: faint.
+            const alpha = sc.projecting ? PROJECTING_SCREEN.alpha : 1;
+            add(new Mesh(MODE.texture, { tex: this._screenTexture(sc, colors), transparent: alpha < 1 })).poly(
+              sc.pts,
+              [1, 1, 1, alpha],
+              sc.back ? [UV_QUAD[1], UV_QUAD[0], UV_QUAD[3], UV_QUAD[2]] : UV_QUAD
+            );
+          }
+          const snap = it.conf.projection ? this._projectionPicture(it) : null;
           if (snap) {
             const { C, fwd, right, up, f } = sc.pose;
             projectors.push({
@@ -4708,7 +4915,7 @@ void main() {
             occluders.poly(quad(o, mul3(seg.o === 'h' ? X : Y, seg.b - seg.a), [0, 0, bottom - p.z0 - H]), [0, 0, 0, 1]);
           }
           const above = s.all.filter((q) => q.k > p.k).flatMap((q) => q.indoor);
-          for (const rect of roofRects(p.indoor, above)) for (const slope of hipRoof(rect, p.z0 + H)) occluders.poly(slope.pts, [0, 0, 0, 1]);
+          for (const slope of floorRoof(p.indoor, above, p.z0 + H)) occluders.poly(slope.pts, [0, 0, 0, 1]);
         }
       }
       // A projected picture goes onto the floor and walls of the camera's room, or outdoors onto the
@@ -4830,16 +5037,13 @@ void main() {
       // Roofs: on each floor shown, over the part that no floor shown above covers.
       for (const p of s.roof ? s.shown : s.shown.slice(0, -1)) {
         const above = s.shown.filter((q) => q.k > p.k).flatMap((q) => q.indoor);
-        for (const rect of roofRects(p.indoor, above)) {
-          for (const slope of hipRoof(rect, p.z0 + H)) {
-            // Tiles: a darker line every 25 cm up the slope.
-            const t = [0, 0, 22 / 25, 0.84];
-            const top = slope.slope / 0.25;
-            const roof = add(new Mesh(MODE.stripes).poly(slope.pts, darken(colors.roof, shade(slope.n, 45)), [t, t, [0, top, t[2], t[3]], [0, top, t[2], t[3]]]));
-            // Slopes facing an outdoor camera get its picture.
-            const { o, up } = slope.plane;
-            project(roof, outdoorProjectors(null).filter((pr) => dot3(sub3(pr.pose.C, o), up) > 0.05 && dot3(sub3(eye, o), up) > 0), slope.pts);
-          }
+        for (const slope of floorRoof(p.indoor, above, p.z0 + H)) {
+          // Tiles: a darker line every 25 cm up the slope.
+          const { o, b, up } = slope.plane;
+          const uvs = slope.pts.map((P) => [0, dot3(sub3(P, o), b) / 0.25, 22 / 25, 0.84]);
+          const roof = add(new Mesh(MODE.stripes).poly(slope.pts, darken(colors.roof, shade(slope.n, 45)), uvs));
+          // Slopes facing an outdoor camera get its picture.
+          project(roof, outdoorProjectors(null).filter((pr) => dot3(sub3(pr.pose.C, o), up) > 0.05 && dot3(sub3(eye, o), up) > 0), slope.pts);
         }
       }
       const radius = Math.hypot(g.maxX - g.minX, g.maxY - g.minY, s.all.length * (H + SLAB) + H);
@@ -4923,7 +5127,8 @@ void main() {
         message = formatState(this.hass, st);
       } else if (!st.attributes.entity_picture) icon = 'mdi:cctv';
       const path = icon ? this._iconPath(icon) : null;
-      const key = `screen:${item.id}:${snap && !icon ? snap.url : ''}:${name}:${message}:${icon}:${!!path}:${h}`;
+      const moved = this._cameraMoved(item);
+      const key = `screen:${item.id}:${snap && !icon ? snap.url : ''}:${name}:${message}:${icon}:${!!path}:${h}:${moved}`;
       const source = () => {
         const [c, ctx] = canvas2d(w, h);
         const round = (x, y, rw, rh, r) => {
@@ -4955,6 +5160,16 @@ void main() {
           ctx.fillText(fitText(ctx, message, iw - 32), w / 2, h / 2 + size * 0.3);
           ctx.textAlign = 'left';
         }
+        if (moved) {
+          ctx.font = `22px ${colors.font}`;
+          const text = fitText(ctx, MOVED_MESSAGE, iw - 36);
+          round(border + 8, border + 8, ctx.measureText(text).width + 20, 34, 6);
+          ctx.fillStyle = colors.warning;
+          ctx.fill();
+          ctx.fillStyle = '#000';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(text, border + 18, border + 8 + 17);
+        }
         // Name, bottom left.
         ctx.font = `20px ${colors.font}`;
         const label = fitText(ctx, name, iw - 36);
@@ -4983,7 +5198,10 @@ void main() {
       const flat = Math.max(0.4, cam.hit !== null ? Math.min(cam.hit - 0.2, maxDistance) : maxDistance);
       const dist = flat / Math.max(Math.cos(t), 0.2);
       const aspect = this._aspects[it.id] || 16 / 9;
+      // Smaller when the camera projects its picture, except zoomed on.
+      const projecting = !!conf.projection && this._focus !== it.id;
       let w = Math.min(2 * dist * Math.tan(toRad(cam.fov) / 2), Math.max(0.3, num(conf.screen_size, SCREEN_SIZE)));
+      if (projecting) w *= PROJECTING_SCREEN.size;
       let h = w / aspect;
       const center = add3(C, mul3(fwd, dist));
       // Keep the screen above the floor, and below the ceiling indoors.
@@ -5005,7 +5223,7 @@ void main() {
       const v = mul3(up, -h);
       const n = norm3(cross3(u, v));
       // From the other side (in front of the camera), the image is flipped so that it stays readable.
-      const screen = { id: it.id, item: it, pts: quad(tl, u, v), tl, u, v, back: dot3(sub3(eye, center), n) < 0, center, w, h, cam, k: p.k, indoor, pose, inWorld };
+      const screen = { id: it.id, item: it, pts: quad(tl, u, v), tl, u, v, back: dot3(sub3(eye, center), n) < 0, center, w, h, cam, k: p.k, indoor, pose, inWorld, projecting };
       // Zoomed on: the view stands right behind the camera, whose body and beam would hide the screen.
       if (this._focus === it.id) return screen;
 
@@ -5094,7 +5312,10 @@ void main() {
       } else {
         content = this._cameraImage(st, live);
       }
-      return b`<div class="screen-inner">${content}<div class="screen-name">${this._cameraName(item)}</div></div>`;
+      return b`<div class="screen-inner">
+      ${content}<div class="screen-name">${this._cameraName(item)}</div>
+      ${this._cameraMoved(item) ? b`<div class="screen-warn">${MOVED_MESSAGE}</div>` : A}
+    </div>`;
     }
 
     // Floating screens (`screen_mode: billboard`): flat on the view, next to their camera, always readable.
@@ -5112,7 +5333,7 @@ void main() {
         (b) => b.sc.id,
         (b$1) => {
           const st = b$1.sc.item.st;
-          return b`<div class="board screen ${!st ? 'missing' : isUnavailable(st) ? 'unavailable' : ''}" data-id=${b$1.sc.id}
+          return b`<div class="board screen ${!st ? 'missing' : isUnavailable(st) ? 'unavailable' : ''} ${b$1.sc.item.conf.projection ? 'projecting' : ''}" data-id=${b$1.sc.id}
             title=${this._cameraName(b$1.sc.item)} style="left: ${b$1.x}px; top: ${b$1.y}px; width: ${b$1.w}px; height: ${b$1.h}px;">
             ${this._screenContent(b$1.sc.item)}
           </div>`;
@@ -6195,6 +6416,29 @@ void main() {
         overflow: hidden;
         text-overflow: ellipsis;
       }
+      .screen-warn {
+        position: absolute;
+        left: 8px;
+        top: 8px;
+        max-width: calc(100% - 16px);
+        padding: 2px 10px;
+        border-radius: 6px;
+        background: var(--warning-color, #ffa600);
+        color: #000;
+        font-size: 20px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .board .screen-warn,
+      .campop .screen-warn {
+        left: 4px;
+        top: 4px;
+        max-width: calc(100% - 8px);
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: 11px;
+      }
       .screen-msg {
         height: 100%;
         display: flex;
@@ -6277,6 +6521,12 @@ void main() {
       }
       .board:hover {
         border-color: var(--primary-color);
+      }
+      .board.projecting {
+        opacity: 0.45;
+      }
+      .board.projecting:hover {
+        opacity: 1;
       }
       .board.missing {
         border: 2px dashed var(--warning-color, #ffa600);
@@ -6378,6 +6628,7 @@ void main() {
         _pins: { state: true },
         _camDrag: { state: true },
         _snapTick: { state: true },
+        _capture: { state: true },
       };
     }
 
@@ -6386,6 +6637,8 @@ void main() {
       this._pins = null; // corners pinned on the selected camera's picture: { index, id, list: [{ key, P, uv }] }
       this._camDrag = null; // drag in progress on the camera's picture
       this._snapTick = 0; // bumps to reload the camera view's snapshot
+      this._capture = null; // reference picture capture: { id, busy } or { id, error }
+      this._matches = {}; // `${reference url}|${snapshot url}` -> matchPicture() verdict, null while comparing
       this._aspects = {}; // camera id -> picture aspect ratio
       this._picWidths = {}; // camera id -> picture width (px), to show the pins' error in pixels
       this._floorIndex = 0;
@@ -6496,6 +6749,20 @@ void main() {
                   options: [
                     { value: 'hover', label: 'On hover or tap' },
                     { value: 'always', label: 'Always (thumbnails)' },
+                  ],
+                },
+              },
+            },
+            {
+              name: 'projection_picture',
+              label: 'Projected pictures (3D)',
+              selector: {
+                select: {
+                  mode: 'dropdown',
+                  options: [
+                    { value: 'frozen', label: 'Reference picture' },
+                    { value: 'live', label: 'Recent snapshot, while it matches the reference' },
+                    { value: 'snapshot', label: 'Latest snapshot' },
                   ],
                 },
               },
@@ -6879,14 +7146,43 @@ void main() {
       const wallHeight = this._wallHeight();
       const pose = cameraPose(item.camera, [item.x, item.y, cameraHeight(item.camera, wallHeight)]);
       const pins = this._pinsOf(item);
+      // With a reference picture, the camera is aligned on it (and it is what gets projected).
+      const refUrl = item.conf.reference_picture ? uploadedImageUrl(item.conf.reference_picture) : null;
+      const snapUrl = pic ? `${pic}${pic.includes('?') ? '&' : '?'}t=${this._snapTick}` : null;
+      const canUpload = !!(this.hass.config && this.hass.config.components && this.hass.config.components.includes('image_upload'));
+      const capture = this._capture && this._capture.id === item.id ? this._capture : null;
       const header = b`<div class="cv-header">
-      <span>Camera view</span>
-      ${pic && pins.length
+      <span>${refUrl ? 'Camera view (reference picture)' : 'Camera view'}</span>
+      ${(pic || refUrl) && pins.length
         ? b`<button class="btn flat" @click=${() => (this._pins = null)}><ha-icon icon="mdi:pin-off-outline"></ha-icon> Unpin</button>`
+        : A}
+      ${pic
+        ? b`<button class="btn flat" ?disabled=${!canUpload || (capture && capture.busy)} @click=${() => this._captureReference(item)}
+            title=${canUpload
+              ? 'Keep the current picture as the reference: the camera is aligned on it, and it is the picture projected in 3D'
+              : 'Needs the Image upload integration (image_upload: in configuration.yaml, or default_config:)'}>
+            <ha-icon icon="mdi:camera"></ha-icon> Capture
+          </button>`
+        : A}
+      ${refUrl
+        ? b`<button class="btn flat" title="Forget the reference picture: align on the camera's snapshots, project them" @click=${() => this._setReference(item, null)}>
+            <ha-icon icon="mdi:image-remove-outline"></ha-icon>
+          </button>`
         : A}
       ${pic ? b`<button class="btn flat" title="Reload the picture" @click=${() => this._snapTick++}><ha-icon icon="mdi:refresh"></ha-icon></button>` : A}
     </div>`;
-      if (!pic) return b`<div class="cv-section">${header}<div class="muted">No picture: the camera is unavailable.</div></div>`;
+      const notes = b`
+      ${capture && capture.error
+        ? b`<div class="hint warn"><ha-icon icon="mdi:alert-outline"></ha-icon><span>Capture failed: ${capture.error}</span></div>`
+        : A}
+      ${refUrl && snapUrl && this._matchOf(refUrl, snapUrl) === 'moved'
+        ? b`<div class="hint warn">
+            <ha-icon icon="mdi:alert-outline"></ha-icon>
+            <span>${MOVED_MESSAGE}: the camera's picture no longer looks like the reference. Capture a new one, then drag the corners again.</span>
+          </div>`
+        : A}
+    `;
+      if (!pic && !refUrl) return b`<div class="cv-section">${header}<div class="muted">No picture: the camera is unavailable.</div></div>`;
 
       // An indoor camera only sees its room: the lines of the others would show through its walls.
       const ownRoom = item.camera.indoor ? plan.indoor[roomAt(plan.indoor, item.x, item.y)] : null;
@@ -6925,7 +7221,7 @@ void main() {
       ${header}
       <div class="cv ${pins.length ? 'pinned' : ''}" style="aspect-ratio: ${aspect};" @pointerdown=${(ev) => this._cvDown(ev, item, aspect)}
         @pointermove=${this._cvMove} @pointerup=${this._cvUp} @pointercancel=${this._cvUp}>
-        <img alt="" src="${pic}${pic.includes('?') ? '&' : '?'}t=${this._snapTick}" @load=${(ev) => this._learnAspect(item.id, ev.target)} />
+        <img alt="" src=${refUrl || snapUrl} @load=${(ev) => this._learnAspect(item.id, ev.target)} />
         <svg viewBox="0 0 1 ${1 / aspect}" preserveAspectRatio="none">${lines}</svg>
         ${off.map((p) => b`<div class="cv-pin" style=${at(p.uv)}></div>`)}
         ${corners.map(
@@ -6934,11 +7230,54 @@ void main() {
             style=${at(c.uv)}></div>`
         )}
       </div>
+      ${notes}
       <div class="hint">
         <ha-icon icon="mdi:information-outline"></ha-icon>
         <span>${hint}</span>
       </div>
     </div>`;
+    }
+
+    // Whether the snapshot at `snapUrl` still looks like the reference picture (see matchPicture()),
+    // or null while both load.
+    _matchOf(refUrl, snapUrl) {
+      const key = `${refUrl}|${snapUrl}`;
+      if (!(key in this._matches)) {
+        this._matches = { [key]: null }; // only the current pair is kept
+        Promise.all([loadImage(refUrl), loadImage(snapUrl)]).then(([ref, snap]) => {
+          if (!(key in this._matches)) return;
+          this._matches[key] = ref && snap ? matchPicture(pictureEdges(ref), pictureEdges(snap)) : 'rejected';
+          this.requestUpdate();
+        });
+      }
+      return this._matches[key];
+    }
+
+    // Uploads the camera's current picture through Home Assistant's image upload, as its reference picture.
+    async _captureReference(item) {
+      this._capture = { id: item.id, busy: true };
+      try {
+        const res = await this.hass.fetchWithAuth(`/api/camera_proxy/${item.id}`);
+        if (!res.ok) throw new Error(`the camera's picture didn't load (${res.status})`);
+        const blob = await res.blob();
+        const form = new FormData();
+        form.append('file', new File([blob], `${item.id}.jpg`, { type: blob.type || 'image/jpeg' }));
+        const up = await this.hass.fetchWithAuth('/api/image/upload', { method: 'POST', body: form });
+        if (!up.ok) throw new Error(`the upload was refused (${up.status})`);
+        const { id } = await up.json();
+        this._capture = null;
+        this._setReference(item, id);
+      } catch (err) {
+        this._capture = { id: item.id, error: err.message };
+      }
+    }
+
+    _setReference(item, id) {
+      this._editFloor((floor) => {
+        const e = floor.entities[item.index];
+        if (id) e.reference_picture = id;
+        else delete e.reference_picture;
+      });
     }
 
     _learnAspect(id, img) {
@@ -7418,7 +7757,7 @@ void main() {
         for (const key of CAMERA_KEYS) if (key in defaults && num(value[key]) === defaults[key]) delete value[key];
         if (!value.projection) delete value.projection;
         if (value.preview_position === 'auto') delete value.preview_position;
-        if (domainOf(value.entity) !== 'camera') for (const key of ['direction', 'projection', 'preview_position', ...CAMERA_KEYS]) delete value[key];
+        if (domainOf(value.entity) !== 'camera') for (const key of ['direction', 'projection', 'preview_position', 'reference_picture', ...CAMERA_KEYS]) delete value[key];
       }
       if (listKey === 'entities') {
         // `light` is only kept when it differs from what the entity's domain gives.
@@ -7646,6 +7985,10 @@ void main() {
       }
       .hint ha-icon {
         flex: none;
+      }
+      .hint.warn,
+      .hint.warn ha-icon {
+        color: var(--warning-color, #ffa600);
       }
       .hint.generated {
         color: var(--primary-text-color);

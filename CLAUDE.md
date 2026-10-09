@@ -95,6 +95,8 @@ dev/.venv/bin/python dev/shot.py /plooum-test/multistatus -e ha-plooum-multi-sta
 
 `dev/bootstrap.py` also puts these entities in floors and areas (Ground Floor: Living Room, Kitchen, Hallway; Upstairs: Bedroom, Bathroom — empty on purpose), for cards that read the area registry (the floorplan card's generated plan). Edit `AREAS` in it and run `dev/.venv/bin/python dev/bootstrap.py` to change them; it only adds and reassigns, so remove areas through the UI or `dev/ha.sh reset`.
 
+`image_upload:` is enabled for the floorplan editor's **Capture** button (a camera's reference picture, served at `/api/image/serve/<id>/original`); uploaded pictures live in the runtime state, so `dev/ha.sh reset` drops them and the YAML dashboard can't reference one.
+
 Change states and check that actions fired with [dev/api.sh](dev/api.sh):
 
 ```bash
