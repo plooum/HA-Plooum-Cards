@@ -8,7 +8,46 @@ class HaPlooumTempHumidityCard extends LitElement {
     return {
       hass: { type: Object },
       config: { type: Object },
+      _titleAsBadge: { state: true },
     };
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    this._resizeObserver = new ResizeObserver(() => this._fitTitle());
+    this._resizeObserver.observe(this);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this._resizeObserver) this._resizeObserver.disconnect();
+  }
+
+  updated() {
+    this._fitTitle();
+  }
+
+  get _condensed() {
+    return Boolean(this.config && this.config.condensed);
+  }
+
+  // Condensed layout: the title moves into a badge on the top border when it no longer fits
+  // between the icon and the values. The hidden .measure span gives the title's natural width,
+  // so the decision doesn't depend on the current layout (no flip-flop between the two layouts).
+  _fitTitle() {
+    const root = this.shadowRoot;
+    const row = this._condensed && root && root.querySelector(".condensed-row");
+    const measure = row && row.querySelector(".measure");
+    if (!row || !measure || !row.clientWidth) {
+      if (this._titleAsBadge) this._titleAsBadge = false;
+      return;
+    }
+    const icon = row.querySelector(".main-icon-wrapper");
+    const values = row.querySelector(".values-container");
+    const needed =
+      (icon ? icon.offsetWidth + 10 : 0) + measure.offsetWidth + 10 + (values ? values.offsetWidth : 0);
+    const asBadge = needed > row.clientWidth;
+    if (asBadge !== this._titleAsBadge) this._titleAsBadge = asBadge;
   }
 
   static getConfigElement() {
@@ -59,6 +98,10 @@ class HaPlooumTempHumidityCard extends LitElement {
   }
 
   getGridOptions() {
+    if (this._condensed) {
+      // One grid row: the height of a button card.
+      return { columns: 6, rows: 1, min_columns: 3, min_rows: 1 };
+    }
     return {
       columns: 6,
       rows: 2,
@@ -282,16 +325,107 @@ class HaPlooumTempHumidityCard extends LitElement {
     const offsetX = this._formatCssUnit(main_icon_offset_x, "3px");
     const offsetY = this._formatCssUnit(main_icon_offset_y, "0px");
 
+    const iconTpl = hasMainIcon
+      ? html`
+          <div
+            class="main-icon-wrapper"
+            style="transform: translate(${offsetX}, ${offsetY});"
+          >
+            <ha-icon
+              icon="${main_icon}"
+              style="--mdc-icon-size: ${main_icon_size}; width: ${main_icon_size}; height: ${main_icon_size}; color: ${main_icon_color};"
+            ></ha-icon>
+          </div>
+        `
+      : "";
+
+    const valuesTpl = html`
+      <div class="values-container" style="gap: ${formattedValuesGap};">
+        <!-- Temperature row -->
+        <div
+          class="value-row clickable"
+          style="color: ${temp_color}; font-size:${this._formatCssUnit(temp_font_size, "13px")}; gap: ${formattedIconTextGap};"
+          @pointerdown=${(e) => this._handlePointerDown(e, "temp")}
+          @pointermove=${this._handlePointerMove}
+          @pointerup=${this._handlePointerUp}
+          @pointercancel=${this._handlePointerCancel}
+        >
+          ${show_temp_icon && temp_icon
+            ? html`<ha-icon
+                class="val-icon"
+                icon="${temp_icon}"
+                style="--mdc-icon-size: ${temp_icon_size}; width: ${temp_icon_size}; height: ${temp_icon_size};"
+              ></ha-icon>`
+            : ""}
+          <span class="value-text"
+            >${tempFormattedVal}<span class="unit">${tempUnit}</span></span
+          >
+        </div>
+
+        <!-- Humidity row -->
+        <div
+          class="value-row clickable"
+          style="color: ${humidity_color}; font-size:${this._formatCssUnit(humidity_font_size, "13px")}; gap: ${formattedIconTextGap};"
+          @pointerdown=${(e) => this._handlePointerDown(e, "humidity")}
+          @pointermove=${this._handlePointerMove}
+          @pointerup=${this._handlePointerUp}
+          @pointercancel=${this._handlePointerCancel}
+        >
+          ${show_humidity_icon && humidity_icon
+            ? html`<ha-icon
+                class="val-icon"
+                icon="${humidity_icon}"
+                style="--mdc-icon-size: ${humidity_icon_size}; width: ${humidity_icon_size}; height: ${humidity_icon_size};"
+              ></ha-icon>`
+            : ""}
+          <span class="value-text"
+            >${humFormattedVal}<span class="unit">${humUnit}</span></span
+          >
+        </div>
+      </div>
+    `;
+
+    const pointerHandlers = (e) => this._handlePointerDown(e, "card");
+    const hasTitle = Boolean(title && title.trim() !== "");
+
+    if (this._condensed) {
+      const badgeClass = this._titleAsBadge
+        ? `badge-title ${this.config.badge_position === "right" ? "badge-right" : ""}`
+        : "";
+      return html`
+        <ha-card
+          class="plooum-th-card condensed ${badgeClass}"
+          style="padding: 4px 12px;"
+          title=${this._titleAsBadge ? title : ""}
+          @pointerdown=${pointerHandlers}
+          @pointermove=${this._handlePointerMove}
+          @pointerup=${this._handlePointerUp}
+          @pointercancel=${this._handlePointerCancel}
+        >
+          <div class="condensed-row ${hasMainIcon ? "" : "no-icon"}">
+            ${iconTpl}
+            ${hasTitle
+              ? html`<div class="card-title" style="font-size: ${formattedTitleFontSize};">${title}</div>
+                  <span class="card-title measure" aria-hidden="true" style="font-size: ${formattedTitleFontSize};"
+                    >${title}</span
+                  >`
+              : ""}
+            ${valuesTpl}
+          </div>
+        </ha-card>
+      `;
+    }
+
     return html`
       <ha-card
         class="plooum-th-card"
         style="padding: ${formattedPadding};"
-        @pointerdown=${(e) => this._handlePointerDown(e, "card")}
+        @pointerdown=${pointerHandlers}
         @pointermove=${this._handlePointerMove}
         @pointerup=${this._handlePointerUp}
         @pointercancel=${this._handlePointerCancel}
       >
-        ${title && title.trim() !== ""
+        ${hasTitle
           ? html`<div
               class="card-title"
               style="font-size: ${formattedTitleFontSize}; margin-bottom: ${formattedTitleMarginBottom};"
@@ -301,63 +435,8 @@ class HaPlooumTempHumidityCard extends LitElement {
           : ""}
 
         <div class="card-body ${shouldCenter ? "centered" : ""}">
-          ${hasMainIcon
-            ? html`
-                <div
-                  class="main-icon-wrapper"
-                  style="transform: translate(${offsetX}, ${offsetY});"
-                >
-                  <ha-icon
-                    icon="${main_icon}"
-                    style="--mdc-icon-size: ${main_icon_size}; width: ${main_icon_size}; height: ${main_icon_size}; color: ${main_icon_color};"
-                  ></ha-icon>
-                </div>
-              `
-            : ""}
-
-          <div class="values-container" style="gap: ${formattedValuesGap};">
-            <!-- Temperature row -->
-            <div
-              class="value-row clickable"
-              style="color: ${temp_color}; font-size:${this._formatCssUnit(temp_font_size, "13px")}; gap: ${formattedIconTextGap};"
-              @pointerdown=${(e) => this._handlePointerDown(e, "temp")}
-              @pointermove=${this._handlePointerMove}
-              @pointerup=${this._handlePointerUp}
-              @pointercancel=${this._handlePointerCancel}
-            >
-              ${show_temp_icon && temp_icon
-                ? html`<ha-icon
-                    class="val-icon"
-                    icon="${temp_icon}"
-                    style="--mdc-icon-size: ${temp_icon_size}; width: ${temp_icon_size}; height: ${temp_icon_size};"
-                  ></ha-icon>`
-                : ""}
-              <span class="value-text"
-                >${tempFormattedVal}<span class="unit">${tempUnit}</span></span
-              >
-            </div>
-
-            <!-- Humidity row -->
-            <div
-              class="value-row clickable"
-              style="color: ${humidity_color}; font-size:${this._formatCssUnit(humidity_font_size, "13px")}; gap: ${formattedIconTextGap};"
-              @pointerdown=${(e) => this._handlePointerDown(e, "humidity")}
-              @pointermove=${this._handlePointerMove}
-              @pointerup=${this._handlePointerUp}
-              @pointercancel=${this._handlePointerCancel}
-            >
-              ${show_humidity_icon && humidity_icon
-                ? html`<ha-icon
-                    class="val-icon"
-                    icon="${humidity_icon}"
-                    style="--mdc-icon-size: ${humidity_icon_size}; width: ${humidity_icon_size}; height: ${humidity_icon_size};"
-                  ></ha-icon>`
-                : ""}
-              <span class="value-text"
-                >${humFormattedVal}<span class="unit">${humUnit}</span></span
-              >
-            </div>
-          </div>
+          ${iconTpl}
+          ${valuesTpl}
         </div>
       </ha-card>
     `;
@@ -436,6 +515,68 @@ class HaPlooumTempHumidityCard extends LitElement {
       .unit {
         font-size: 0.8em;
         margin-left: 1px;
+      }
+      /* Condensed: icon, title and values on one line, the height of a button card (56px). */
+      .plooum-th-card.condensed {
+        position: relative;
+        min-height: 56px;
+        height: 100%;
+      }
+      /* No position here: the badge and the measure are placed against the card. */
+      .condensed-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+      .condensed-row .card-title {
+        flex: 1 1 auto;
+        min-width: 0;
+        text-align: left;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .condensed-row .measure {
+        position: absolute;
+        visibility: hidden;
+        pointer-events: none;
+        flex: none;
+        overflow: visible;
+      }
+      .condensed-row .values-container {
+        flex: none;
+        margin-left: auto;
+        align-items: flex-end;
+      }
+      .condensed-row .value-row {
+        padding: 1px 6px;
+      }
+      /* Not enough room: icon and values keep the line, the title becomes a tab on the top border. */
+      .badge-title .condensed-row .values-container {
+        margin-left: auto;
+      }
+      .badge-title .condensed-row.no-icon .values-container {
+        margin-right: auto;
+        align-items: center;
+      }
+      .badge-title .card-title:not(.measure) {
+        position: absolute;
+        top: -8px;
+        left: 14px;
+        max-width: calc(100% - 28px);
+        box-sizing: border-box;
+        padding: 0 7px;
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.6);
+        font-size: 10px !important;
+        line-height: 16px;
+        font-weight: 500;
+        letter-spacing: 0.3px;
+      }
+      .badge-title.badge-right .card-title:not(.measure) {
+        left: auto;
+        right: 14px;
       }
     `;
   }
@@ -663,6 +804,32 @@ class HaPlooumTempHumidityCardEditor extends LitElement {
             Center values horizontally
           </label>
         </div>
+
+        <div class="checkbox-field">
+          <label>
+            <input
+              type="checkbox"
+              .checked=${Boolean(this._config.condensed)}
+              @change=${(e) => this._checkboxChanged(e, "condensed")}
+            />
+            Condensed (icon, title and values on one line)
+          </label>
+        </div>
+
+        ${this._config.condensed
+          ? html`
+              <div class="input-field">
+                <label>Title badge position (when the line is too narrow)</label>
+                <select
+                  .value=${this._config.badge_position || "left"}
+                  @change=${(e) => this._valueChanged(e, "badge_position")}
+                >
+                  <option value="left">Top left</option>
+                  <option value="right">Top right</option>
+                </select>
+              </div>
+            `
+          : ""}
 
         <hr />
 

@@ -197,6 +197,69 @@ views:
           - input_boolean.tv_plug_available
           - input_number.living_room_temperature
 
+  - title: Temp & Humidity
+    path: temp-humidity
+    type: sections
+    max_columns: 2
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Default
+          - type: custom:ha-plooum-temp-humidity-card
+            title: Living Room
+            temp_entity: sensor.living_room_temperature
+            humidity_entity: sensor.living_room_humidity
+          - type: heading
+            heading: Condensed (one grid row)
+          - type: custom:ha-plooum-temp-humidity-card
+            title: Living Room
+            condensed: true
+            temp_entity: sensor.living_room_temperature
+            humidity_entity: sensor.living_room_humidity
+          - type: custom:ha-plooum-temp-humidity-card
+            title: Kitchen
+            condensed: true
+            main_icon: mdi:stove
+            temp_entity: sensor.kitchen_temperature
+            humidity_entity: sensor.living_room_humidity
+          # Narrow cells: the title becomes a badge (left by default, right on the second one).
+          - type: custom:ha-plooum-temp-humidity-card
+            title: Living Room
+            condensed: true
+            temp_entity: sensor.living_room_temperature
+            humidity_entity: sensor.living_room_humidity
+            grid_options: { columns: 4 }
+          - type: custom:ha-plooum-temp-humidity-card
+            title: Bedroom
+            condensed: true
+            badge_position: right
+            main_icon: mdi:bed
+            temp_entity: sensor.bedroom_temperature
+            humidity_entity: sensor.living_room_humidity
+            grid_options: { columns: 4 }
+          - type: custom:ha-plooum-temp-humidity-card
+            title: No icon
+            condensed: true
+            main_icon: ""
+            temp_entity: sensor.bedroom_temperature
+            humidity_entity: sensor.living_room_humidity
+            grid_options: { columns: 4 }
+          # Missing entity: shows "N/A" without breaking the line.
+          - type: custom:ha-plooum-temp-humidity-card
+            title: Missing
+            condensed: true
+            temp_entity: sensor.does_not_exist
+            humidity_entity: sensor.living_room_humidity
+            grid_options: { columns: 6 }
+          - type: custom:ha-plooum-temp-humidity-card
+            # Without title: icon and values only.
+            condensed: true
+            title: ""
+            temp_entity: sensor.kitchen_temperature
+            humidity_entity: sensor.living_room_humidity
+            grid_options: { columns: 6 }
+
   - title: Floorplan
     path: floorplan
     # Panel view: the plan gets the full width.

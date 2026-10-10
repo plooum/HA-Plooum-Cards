@@ -30,6 +30,8 @@ The **Ha Plooum Room Temp & Humidity Card** offers a modern and space-efficient 
 | `card_padding` | string | `"4px"` | Inner padding around the card. |
 | `values_gap` | string | `"0px"` | Vertical space between the temperature and humidity rows. |
 | `center_values` | boolean | `true` | Centers the values horizontally when set to `true`. |
+| `condensed` | boolean | `false` | Puts the main icon, the title and the two values (stacked on the right) on one line: the card is then as tall as a button card (56px, one row in a sections view). When the line is too narrow, the icon and the values keep it and the title becomes a small badge on the card's top border (full title in the tooltip). `card_padding`, `title_margin_bottom` and `center_values` are ignored. |
+| `badge_position` | string | `"left"` | With `condensed`: where the title badge sits on the top border, `left` or `right`. |
 
 ### Main Icon Settings
 
