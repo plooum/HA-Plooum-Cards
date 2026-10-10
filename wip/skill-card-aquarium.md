@@ -25,6 +25,20 @@ The user's current setup, for reference:
 
 The design is the "header strip" variant: a **strip** at the top carries the habitat's state and its cause; the **body** below is neutral and always laid out the same way.
 
+### Mockups (chosen style: `quiet`)
+
+Five separate cards, one per habitat, covering every severity level: `warn` (150L close to limit), `alert` (60L too warm, with a second cause), `info` (10L at night, no measure), `warn` (pond with its UV unavailable) and `ok` (a terrarium with a secondary measure and four actuators).
+
+Unfolded:
+
+![Habitat cards, unfolded](skill-card-aquarium/strip-quiet-unfolded.png)
+
+Folded (one line per card):
+
+![Habitat cards, folded](skill-card-aquarium/strip-quiet-folded.png)
+
+These are static design mockups: the colors are placeholders, and the real card takes them from the HA theme (see **Strip**). Only `quiet` is shown; `tinted` and `solid` change the strip background only.
+
 ### Unfolded
 
 ```
