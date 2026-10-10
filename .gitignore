@@ -3,3 +3,5 @@ dist/
 .DS_Store
 .token
 .claude/settings.local.json
+ha-plooum-cards.js
+ha-plooum-cards.js.map

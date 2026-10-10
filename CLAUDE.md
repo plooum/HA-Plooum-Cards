@@ -11,13 +11,13 @@ npm run build   # rollup -c — regenerates ha-plooum-cards.js and its sourcemap
 
 `compil.sh` runs both of the above in sequence. There is no lint or unit-test setup; cards are tested in a local Home Assistant — see **Testing** below.
 
-After any change under `src/`, run `npm run build` — the compiled bundle (`ha-plooum-cards.js` / `.js.map`) is committed to the repo and must stay in sync with the source.
+The compiled bundle (`ha-plooum-cards.js` / `.js.map`) is **not** committed (gitignored). Locally, run `npm run build` after any change under `src/` so the dev HA serves it. On GitHub, [build.yml](.github/workflows/build.yml) builds it on every push and PR (downloadable artifact), and attaches it to each published release — HACS downloads it from the release assets. [validate.yml](.github/workflows/validate.yml) runs the HACS checks.
 
 ## Architecture
 
 This is a single HACS (Home Assistant Community Store) Lovelace plugin that bundles several independent custom cards into one JS file.
 
-- **Single entry point**: [src/index.js](src/index.js) imports every card module so they register themselves. Rollup ([rollup.config.mjs](rollup.config.mjs)) bundles this into one IIFE file, `ha-plooum-cards.js`, which is the one resource HACS/Home Assistant loads (declared in [hacs.json](hacs.json)).
+- **Single entry point**: [src/index.js](src/index.js) imports every card module so they register themselves. Rollup ([rollup.config.mjs](rollup.config.mjs)) bundles this into one IIFE file, `ha-plooum-cards.js`, which is the one resource HACS/Home Assistant loads (declared in [hacs.json](hacs.json), shipped as a release asset).
 - **Each card is fully self-contained** in `src/cards/<card-name>/`, as a single `.js` file built with `lit` (`LitElement`, `html`, `css`). A card file defines, in order:
   1. The card class (`static getConfigElement()`, `static getStubConfig()`, `setConfig()`, `render()`, `static get styles()`).
   2. A paired editor class (`<Card>Editor`) implementing the visual config UI (`setConfig()`, `_valueChanged()` dispatching `config-changed` events, `render()`).

@@ -122,7 +122,7 @@ npm install
 npm run build
 ```
 
-Cela régénère `ha-plooum-cards.js` (et sa sourcemap) à la racine du dépôt.
+Cela régénère `ha-plooum-cards.js` (et sa sourcemap) à la racine du dépôt. Ce fichier n'est pas versionné : GitHub Actions le compile à chaque push et chaque PR, et le joint automatiquement à chaque release publiée.
 
 ### Tester localement
 
