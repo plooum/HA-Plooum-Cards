@@ -1,18 +1,18 @@
-# HA Plooum Habitat Card
+# HA Plooum Vivarium Card
 
-`type: custom:ha-plooum-habitat-card`
+`type: custom:ha-plooum-vivarium-card`
 
-One card per habitat (an aquarium, a pond, a terrarium, a paludarium...): every sensor and every piece of equipment at a glance, in a compact card that makes a problem obvious without reading.
+One card per vivarium (an aquarium, a pond, a terrarium, a paludarium...): every sensor and every piece of equipment at a glance, in a compact card that makes a problem obvious without reading.
 
-![Habitat preview](previews/habitat.png)
+![Vivarium preview](previews/vivarium.png)
 
 ## Features
 
-- A **strip** at the top shows the habitat's state and its cause, with one icon per level so the meaning doesn't rely on color alone:
+- A **strip** at the top shows the vivarium's state and its cause, with one icon per level so the meaning doesn't rely on color alone:
 
   | Level | When | Example messages |
   | :--- | :--- | :--- |
-  | ok | everything within range | `All good` (the habitat's icon) |
+  | ok | everything within range | `All good` (the vivarium's icon) |
   | info | normal but notable state | `Night` (a light is off), `Off` (every actuator is off and there is no measure) |
   | warn | drifting, or an entity can't be reached | `Close to limit`, `UV unavailable · since 15:02` |
   | alert | out of range, or a critical item is off or unavailable | `Too warm · since 14:20`, `Air off · since 09:12` |
@@ -29,14 +29,14 @@ One card per habitat (an aquarium, a pond, a terrarium, a paludarium...): every 
 
 | Name | Type | Default | Description |
 |---|---|---|---|
-| `type` | string | **Required** | `custom:ha-plooum-habitat-card`. |
-| `name` | string | habitat type | Name shown in the strip. |
-| `habitat` | string | `aquarium` | `aquarium`, `pond`, `terrarium` or `paludarium`. Sets the default icon, the default target ranges (see **Roles**) and the roles the editor suggests first. It doesn't restrict anything. |
-| `icon` | string | from `habitat` | Icon shown in the strip when everything is fine. |
+| `type` | string | **Required** | `custom:ha-plooum-vivarium-card`. |
+| `name` | string | vivarium type | Name shown in the strip. |
+| `vivarium_type` | string | `aquarium` | `aquarium`, `pond`, `terrarium` or `paludarium`. Sets the default icon, the default target ranges (see **Roles**) and the roles the editor suggests first. It doesn't restrict anything. |
+| `icon` | string | from `vivarium_type` | Icon shown in the strip when everything is fine. |
 | `strip_style` | string | `quiet` | `quiet`: neutral strip, only a problem colors the icon and text. `tinted`: pale background per level. `solid`: full-color background with white text (wall tablets). In `quiet` and `tinted`, an alert also colors the card's border. |
 | `fold` | string | `auto` | `auto`, `folded` or `unfolded`. |
 | `fold_below_width` | number | `240` | `auto` only: the card folds below this width, in px. |
-| `items` | list | | The habitat's measures and actuators, see **Items**. |
+| `items` | list | | The vivarium's measures and actuators, see **Items**. |
 
 In a sections view the card is 6 columns wide and its height follows its content. If you set `rows` in `grid_options`, the card folds by itself (in `auto` mode) when the unfolded layout doesn't fit.
 
@@ -51,7 +51,7 @@ In a sections view the card is 6 columns wide and its height follows its content
 | `color` | string | CSS color of the chip or dot (default: the role's color). |
 | `unit` | string | Measures: unit (default: the entity's unit, else the role's). |
 | `main` | boolean | Measures: the big one (default: the first measure). |
-| `min` / `max` | number | Measures: target range (default: the role's range for the habitat type). Setting one of them drops the default of the other. |
+| `min` / `max` | number | Measures: target range (default: the role's range for the vivarium type). Setting one of them drops the default of the other. |
 | `warn_margin` | number | Measures: inside the range but closer than this to a limit → warn "Close to limit". |
 | `critical` | boolean | Off or unavailable → alert instead of info/warn. |
 | `tap_action` | string | `toggle` (default for actuators), `more-info` (default for measures) or `none`. |
@@ -84,9 +84,9 @@ In a sections view the card is 6 columns wide and its height follows its content
 ### Aquarium
 
 ```yaml
-type: custom:ha-plooum-habitat-card
+type: custom:ha-plooum-vivarium-card
 name: Aquarium 150L
-habitat: aquarium
+vivarium_type: aquarium
 items:
   - role: temperature
     entity: sensor.aquarium_150_temperature
@@ -109,9 +109,9 @@ items:
 ### Pond, folded on a wall tablet
 
 ```yaml
-type: custom:ha-plooum-habitat-card
+type: custom:ha-plooum-vivarium-card
 name: Pond
-habitat: pond
+vivarium_type: pond
 strip_style: solid
 fold: folded
 items:
@@ -124,9 +124,9 @@ items:
 ### Terrarium
 
 ```yaml
-type: custom:ha-plooum-habitat-card
+type: custom:ha-plooum-vivarium-card
 name: Terrarium
-habitat: terrarium
+vivarium_type: terrarium
 items:
   - role: temperature
     entity: sensor.terrarium_temperature
