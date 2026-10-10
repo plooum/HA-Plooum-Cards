@@ -31,22 +31,53 @@ class HaPlooumTempHumidityCard extends LitElement {
     return Boolean(this.config && this.config.condensed);
   }
 
-  // Condensed layout: the title moves into a badge on the top border when it no longer fits
-  // between the icon and the values. The hidden .measure span gives the title's natural width,
-  // so the decision doesn't depend on the current layout (no flip-flop between the two layouts).
+  // Condensed layout, fitted to the width of the line:
+  // - the title moves into a badge on the top border when it no longer fits between the icon
+  //   and the values. The hidden .measure span gives its natural width, so the decision doesn't
+  //   depend on the current layout (no flip-flop between the two layouts);
+  // - when even the icon and the values don't fit (narrow cells on a phone, big fonts), both
+  //   shrink together down to MIN_ZOOM, then the icon gives way and only the values shrink.
+  // The icon and values are measured at their natural size first: everything happens before
+  // the next paint, so nothing flickers.
   _fitTitle() {
     const root = this.shadowRoot;
     const row = this._condensed && root && root.querySelector(".condensed-row");
-    const measure = row && row.querySelector(".measure");
-    if (!row || !measure || !row.clientWidth) {
+    if (!row || !row.clientWidth) {
       if (this._titleAsBadge) this._titleAsBadge = false;
       return;
     }
+    const MIN_ZOOM = 0.75;
+    const GAP = 10;
     const icon = row.querySelector(".main-icon-wrapper");
     const values = row.querySelector(".values-container");
-    const needed =
-      (icon ? icon.offsetWidth + 10 : 0) + measure.offsetWidth + 10 + (values ? values.offsetWidth : 0);
-    const asBadge = needed > row.clientWidth;
+    const measure = row.querySelector(".measure");
+
+    if (icon) {
+      icon.classList.remove("squeezed-out");
+      icon.style.zoom = "";
+    }
+    values.style.zoom = "";
+    const available = row.clientWidth;
+    const iconWidth = icon ? icon.offsetWidth + GAP : 0;
+    const valuesWidth = values.offsetWidth;
+
+    let zoom = 1;
+    let hideIcon = false;
+    if (iconWidth + valuesWidth > available) {
+      zoom = available / (iconWidth + valuesWidth);
+      if (zoom < MIN_ZOOM) {
+        hideIcon = Boolean(icon);
+        zoom = Math.min(1, available / valuesWidth);
+      }
+    }
+    if (icon) {
+      icon.classList.toggle("squeezed-out", hideIcon);
+      if (zoom < 1) icon.style.zoom = zoom;
+    }
+    if (zoom < 1) values.style.zoom = zoom;
+
+    const contentWidth = (hideIcon ? valuesWidth : iconWidth + valuesWidth) * zoom;
+    const asBadge = Boolean(measure) && (hideIcon || zoom < 1 || measure.offsetWidth + GAP + contentWidth > available);
     if (asBadge !== this._titleAsBadge) this._titleAsBadge = asBadge;
   }
 
@@ -551,6 +582,9 @@ class HaPlooumTempHumidityCard extends LitElement {
       }
       .condensed-row .value-row {
         padding: 1px 6px;
+      }
+      .condensed-row .main-icon-wrapper.squeezed-out {
+        display: none;
       }
       /* Not enough room: icon and values keep the line, the title becomes a tab on the top border. */
       .badge-title .condensed-row .values-container {
