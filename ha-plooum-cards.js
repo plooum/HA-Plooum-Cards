@@ -11986,7 +11986,7 @@ void main() {
     });
   }
 
-  const CARD_VERSION = '1.1.1';
+  const CARD_VERSION = '1.2.0';
 
   // States treated as "unavailable" (on top of an entity that doesn't exist).
   const UNAVAILABLE_STATES = ['unavailable', 'unknown'];
@@ -11999,6 +11999,7 @@ void main() {
       return {
         hass: { type: Object },
         config: { type: Object },
+        _titleAsBadge: { state: true },
       };
     }
 
@@ -12009,6 +12010,39 @@ void main() {
         'color: white; background: #03a9f4; font-weight: 700;',
         'color: #03a9f4; background: white; font-weight: 700;'
       );
+      this._resizeObserver = new ResizeObserver(() => this._fitTitle());
+      this._resizeObserver.observe(this);
+    }
+
+    disconnectedCallback() {
+      super.disconnectedCallback();
+      if (this._resizeObserver) this._resizeObserver.disconnect();
+    }
+
+    updated() {
+      this._fitTitle();
+    }
+
+    get _condensed() {
+      return !!(this.config && this.config.condensed && this.config.show_temp !== false);
+    }
+
+    // Condensed layout: the title moves into a badge on the top border when it no longer fits
+    // beside the main value. The hidden .measure span gives the title's natural width, so the
+    // decision doesn't depend on the current layout (no flip-flop between the two layouts).
+    _fitTitle() {
+      if (!this._condensed) {
+        if (this._titleAsBadge) this._titleAsBadge = false;
+        return;
+      }
+      const root = this.shadowRoot;
+      const head = root && root.querySelector('.head');
+      const measure = root && root.querySelector('.measure');
+      const temp = root && root.querySelector('.temp');
+      if (!head || !measure || !temp || !head.clientWidth) return;
+      const needed = measure.offsetWidth + 8 + temp.offsetWidth;
+      const asBadge = needed > head.clientWidth;
+      if (asBadge !== this._titleAsBadge) this._titleAsBadge = asBadge;
     }
 
     setConfig(config) {
@@ -12061,17 +12095,31 @@ void main() {
         }
       }
 
-      const gridStyle = showTemp 
-        ? 'grid-template-areas: "title" "temp" "status"; grid-template-rows: auto auto auto;'
-        : 'grid-template-areas: "title" "status"; grid-template-rows: auto auto;';
+      const condensed = this._condensed;
+      const gridStyle = condensed
+        ? ''
+        : showTemp
+          ? 'grid-template-areas: "title" "temp" "status"; grid-template-rows: auto auto auto;'
+          : 'grid-template-areas: "title" "status"; grid-template-rows: auto auto;';
+      const cardClass = condensed
+        ? `condensed ${this._titleAsBadge ? 'badge-title' : ''}`
+        : showTemp ? '' : 'compact';
 
       return b`
       <div 
-        class="card ${showTemp ? '' : 'compact'}" 
+        class="card ${cardClass}" 
         style="${gridStyle} cursor:${cursorStyle};" 
+        title="${condensed && this._titleAsBadge ? title : ''}"
         @click="${this._handleAction}"
       >
-        <div class="title">${title}</div>${showTemp ? b`<div class="temp">${tempString}</div>` : ''}
+        ${condensed
+          ? b`
+              <div class="head">
+                <div class="title">${title}</div>
+                <div class="temp">${tempString}</div>
+                <span class="title measure" aria-hidden="true">${title}</span>
+              </div>`
+          : b`<div class="title">${title}</div>${showTemp ? b`<div class="temp">${tempString}</div>` : ''}`}
         <div class="status">
           ${statusItems.map(item => {
             const entState = this.hass.states ? this.hass.states[item.entity] : null;
@@ -12202,6 +12250,52 @@ void main() {
         font-weight: normal;
         color: rgba(255, 255, 255, 0.8);
       }
+      /* Condensed: title and value on one line, same height as the other button cards (56px). */
+      .card.condensed {
+        position: relative;
+        height: 56px;
+        padding: 4px 14px;
+        row-gap: 2px;
+        align-content: center;
+      }
+      .head {
+        position: relative;
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 8px;
+        min-width: 0;
+      }
+      .head .title,
+      .head .temp {
+        flex: none;
+        white-space: nowrap;
+        line-height: 20px;
+      }
+      .head .measure {
+        position: absolute;
+        visibility: hidden;
+        pointer-events: none;
+      }
+      /* Not enough room for both: the value takes the line, the title becomes a tab on the top border. */
+      .badge-title .head {
+        justify-content: center;
+      }
+      .badge-title .head .title:not(.measure) {
+        position: absolute;
+        top: -14px;
+        right: 4px;
+        max-width: calc(100% - 8px);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        box-sizing: border-box;
+        padding: 0 7px;
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.6);
+        font-size: 10px;
+        line-height: 16px;
+        letter-spacing: 0.3px;
+      }
       .status {
         grid-column: 1 / -1;
         display: flex;
@@ -12266,6 +12360,7 @@ void main() {
 
       if (this.config.show_temp !== false) {
         schema.push(
+          { name: 'condensed', label: 'Condensed (title and value on one line)', selector: { boolean: {} } },
           { 
             name: 'temp_entity', 
             label: 'Main entity (e.g. temperature)', 

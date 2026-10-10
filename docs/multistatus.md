@@ -31,6 +31,7 @@ You can configure this card either through the Visual Editor or manually via YAM
 | `show_temp` | boolean | Optional | Set to `true` to display the main entity value. |
 | `temp_entity` | string | Optional | The entity ID to display as the main value (e.g., `sensor.temperature`). |
 | `temp_unit` | string | Optional | The unit of measurement to display next to the value (e.g., `°C`). |
+| `condensed` | boolean | Optional | Set to `true` to put the title and the main value on one line (title left, value right), with the indicators below: the card is then as tall as a button card (56px). When the line is too narrow for both, the value takes it and the title becomes a small badge on the card's top border (full title in the tooltip). Ignored when `show_temp` is `false`. |
 | `status_items` | list | Optional | List of devices/entities to track. See **Status Items** below. |
 
 Like any card, its size in a sections view is set with Home Assistant's standard `grid_options`.

@@ -143,6 +143,49 @@ views:
             icon_on: mdi:lightbulb
             icon_off: mdi:lightbulb-off
             color_on: "#fdd835"
+      # Condensed: title and value on one line; in narrow cells the title becomes a badge.
+      - type: custom:ha-plooum-multi-status-card
+        title: Aquarium condensed
+        condensed: true
+        tap_action_type: none
+        temp_entity: sensor.aquarium_temperature
+        status_items: &condensed_items
+          - entity: light.aquarium_light
+            type: icon
+            icon_on: mdi:lightbulb
+            icon_off: mdi:lightbulb-off
+            color_on: "#fdd835"
+          - entity: input_boolean.aquarium_co2
+            type: icon
+            icon_on: mdi:molecule-co2
+            icon_off: mdi:molecule-co2
+            color_on: "#29b6f6"
+          - entity: switch.tv_plug
+            type: icon
+            icon_on: mdi:television
+            icon_off: mdi:television-off
+      - type: grid
+        columns: 3
+        square: false
+        cards:
+          - type: custom:ha-plooum-multi-status-card
+            title: 150L
+            condensed: true
+            tap_action_type: none
+            temp_entity: sensor.aquarium_temperature
+            status_items: *condensed_items
+          - type: custom:ha-plooum-multi-status-card
+            title: Terrarium
+            condensed: true
+            tap_action_type: none
+            temp_entity: sensor.terrarium_temperature
+            status_items: *condensed_items
+          - type: custom:ha-plooum-multi-status-card
+            title: A very long pond title
+            condensed: true
+            tap_action_type: none
+            temp_entity: sensor.pond_temperature
+            status_items: *condensed_items
       - type: entities
         title: Test controls
         entities:
