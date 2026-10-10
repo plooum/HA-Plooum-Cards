@@ -16,10 +16,10 @@ A collection of custom Lovelace cards for Home Assistant, packaged as **a single
 | Ha Plooum D-Pad Card | `custom:ha-plooum-dpad-card` | [docs/dpad.md](docs/dpad.md) |
 | Ha Plooum Floorplan Card | `custom:ha-plooum-floorplan-card` | [docs/floorplan.md](docs/floorplan.md) |
 | HA Plooum GridIcons Card | `custom:ha-plooum-gridicons-card` | [docs/gridicons.md](docs/gridicons.md) |
-| HA Plooum Habitat Card | `custom:ha-plooum-habitat-card` | [docs/habitat.md](docs/habitat.md) |
 | HA Plooum Multi Status Card | `custom:ha-plooum-multi-status-card` | [docs/multistatus.md](docs/multistatus.md) |
 | Ha Plooum Tabs Card | `custom:ha-plooum-tabs-card` | [docs/tabbed.md](docs/tabbed.md) |
 | Ha Plooum Room Temp & Humidity Card | `custom:ha-plooum-temp-humidity-card` | [docs/temp-humidity.md](docs/temp-humidity.md) |
+| HA Plooum Vivarium Card | `custom:ha-plooum-vivarium-card` | [docs/vivarium.md](docs/vivarium.md) |
 
 ---
 
@@ -52,11 +52,6 @@ A compact row of entity icons in a pill container, with state colors and tap/hol
 
 ![GridIcons preview](docs/previews/gridicons.png)
 
-### HA Plooum Habitat Card
-An aquarium, a pond or a terrarium at a glance: its measures with their target range, its equipment (light, CO2, air pump, UV, heating...) and, in a banner at the top, what needs your attention ("Too hot · since 14:20", "UV unavailable"...). The card folds into a single line when it runs out of room, or with a click.
-
-![Habitat preview](docs/previews/habitat.png)
-
 ### HA Plooum Multi Status Card
 A compact card to follow several boolean entities (light, pump, CO2...) around a main value (e.g. temperature).
 
@@ -71,6 +66,11 @@ Organizes other cards into tabs, keeping their state in memory (ideal for camera
 A compact temperature/humidity card with a main icon and fine-grained actions per sensor.
 
 ![Temp & Humidity preview](docs/previews/temp-humidity.png)
+
+### HA Plooum Vivarium Card
+An aquarium, a pond or a terrarium at a glance: its measures with their target range, its equipment (light, CO2, air pump, UV, heating...) and, in a banner at the top, what needs your attention ("Too hot · since 14:20", "UV unavailable"...). The card folds into a single line when it runs out of room, or with a click.
+
+![Vivarium preview](docs/previews/vivarium.png)
 
 ---
 
@@ -111,10 +111,10 @@ src/
     ├── dpad/
     ├── floorplan/
     ├── gridicons/
-    ├── habitat/
     ├── multistatus/
     ├── tabbed/
-    └── temp-humidity/
+    ├── temp-humidity/
+    └── vivarium/
 ```
 
 ### Build locally

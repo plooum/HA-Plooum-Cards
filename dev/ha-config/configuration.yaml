@@ -98,7 +98,7 @@ input_boolean:
   garage_camera_available:
     name: Garage camera available
     initial: true
-  # Habitat card: aquariums, terrarium and pond (aquarium_pump/co2/uv above are reused).
+  # Vivarium card: aquariums, terrarium and pond (aquarium_pump/co2/uv above are reused).
   aquarium_60_air:
     name: Aquarium 60L air (critical)
     icon: mdi:chart-bubble
@@ -160,7 +160,7 @@ input_number:
     max: 40
     step: 0.1
     initial: 25.6
-  # Habitat card.
+  # Vivarium card.
   aquarium_temperature:
     name: Aquarium 150L temperature (backing)
     min: 10
@@ -251,7 +251,7 @@ template:
         unit_of_measurement: "°C"
         device_class: temperature
         state_class: measurement
-      # Habitat card.
+      # Vivarium card.
       - name: Aquarium Temperature
         unique_id: plooum_dev_aquarium_temperature
         state: "{{ states('input_number.aquarium_temperature') }}"
@@ -373,7 +373,7 @@ template:
           - action: input_boolean.turn_off
             target:
               entity_id: input_boolean.tv_plug
-      # Habitat card.
+      # Vivarium card.
       - name: Terrarium Heat Lamp
         unique_id: plooum_dev_terrarium_heat_lamp
         state: "{{ is_state('input_boolean.terrarium_heat_lamp', 'on') }}"

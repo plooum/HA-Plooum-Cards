@@ -7,7 +7,7 @@ const UNAVAILABLE_STATES = ['unavailable', 'unknown'];
 const OFF_STATES = ['off', 'closed', 'idle'];
 const HOLD_DELAY = 500; // ms before a press on a chip or a measure runs its hold action
 const DEFAULT_FOLD_WIDTH = 240; // px: in `fold: auto`, the card folds below this width
-const FOLD_KEY_PREFIX = 'ha-plooum-habitat-fold:'; // localStorage key prefix of a card's fold override
+const FOLD_KEY_PREFIX = 'ha-plooum-vivarium-fold:'; // localStorage key prefix of a card's fold override
 const RANGE_PAD = 0.6; // space shown on each side of a target range on its bar, as a ratio of the range width
 
 // Severity levels, from the least to the most severe.
@@ -191,8 +191,8 @@ const ROLES = {
   },
 };
 
-// Habitat types: default icon, and the roles the editor suggests first. They don't restrict anything.
-const HABITATS = {
+// Vivarium types: default icon, and the roles the editor suggests first. They don't restrict anything.
+const VIVARIUM_TYPES = {
   aquarium: {
     label: 'Aquarium',
     icon: 'mdi:fishbowl-outline',
@@ -232,9 +232,9 @@ function itemKind(item) {
 }
 
 // Merges an item's config over its role defaults.
-function resolveItem(item, index, habitat) {
+function resolveItem(item, index, vivariumType) {
   const role = ROLES[item.role];
-  const range = (role.ranges && role.ranges[habitat]) || [];
+  const range = (role.ranges && role.ranges[vivariumType]) || [];
   const min = toNumber(item.min);
   const max = toNumber(item.max);
   return {
@@ -286,9 +286,9 @@ function writeFoldOverride(key, value) {
 }
 
 /* ==========================================================================
-   MAIN CARD : ha-plooum-habitat-card
+   MAIN CARD : ha-plooum-vivarium-card
    ========================================================================== */
-class HaPlooumHabitatCard extends LitElement {
+class HaPlooumVivariumCard extends LitElement {
   static get properties() {
     return {
       hass: { attribute: false },
@@ -309,7 +309,7 @@ class HaPlooumHabitatCard extends LitElement {
   }
 
   static getConfigElement() {
-    return document.createElement('ha-plooum-habitat-card-editor');
+    return document.createElement('ha-plooum-vivarium-card-editor');
   }
 
   static getStubConfig(hass) {
@@ -323,13 +323,13 @@ class HaPlooumHabitatCard extends LitElement {
     const items = [];
     items.push({ role: 'temperature', entity: temperature ? temperature.entity_id : 'sensor.aquarium_temperature' });
     if (light) items.push({ role: 'light', entity: light.entity_id });
-    return { name: 'Aquarium', habitat: 'aquarium', items };
+    return { name: 'Aquarium', vivarium_type: 'aquarium', items };
   }
 
   setConfig(config) {
     if (!config) throw new Error('Invalid configuration');
-    if (config.habitat !== undefined && !HABITATS[config.habitat]) {
-      throw new Error(`Unknown habitat "${config.habitat}" (use ${Object.keys(HABITATS).join(', ')})`);
+    if (config.vivarium_type !== undefined && !VIVARIUM_TYPES[config.vivarium_type]) {
+      throw new Error(`Unknown vivarium_type "${config.vivarium_type}" (use ${Object.keys(VIVARIUM_TYPES).join(', ')})`);
     }
     if (config.strip_style !== undefined && !STRIP_STYLES.includes(config.strip_style)) {
       throw new Error(`Unknown strip_style "${config.strip_style}" (use ${STRIP_STYLES.join(', ')})`);
@@ -355,7 +355,7 @@ class HaPlooumHabitatCard extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     console.info(
-      `%c HA-PLOOUM-HABITAT-CARD %c ${CARD_VERSION} `,
+      `%c HA-PLOOUM-VIVARIUM-CARD %c ${CARD_VERSION} `,
       'color: white; background: #03a9f4; font-weight: 700;',
       'color: #03a9f4; background: white; font-weight: 700;'
     );
@@ -371,8 +371,8 @@ class HaPlooumHabitatCard extends LitElement {
 
   /* --- Size and folding --- */
 
-  get _habitat() {
-    return (this.config && this.config.habitat) || 'aquarium';
+  get _vivariumType() {
+    return (this.config && this.config.vivarium_type) || 'aquarium';
   }
 
   get _foldMode() {
@@ -381,7 +381,7 @@ class HaPlooumHabitatCard extends LitElement {
 
   // Resolved items; the main measure (`main: true`, else the first measure) gets `main` set.
   get _specs() {
-    const specs = (this.config.items || []).map((item, i) => resolveItem(item, i, this._habitat));
+    const specs = (this.config.items || []).map((item, i) => resolveItem(item, i, this._vivariumType));
     const measures = specs.filter((s) => s.kind === 'measure');
     const main = measures.find((s) => s.main) || measures[0];
     specs.forEach((s) => (s.main = s === main));
@@ -751,9 +751,9 @@ class HaPlooumHabitatCard extends LitElement {
     const actuators = results.filter((r) => r.spec.kind === 'actuator');
     const folded = this._folded;
     const style = this.config.strip_style || 'quiet';
-    const habitat = HABITATS[this._habitat];
-    const name = this.config.name || habitat.label;
-    const icon = summary.icon || (summary.level === 'ok' ? this.config.icon || habitat.icon : LEVEL_ICONS[summary.level]);
+    const vivariumType = VIVARIUM_TYPES[this._vivariumType];
+    const name = this.config.name || vivariumType.label;
+    const icon = summary.icon || (summary.level === 'ok' ? this.config.icon || vivariumType.icon : LEVEL_ICONS[summary.level]);
     const nameTarget = (mainSpec || specs[0] || {}).entity;
 
     return html`
@@ -1207,11 +1207,11 @@ class HaPlooumHabitatCard extends LitElement {
 }
 
 /* ==========================================================================
-   EDITOR : ha-plooum-habitat-card-editor
+   EDITOR : ha-plooum-vivarium-card-editor
    ========================================================================== */
 const TOP_LABELS = {
   name: 'Name',
-  habitat: 'Habitat type',
+  vivarium_type: 'Vivarium type',
   icon: 'Icon',
   strip_style: 'Strip style',
   fold: 'Fold',
@@ -1235,7 +1235,7 @@ const ITEM_LABELS = {
   hold_action: 'Hold action',
 };
 
-class HaPlooumHabitatCardEditor extends LitElement {
+class HaPlooumVivariumCardEditor extends LitElement {
   static get properties() {
     return {
       hass: { attribute: false },
@@ -1258,8 +1258,8 @@ class HaPlooumHabitatCardEditor extends LitElement {
     return (this._config && this._config.items) || [];
   }
 
-  get _habitat() {
-    return (this._config && this._config.habitat) || 'aquarium';
+  get _vivariumType() {
+    return (this._config && this._config.vivarium_type) || 'aquarium';
   }
 
   _fire(config) {
@@ -1271,9 +1271,9 @@ class HaPlooumHabitatCardEditor extends LitElement {
     this._fire({ ...this._config, items });
   }
 
-  // Roles for a select, with the habitat type's suggested roles first and custom last.
+  // Roles for a select, with the vivarium type's suggested roles first and custom last.
   _roleOptions() {
-    const suggested = HABITATS[this._habitat].suggested;
+    const suggested = VIVARIUM_TYPES[this._vivariumType].suggested;
     const rest = Object.keys(ROLES).filter((r) => !suggested.includes(r) && r !== 'custom');
     return [...suggested, ...rest, 'custom'].map((r) => ({
       value: r,
@@ -1282,7 +1282,7 @@ class HaPlooumHabitatCardEditor extends LitElement {
   }
 
   _topSchema() {
-    const habitat = HABITATS[this._habitat];
+    const vivariumType = VIVARIUM_TYPES[this._vivariumType];
     const schema = [
       { name: 'name', selector: { text: {} } },
       {
@@ -1290,16 +1290,16 @@ class HaPlooumHabitatCardEditor extends LitElement {
         name: '',
         schema: [
           {
-            name: 'habitat',
+            name: 'vivarium_type',
             required: true,
             selector: {
               select: {
                 mode: 'dropdown',
-                options: Object.entries(HABITATS).map(([value, h]) => ({ value, label: h.label })),
+                options: Object.entries(VIVARIUM_TYPES).map(([value, h]) => ({ value, label: h.label })),
               },
             },
           },
-          { name: 'icon', selector: { icon: { placeholder: habitat.icon } } },
+          { name: 'icon', selector: { icon: { placeholder: vivariumType.icon } } },
           {
             name: 'strip_style',
             required: true,
@@ -1416,7 +1416,7 @@ class HaPlooumHabitatCardEditor extends LitElement {
   _itemHelper(item, field) {
     if (item[field] !== undefined && item[field] !== '') return undefined;
     const role = ROLES[item.role] || ROLES.custom;
-    const spec = resolveItem({ ...item, role: ROLES[item.role] ? item.role : 'custom' }, 0, this._habitat);
+    const spec = resolveItem({ ...item, role: ROLES[item.role] ? item.role : 'custom' }, 0, this._vivariumType);
     switch (field) {
       case 'name':
         return item.role === 'custom' ? undefined : `Default: ${role.label}`;
@@ -1426,7 +1426,7 @@ class HaPlooumHabitatCardEditor extends LitElement {
         return role.unit ? `Default: the entity's unit, else ${role.unit}` : "Default: the entity's unit";
       case 'min':
       case 'max':
-        return spec[field] !== undefined ? `Default for this habitat: ${spec[field]}` : 'Default: none';
+        return spec[field] !== undefined ? `Default for this vivarium type: ${spec[field]}` : 'Default: none';
       case 'warn_margin':
         return `Default: ${role.warn_margin || 0}`;
       case 'tap_action':
@@ -1490,7 +1490,7 @@ class HaPlooumHabitatCardEditor extends LitElement {
     if (!this.hass) return '';
     const def = ROLES[role];
     const used = new Set(this._items.map((it) => it.entity));
-    const words = [this._habitat, ...String(this._config.name || '').toLowerCase().split(/\W+/)].filter(
+    const words = [this._vivariumType, ...String(this._config.name || '').toLowerCase().split(/\W+/)].filter(
       (w) => w && w.length > 1
     );
     let best = '';
@@ -1546,7 +1546,7 @@ class HaPlooumHabitatCardEditor extends LitElement {
 
   render() {
     if (!this.hass || !this._config) return nothing;
-    const data = { habitat: 'aquarium', strip_style: 'quiet', fold: 'auto', ...this._config };
+    const data = { vivarium_type: 'aquarium', strip_style: 'quiet', fold: 'auto', ...this._config };
     if (data.fold === 'auto' && data.fold_below_width === undefined) data.fold_below_width = DEFAULT_FOLD_WIDTH;
     return html`
       <ha-form
@@ -1726,18 +1726,18 @@ class HaPlooumHabitatCardEditor extends LitElement {
   }
 }
 
-if (!customElements.get('ha-plooum-habitat-card')) {
-  customElements.define('ha-plooum-habitat-card', HaPlooumHabitatCard);
+if (!customElements.get('ha-plooum-vivarium-card')) {
+  customElements.define('ha-plooum-vivarium-card', HaPlooumVivariumCard);
 }
-if (!customElements.get('ha-plooum-habitat-card-editor')) {
-  customElements.define('ha-plooum-habitat-card-editor', HaPlooumHabitatCardEditor);
+if (!customElements.get('ha-plooum-vivarium-card-editor')) {
+  customElements.define('ha-plooum-vivarium-card-editor', HaPlooumVivariumCardEditor);
 }
 
 window.customCards = window.customCards || [];
-if (!window.customCards.some((card) => card.type === 'ha-plooum-habitat-card')) {
+if (!window.customCards.some((card) => card.type === 'ha-plooum-vivarium-card')) {
   window.customCards.push({
-    type: 'ha-plooum-habitat-card',
-    name: 'HA Plooum Habitat Card',
+    type: 'ha-plooum-vivarium-card',
+    name: 'HA Plooum Vivarium Card',
     description: 'One aquarium, pond or terrarium at a glance: its measures, its equipment and what needs attention.',
     preview: true,
   });

@@ -11,7 +11,7 @@ import './cards/cover/ha-plooum-cover-card.js';
 import './cards/dpad/ha-plooum-dpad-card.js';
 import './cards/floorplan/ha-plooum-floorplan-card.js';
 import './cards/gridicons/ha-plooum-gridicons-card.js';
-import './cards/habitat/ha-plooum-habitat-card.js';
+import './cards/vivarium/ha-plooum-vivarium-card.js';
 import './cards/multistatus/ha-plooum-multi-status-card.js';
 import './cards/tabbed/ha-plooum-tabbed-card.js';
 import './cards/temp-humidity/ha-plooum-temp-humidity-card.js';

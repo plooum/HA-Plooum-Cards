@@ -25,7 +25,7 @@ views:
             type: icon
             icon_on: mdi:television
             icon_off: mdi:television-off
-      - type: custom:ha-plooum-habitat-card
+      - type: custom:ha-plooum-vivarium-card
         name: Aquarium 60L
         items:
           - { role: temperature, entity: sensor.aquarium_60l_temperature }
@@ -422,8 +422,8 @@ views:
                   - input_number.living_room_cover_position
                   - input_number.bedroom_cover_position
 
-  - title: Habitat
-    path: habitat
+  - title: Vivarium
+    path: vivarium
     # Sections view: grid_options make narrow and short cards (auto-fold cases).
     type: sections
     max_columns: 4
@@ -431,10 +431,10 @@ views:
       - type: grid
         cards:
           - type: heading
-            heading: The user's habitats
+            heading: The user's vivariums
           # Every role type: measures (close to limit), non-numeric pH, custom measure,
           # critical actuator, dimmable light, feeder script.
-          - type: custom:ha-plooum-habitat-card
+          - type: custom:ha-plooum-vivarium-card
             name: Aquarium 150L
             grid_options: { columns: 12 }
             items:
@@ -452,27 +452,27 @@ views:
               - { role: uv, entity: input_boolean.aquarium_uv }
               - { role: feeder, entity: script.test_script }
           # Too warm + critical air off: "Too warm · since … · +1".
-          - type: custom:ha-plooum-habitat-card
+          - type: custom:ha-plooum-vivarium-card
             name: Aquarium 60L
             items:
               - { role: temperature, entity: sensor.aquarium_60l_temperature }
               - { role: air, entity: input_boolean.aquarium_60_air, critical: true }
               - { role: light, entity: light.living_room_light }
           # Light only, no measure: "Night" when off.
-          - type: custom:ha-plooum-habitat-card
+          - type: custom:ha-plooum-vivarium-card
             name: Aquarium 10L
             items:
               - { role: light, entity: light.bedroom_light }
-          - type: custom:ha-plooum-habitat-card
+          - type: custom:ha-plooum-vivarium-card
             name: Pond
-            habitat: pond
+            vivarium_type: pond
             items:
               - { role: temperature, entity: sensor.pond_temperature }
               - { role: uv, entity: switch.pond_uv }
           # Secondary measure, four actuators; the UVB becomes unavailable.
-          - type: custom:ha-plooum-habitat-card
+          - type: custom:ha-plooum-vivarium-card
             name: Terrarium
-            habitat: terrarium
+            vivarium_type: terrarium
             items:
               - { role: temperature, entity: sensor.terrarium_temperature }
               - { role: humidity, entity: sensor.terrarium_humidity }
@@ -485,13 +485,13 @@ views:
           - type: heading
             heading: Edge cases
           # 21.4 °C against the aquarium range: too cold.
-          - type: custom:ha-plooum-habitat-card
+          - type: custom:ha-plooum-vivarium-card
             name: Too cold
             items:
               - { role: temperature, entity: sensor.living_room_temperature }
               - { role: heater, entity: light.living_room_light }
           # Missing entities, a critical unavailable one (switch.tv_plug), a measure without range.
-          - type: custom:ha-plooum-habitat-card
+          - type: custom:ha-plooum-vivarium-card
             name: Missing and unavailable
             items:
               - { role: water_level, entity: sensor.living_room_humidity, main: true }
@@ -499,9 +499,9 @@ views:
               - { role: filter, entity: switch.does_not_exist }
               - { role: pump, entity: switch.tv_plug, critical: true }
           # Actuators only, none of them a light: "Off" when everything is off.
-          - type: custom:ha-plooum-habitat-card
+          - type: custom:ha-plooum-vivarium-card
             name: Actuators only
-            habitat: paludarium
+            vivarium_type: paludarium
             items:
               - { role: pump, entity: input_boolean.mower }
               - role: custom
@@ -510,36 +510,36 @@ views:
                 icon: mdi:weather-fog
                 color: "#8e24aa"
                 entity: input_boolean.aquarium_co2
-          - type: custom:ha-plooum-habitat-card
+          - type: custom:ha-plooum-vivarium-card
             name: Empty
       - type: grid
         cards:
           - type: heading
             heading: Strip styles
-          - type: custom:ha-plooum-habitat-card
+          - type: custom:ha-plooum-vivarium-card
             name: Aquarium 60L
             strip_style: tinted
             items: &aquarium_60
               - { role: temperature, entity: sensor.aquarium_60l_temperature }
               - { role: air, entity: input_boolean.aquarium_60_air, critical: true }
               - { role: light, entity: light.living_room_light }
-          - type: custom:ha-plooum-habitat-card
+          - type: custom:ha-plooum-vivarium-card
             name: Aquarium 60L
             strip_style: solid
             items: *aquarium_60
-          - type: custom:ha-plooum-habitat-card
+          - type: custom:ha-plooum-vivarium-card
             name: Pond
-            habitat: pond
+            vivarium_type: pond
             strip_style: tinted
             items: &pond
               - { role: temperature, entity: sensor.pond_temperature }
               - { role: uv, entity: switch.pond_uv }
-          - type: custom:ha-plooum-habitat-card
+          - type: custom:ha-plooum-vivarium-card
             name: Pond
-            habitat: pond
+            vivarium_type: pond
             strip_style: solid
             items: *pond
-          - type: custom:ha-plooum-habitat-card
+          - type: custom:ha-plooum-vivarium-card
             name: Aquarium 10L
             strip_style: solid
             items:
@@ -548,25 +548,25 @@ views:
         cards:
           - type: heading
             heading: Folding
-          - type: custom:ha-plooum-habitat-card
+          - type: custom:ha-plooum-vivarium-card
             name: Folded by config
             fold: folded
             items: *aquarium_60
           # Narrow: auto-folds (below 240 px).
           # Narrow: auto-folds (below 240 px).
-          - type: custom:ha-plooum-habitat-card
+          - type: custom:ha-plooum-vivarium-card
             name: Narrow
-            habitat: pond
+            vivarium_type: pond
             grid_options: { columns: 3 }
             items: *pond
-          - type: custom:ha-plooum-habitat-card
+          - type: custom:ha-plooum-vivarium-card
             name: Forced open
-            habitat: pond
+            vivarium_type: pond
             fold: unfolded
             grid_options: { columns: 3 }
             items: *pond
           # Full width but one row high: auto-folds.
-          - type: custom:ha-plooum-habitat-card
+          - type: custom:ha-plooum-vivarium-card
             name: Short
             grid_options: { columns: 12, rows: 1 }
             items: *aquarium_60
