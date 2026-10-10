@@ -25,6 +25,12 @@ views:
             type: icon
             icon_on: mdi:television
             icon_off: mdi:television-off
+      - type: custom:ha-plooum-habitat-card
+        name: Aquarium 60L
+        items:
+          - { role: temperature, entity: sensor.aquarium_60l_temperature }
+          - { role: air, entity: input_boolean.aquarium_60_air, critical: true }
+          - { role: light, entity: light.aquarium_light }
       - type: custom:ha-plooum-temp-humidity-card
         title: Living Room
         temp_entity: sensor.living_room_temperature
@@ -271,3 +277,167 @@ views:
                   - input_number.bedroom_temperature
                   - input_number.living_room_cover_position
                   - input_number.bedroom_cover_position
+
+  - title: Habitat
+    path: habitat
+    # Sections view: grid_options make narrow and short cards (auto-fold cases).
+    type: sections
+    max_columns: 4
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: The user's habitats
+          # Every role type: measures (close to limit), non-numeric pH, custom measure,
+          # critical actuator, dimmable light, feeder script.
+          - type: custom:ha-plooum-habitat-card
+            name: Aquarium 150L
+            grid_options: { columns: 12 }
+            items:
+              - { role: temperature, entity: sensor.aquarium_temperature }
+              - { role: ph, entity: sensor.aquarium_ph }
+              - role: custom
+                kind: measure
+                name: Nitrate
+                icon: mdi:flask
+                entity: input_number.aquarium_nitrate
+                max: 25
+              - { role: co2, entity: input_boolean.aquarium_co2 }
+              - { role: air, entity: input_boolean.aquarium_pump, critical: true }
+              - { role: light, entity: light.aquarium_light }
+              - { role: uv, entity: input_boolean.aquarium_uv }
+              - { role: feeder, entity: script.test_script }
+          # Too warm + critical air off: "Too warm · since … · +1".
+          - type: custom:ha-plooum-habitat-card
+            name: Aquarium 60L
+            items:
+              - { role: temperature, entity: sensor.aquarium_60l_temperature }
+              - { role: air, entity: input_boolean.aquarium_60_air, critical: true }
+              - { role: light, entity: light.living_room_light }
+          # Light only, no measure: "Night" when off.
+          - type: custom:ha-plooum-habitat-card
+            name: Aquarium 10L
+            items:
+              - { role: light, entity: light.bedroom_light }
+          - type: custom:ha-plooum-habitat-card
+            name: Pond
+            habitat: pond
+            items:
+              - { role: temperature, entity: sensor.pond_temperature }
+              - { role: uv, entity: switch.pond_uv }
+          # Secondary measure, four actuators; the UVB becomes unavailable.
+          - type: custom:ha-plooum-habitat-card
+            name: Terrarium
+            habitat: terrarium
+            items:
+              - { role: temperature, entity: sensor.terrarium_temperature }
+              - { role: humidity, entity: sensor.terrarium_humidity }
+              - { role: heater, entity: switch.terrarium_heat_lamp, name: Heat lamp }
+              - { role: mister, entity: switch.terrarium_mister }
+              - { role: uv, entity: switch.terrarium_uvb, name: UVB }
+              - { role: light, entity: light.kitchen_light }
+      - type: grid
+        cards:
+          - type: heading
+            heading: Edge cases
+          # 21.4 °C against the aquarium range: too cold.
+          - type: custom:ha-plooum-habitat-card
+            name: Too cold
+            items:
+              - { role: temperature, entity: sensor.living_room_temperature }
+              - { role: heater, entity: light.living_room_light }
+          # Missing entities, a critical unavailable one (switch.tv_plug), a measure without range.
+          - type: custom:ha-plooum-habitat-card
+            name: Missing and unavailable
+            items:
+              - { role: water_level, entity: sensor.living_room_humidity, main: true }
+              - { role: temperature, entity: sensor.does_not_exist }
+              - { role: filter, entity: switch.does_not_exist }
+              - { role: pump, entity: switch.tv_plug, critical: true }
+          # Actuators only, none of them a light: "Off" when everything is off.
+          - type: custom:ha-plooum-habitat-card
+            name: Actuators only
+            habitat: paludarium
+            items:
+              - { role: pump, entity: input_boolean.mower }
+              - role: custom
+                kind: actuator
+                name: Fogger
+                icon: mdi:weather-fog
+                color: "#8e24aa"
+                entity: input_boolean.aquarium_co2
+          - type: custom:ha-plooum-habitat-card
+            name: Empty
+      - type: grid
+        cards:
+          - type: heading
+            heading: Strip styles
+          - type: custom:ha-plooum-habitat-card
+            name: Aquarium 60L
+            strip_style: tinted
+            items: &aquarium_60
+              - { role: temperature, entity: sensor.aquarium_60l_temperature }
+              - { role: air, entity: input_boolean.aquarium_60_air, critical: true }
+              - { role: light, entity: light.living_room_light }
+          - type: custom:ha-plooum-habitat-card
+            name: Aquarium 60L
+            strip_style: solid
+            items: *aquarium_60
+          - type: custom:ha-plooum-habitat-card
+            name: Pond
+            habitat: pond
+            strip_style: tinted
+            items: &pond
+              - { role: temperature, entity: sensor.pond_temperature }
+              - { role: uv, entity: switch.pond_uv }
+          - type: custom:ha-plooum-habitat-card
+            name: Pond
+            habitat: pond
+            strip_style: solid
+            items: *pond
+          - type: custom:ha-plooum-habitat-card
+            name: Aquarium 10L
+            strip_style: solid
+            items:
+              - { role: light, entity: light.bedroom_light }
+      - type: grid
+        cards:
+          - type: heading
+            heading: Folding
+          - type: custom:ha-plooum-habitat-card
+            name: Folded by config
+            fold: folded
+            items: *aquarium_60
+          # Narrow: auto-folds (below 240 px).
+          # Narrow: auto-folds (below 240 px).
+          - type: custom:ha-plooum-habitat-card
+            name: Narrow
+            habitat: pond
+            grid_options: { columns: 3 }
+            items: *pond
+          - type: custom:ha-plooum-habitat-card
+            name: Forced open
+            habitat: pond
+            fold: unfolded
+            grid_options: { columns: 3 }
+            items: *pond
+          # Full width but one row high: auto-folds.
+          - type: custom:ha-plooum-habitat-card
+            name: Short
+            grid_options: { columns: 12, rows: 1 }
+            items: *aquarium_60
+          - type: entities
+            title: Test controls
+            entities:
+              - input_number.aquarium_temperature
+              - input_number.aquarium_60_temperature
+              - input_boolean.aquarium_60_air
+              - input_boolean.aquarium_pump
+              - input_number.aquarium_light_level
+              - input_boolean.aquarium_ph_calibrating
+              - input_number.terrarium_humidity
+              - input_boolean.terrarium_uvb_available
+              - input_boolean.pond_uv
+              - input_boolean.bedroom_light
+              - input_boolean.tv_plug_available
+              - counter.script_runs

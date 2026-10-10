@@ -62,7 +62,7 @@ HA listens on http://127.0.0.1:8123 only. Check whether it is already running (`
 
 ### Dashboards
 
-- `/plooum-test/<view>`: YAML dashboard ([plooum-test.yaml](dev/ha-config/dashboards/plooum-test.yaml)) with an `all` view showing every card, and one view per card for focused cases (`/plooum-test/multistatus` covers on, off, unavailable, missing entity and SVG items; `/plooum-test/floorplan` is a full-width panel view with a hand-written two-floor plan with cameras and a terrace, the same plan in 3D, in 3D with floating screens (`screen_mode: billboard`), and a plan generated from the areas; the garden and living room cameras project their picture). Put regression cases for a card in its view.
+- `/plooum-test/<view>`: YAML dashboard ([plooum-test.yaml](dev/ha-config/dashboards/plooum-test.yaml)) with an `all` view showing every card, and one view per card for focused cases (`/plooum-test/habitat` is a sections view covering every severity, strip style and fold case, including narrow and short grid cells; `/plooum-test/multistatus` covers on, off, unavailable, missing entity and SVG items; `/plooum-test/floorplan` is a full-width panel view with a hand-written two-floor plan with cameras and a terrace, the same plan in 3D, in 3D with floating screens (`screen_mode: billboard`), and a plan generated from the areas; the garden and living room cameras project their picture). Put regression cases for a card in its view.
 - `/plooum-edit/<view>?edit=1`: storage-mode copy of the same dashboard, the only kind where **card editors** can be opened (click "Modifier" on a card). It is seeded from the YAML file only when it doesn't exist; to re-seed it, `dev/ha.sh reset`.
 
 ### Browser: use the built-in browser pane
@@ -90,6 +90,14 @@ dev/.venv/bin/python dev/shot.py /plooum-test/multistatus -e ha-plooum-multi-sta
 | `sensor.kitchen_temperature` / `sensor.bedroom_temperature` | numeric values (°C) | `input_number.kitchen_temperature` / `input_number.bedroom_temperature` |
 | `binary_sensor.front_door` (door) / `binary_sensor.hallway_motion` (motion) | binary sensors with a device class | `input_boolean.front_door_open` / `input_boolean.hallway_motion` |
 | `camera.garden_camera`, `camera.driveway_camera` (outdoor scenes), `camera.living_room_camera`, `camera.kitchen_camera`, `camera.garage_camera` (indoor scenes) | fake cameras ([camera.py](dev/ha-config/custom_components/plooum_dev/camera.py)): name and clock drawn on each image; `camera.living_room_camera` films the Living Room from inside and `camera.garden_camera` the house from the garden through a wide-angle lens (`distortion: -0.25`), for real (checkerboard floor or ground, striped walls, from their pose on the floorplan view): projected in 3D their pictures must fall exactly on the room / the facades and ground, and their tile corners are known points for the editor's point matching; `camera.garage_camera` **becomes `unavailable`** | availability: `input_boolean.garage_camera_available` |
+| `sensor.aquarium_temperature` (150L), `sensor.aquarium_60l_temperature` (60L) | habitat card measures (°C) | `input_number.aquarium_temperature` / `input_number.aquarium_60_temperature` |
+| `sensor.aquarium_ph` | habitat card measure, **non-numeric** (`calibrating`) when `input_boolean.aquarium_ph_calibrating` is on | `input_number.aquarium_ph` |
+| `input_number.aquarium_nitrate` | habitat card custom measure (mg/L) | itself |
+| `light.aquarium_light` | dimmable light, its level (%) is an `input_number`, 0 = off | `input_number.aquarium_light_level` |
+| `input_boolean.aquarium_60_air` | a critical actuator, off at start | itself |
+| `sensor.terrarium_temperature` / `sensor.terrarium_humidity` | habitat card measures (°C, %) | `input_number.terrarium_*` |
+| `switch.terrarium_heat_lamp` / `switch.terrarium_mister` / `switch.terrarium_uvb` | habitat card actuators; `switch.terrarium_uvb` **becomes `unavailable`** | `input_boolean.terrarium_*`, availability: `input_boolean.terrarium_uvb_available` |
+| `sensor.pond_temperature` / `switch.pond_uv` | pond measure and actuator | `input_number.pond_temperature` / `input_boolean.pond_uv` |
 
 `switch.does_not_exist` and `camera.does_not_exist` are referenced on purpose but don't exist (missing-entity case).
 

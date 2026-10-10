@@ -14,6 +14,7 @@ Une collection de cartes Lovelace personnalisées pour Home Assistant, packagée
 | Ha Plooum D-Pad Card | `custom:ha-plooum-dpad-card` | [docs/dpad.md](docs/dpad.md) |
 | Ha Plooum Floorplan Card | `custom:ha-plooum-floorplan-card` | [docs/floorplan.md](docs/floorplan.md) |
 | HA Plooum GridIcons Card | `custom:ha-plooum-gridicons-card` | [docs/gridicons.md](docs/gridicons.md) |
+| HA Plooum Habitat Card | `custom:ha-plooum-habitat-card` | [docs/habitat.md](docs/habitat.md) |
 | HA Plooum Multi Status Card | `custom:ha-plooum-multi-status-card` | [docs/multistatus.md](docs/multistatus.md) |
 | Ha Plooum Tabs Card | `custom:ha-plooum-tabs-card` | [docs/tabbed.md](docs/tabbed.md) |
 | Ha Plooum Room Temp & Humidity Card | `custom:ha-plooum-temp-humidity-card` | [docs/temp-humidity.md](docs/temp-humidity.md) |
@@ -48,6 +49,11 @@ En **3D**, le même plan devient une maquette de la maison et du jardin, avec un
 Rangée compacte d'icônes d'entités dans un pill container, avec couleurs d'état et actions tap/hold.
 
 ![GridIcons preview](docs/previews/gridicons.png)
+
+### HA Plooum Habitat Card
+Un aquarium, un bassin ou un terrarium d'un coup d'œil : ses mesures avec leur plage cible, ses équipements (lumière, CO2, pompe à air, UV, chauffage...) et, dans un bandeau en haut, ce qui demande ton attention (« Trop chaud · depuis 14:20 », « UV indisponible »...). La carte se replie sur une seule ligne quand elle manque de place, ou d'un clic.
+
+![Habitat preview](docs/previews/habitat.png)
 
 ### HA Plooum Multi Status Card
 Carte compacte pour suivre plusieurs entités booléennes (lumière, pompe, CO2...) autour d'une valeur principale (ex. température).
@@ -103,6 +109,7 @@ src/
     ├── dpad/
     ├── floorplan/
     ├── gridicons/
+    ├── habitat/
     ├── multistatus/
     ├── tabbed/
     └── temp-humidity/

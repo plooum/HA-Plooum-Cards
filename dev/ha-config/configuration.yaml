@@ -98,6 +98,30 @@ input_boolean:
   garage_camera_available:
     name: Garage camera available
     initial: true
+  # Habitat card: aquariums, terrarium and pond (aquarium_pump/co2/uv above are reused).
+  aquarium_60_air:
+    name: Aquarium 60L air (critical)
+    icon: mdi:chart-bubble
+    initial: false
+  aquarium_ph_calibrating:
+    name: Aquarium pH calibrating
+    initial: false
+  terrarium_heat_lamp:
+    name: Terrarium heat lamp (backing)
+    initial: true
+  terrarium_mister:
+    name: Terrarium mister (backing)
+    initial: false
+  terrarium_uvb:
+    name: Terrarium UVB (backing)
+    initial: true
+  # switch.terrarium_uvb is unavailable when off.
+  terrarium_uvb_available:
+    name: Terrarium UVB available
+    initial: true
+  pond_uv:
+    name: Pond UV (backing)
+    initial: true
 
 input_number:
   living_room_temperature:
@@ -136,6 +160,56 @@ input_number:
     max: 40
     step: 0.1
     initial: 25.6
+  # Habitat card.
+  aquarium_temperature:
+    name: Aquarium 150L temperature (backing)
+    min: 10
+    max: 40
+    step: 0.1
+    initial: 25.9
+  aquarium_60_temperature:
+    name: Aquarium 60L temperature (backing)
+    min: 10
+    max: 40
+    step: 0.1
+    initial: 27.9
+  aquarium_light_level:
+    name: Aquarium light level (backing)
+    min: 0
+    max: 100
+    step: 1
+    initial: 80
+  aquarium_ph:
+    name: Aquarium pH (backing)
+    min: 4
+    max: 10
+    step: 0.1
+    initial: 6.9
+  aquarium_nitrate:
+    name: Aquarium nitrate
+    min: 0
+    max: 100
+    step: 1
+    initial: 10
+    unit_of_measurement: mg/L
+  terrarium_temperature:
+    name: Terrarium temperature (backing)
+    min: 10
+    max: 45
+    step: 0.1
+    initial: 27.2
+  terrarium_humidity:
+    name: Terrarium humidity (backing)
+    min: 0
+    max: 100
+    step: 1
+    initial: 72
+  pond_temperature:
+    name: Pond temperature (backing)
+    min: -5
+    max: 35
+    step: 0.1
+    initial: 17.8
 
 counter:
   ptz_presses:
@@ -174,6 +248,43 @@ template:
       - name: Kitchen Temperature
         unique_id: plooum_dev_kitchen_temperature
         state: "{{ states('input_number.kitchen_temperature') }}"
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+      # Habitat card.
+      - name: Aquarium Temperature
+        unique_id: plooum_dev_aquarium_temperature
+        state: "{{ states('input_number.aquarium_temperature') }}"
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+      - name: Aquarium 60L Temperature
+        unique_id: plooum_dev_aquarium_60_temperature
+        state: "{{ states('input_number.aquarium_60_temperature') }}"
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+      # Non-numeric ("calibrating") while input_boolean.aquarium_ph_calibrating is on.
+      - name: Aquarium pH
+        unique_id: plooum_dev_aquarium_ph
+        state: >-
+          {{ 'calibrating' if is_state('input_boolean.aquarium_ph_calibrating', 'on')
+             else states('input_number.aquarium_ph') }}
+      - name: Terrarium Temperature
+        unique_id: plooum_dev_terrarium_temperature
+        state: "{{ states('input_number.terrarium_temperature') }}"
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+      - name: Terrarium Humidity
+        unique_id: plooum_dev_terrarium_humidity
+        state: "{{ states('input_number.terrarium_humidity') }}"
+        unit_of_measurement: "%"
+        device_class: humidity
+        state_class: measurement
+      - name: Pond Temperature
+        unique_id: plooum_dev_pond_temperature
+        state: "{{ states('input_number.pond_temperature') }}"
         unit_of_measurement: "°C"
         device_class: temperature
         state_class: measurement
@@ -222,6 +333,31 @@ template:
           - action: input_boolean.turn_off
             target:
               entity_id: input_boolean.kitchen_light
+      # Dimmable: its level is input_number.aquarium_light_level (%), 0 = off.
+      - name: Aquarium Light
+        unique_id: plooum_dev_aquarium_light
+        state: "{{ states('input_number.aquarium_light_level') | float(0) > 0 }}"
+        level: "{{ (states('input_number.aquarium_light_level') | float(0) * 2.55) | round(0) }}"
+        turn_on:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.aquarium_light_level
+            data:
+              value: >-
+                {{ 80 if states('input_number.aquarium_light_level') | float(0) == 0
+                   else states('input_number.aquarium_light_level') }}
+        turn_off:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.aquarium_light_level
+            data:
+              value: 0
+        set_level:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.aquarium_light_level
+            data:
+              value: "{{ (brightness / 2.55) | round(0) }}"
 
     switch:
       # Becomes "unavailable" when input_boolean.tv_plug_available is off.
@@ -237,6 +373,53 @@ template:
           - action: input_boolean.turn_off
             target:
               entity_id: input_boolean.tv_plug
+      # Habitat card.
+      - name: Terrarium Heat Lamp
+        unique_id: plooum_dev_terrarium_heat_lamp
+        state: "{{ is_state('input_boolean.terrarium_heat_lamp', 'on') }}"
+        turn_on:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.terrarium_heat_lamp
+        turn_off:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.terrarium_heat_lamp
+      - name: Terrarium Mister
+        unique_id: plooum_dev_terrarium_mister
+        state: "{{ is_state('input_boolean.terrarium_mister', 'on') }}"
+        turn_on:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.terrarium_mister
+        turn_off:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.terrarium_mister
+      # Becomes "unavailable" when input_boolean.terrarium_uvb_available is off.
+      - name: Terrarium UVB
+        unique_id: plooum_dev_terrarium_uvb
+        state: "{{ is_state('input_boolean.terrarium_uvb', 'on') }}"
+        availability: "{{ is_state('input_boolean.terrarium_uvb_available', 'on') }}"
+        turn_on:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.terrarium_uvb
+        turn_off:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.terrarium_uvb
+      - name: Pond UV
+        unique_id: plooum_dev_pond_uv
+        state: "{{ is_state('input_boolean.pond_uv', 'on') }}"
+        turn_on:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.pond_uv
+        turn_off:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.pond_uv
 
     cover:
       - name: Living Room Cover
