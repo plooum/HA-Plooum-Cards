@@ -45,7 +45,7 @@ No other configuration (no new Rollup config, no new HACS resource) is needed â€
 
 Every change goes through a pull request, without exception: code, docs, READMEs, this file, [TODO.md](TODO.md), workflows, `CARD_VERSION` bumps. Nothing is committed directly on `main`. It is a light gitflow, with no `develop` or `release` branches.
 
-1. Branch `feature/<name>` off an up-to-date `main` (`git fetch`, `git pull --ff-only`).
+1. Branch `feature/<name>` off an up-to-date `main` (`git fetch`, `git pull --ff-only`). The branch name must not contain `tags/` (e.g. `feature/semver-tags`): HACS strips `tags/` from the URLs it downloads, so its validation fails on such a branch.
 2. Commit there and push the branch. One feature or fix per PR: several TODO items mean several PRs.
 3. Open a PR against `main` with `gh pr create` and check that its CI (Build, Validate) passes.
 4. Wait for the owner's explicit approval. Never merge a PR before it.
@@ -54,7 +54,7 @@ Every change goes through a pull request, without exception: code, docs, READMEs
 
 ### Releases
 
-Tags are named `V0.0.NN` (lightweight), made on `main` once the PRs are merged; run `git fetch --tags` first. The GitHub release is titled with the tag name and its notes are in French, like [README.fr.md](README.fr.md). A `CARD_VERSION` bump goes through its own PR like any change; a new card ships at its initial `CARD_VERSION`.
+Tags are named `V<major>.<minor>.<patch>` (lightweight) and follow semantic versioning since `V1.0.0` (the `V0.0.NN` tags came before): bump the major version for a breaking change to user dashboards (a renamed card, element or option, a removed option), the minor version for new features, the patch version for fixes only. They are made on `main` once the PRs are merged; run `git fetch --tags` first. The GitHub release is titled with the tag name and its notes are in French, like [README.fr.md](README.fr.md). A `CARD_VERSION` bump goes through its own PR like any change; a new card ships at its initial `CARD_VERSION`.
 
 Publishing the release triggers [build.yml](.github/workflows/build.yml), which builds the bundle and attaches `ha-plooum-cards.js` and its `.map` to it: check that the run passed and that both assets are on the release.
 
