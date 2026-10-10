@@ -183,6 +183,7 @@ views:
           - type: custom:ha-plooum-multi-status-card
             title: A very long pond title
             condensed: true
+            badge_position: right
             tap_action_type: none
             temp_entity: sensor.pond_temperature
             status_items: *condensed_items

@@ -11986,7 +11986,7 @@ void main() {
     });
   }
 
-  const CARD_VERSION = '1.2.0';
+  const CARD_VERSION = '1.3.0';
 
   // States treated as "unavailable" (on top of an entity that doesn't exist).
   const UNAVAILABLE_STATES = ['unavailable', 'unknown'];
@@ -12102,7 +12102,7 @@ void main() {
           ? 'grid-template-areas: "title" "temp" "status"; grid-template-rows: auto auto auto;'
           : 'grid-template-areas: "title" "status"; grid-template-rows: auto auto;';
       const cardClass = condensed
-        ? `condensed ${this._titleAsBadge ? 'badge-title' : ''}`
+        ? `condensed ${this._titleAsBadge ? 'badge-title' : ''} ${this.config.badge_position === 'right' ? 'badge-right' : ''}`
         : showTemp ? '' : 'compact';
 
       return b`
@@ -12284,7 +12284,7 @@ void main() {
       .badge-title .head .title:not(.measure) {
         position: absolute;
         top: -14px;
-        right: 4px;
+        left: 4px;
         max-width: calc(100% - 8px);
         overflow: hidden;
         text-overflow: ellipsis;
@@ -12295,6 +12295,10 @@ void main() {
         font-size: 10px;
         line-height: 16px;
         letter-spacing: 0.3px;
+      }
+      .badge-right .head .title:not(.measure) {
+        left: auto;
+        right: 4px;
       }
       .status {
         grid-column: 1 / -1;
@@ -12361,6 +12365,14 @@ void main() {
       if (this.config.show_temp !== false) {
         schema.push(
           { name: 'condensed', label: 'Condensed (title and value on one line)', selector: { boolean: {} } },
+          ...(this.config.condensed ? [{
+            name: 'badge_position',
+            label: 'Title badge position (when the line is too narrow)',
+            selector: { select: { mode: 'dropdown', options: [
+              { value: 'left', label: 'Top left' },
+              { value: 'right', label: 'Top right' }
+            ] } }
+          }] : []),
           { 
             name: 'temp_entity', 
             label: 'Main entity (e.g. temperature)', 
