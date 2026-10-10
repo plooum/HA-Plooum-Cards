@@ -27,7 +27,8 @@ This is a single HACS (Home Assistant Community Store) Lovelace plugin that bund
 
 ### Conventions
 
-- **English everywhere in cards and code**: UI strings shown by cards and editors (labels, tooltips, messages), comments, identifiers, and the dev environment. README.md is the exception: it is intentionally in French.
+- **English everywhere in cards and code**: UI strings shown by cards and editors (labels, tooltips, messages), comments, identifiers, and the dev environment.
+- **The README exists in two languages**: [README.md](README.md) in English (shown by GitHub and HACS) and [README.fr.md](README.fr.md) in French, each linking to the other at the top. Any change to one must be made to the other in the same commit.
 - Out-of-scope issues noticed while working go into [TODO.md](TODO.md), not into spawned background tasks or worktrees.
 
 ### Adding a new card
@@ -35,7 +36,7 @@ This is a single HACS (Home Assistant Community Store) Lovelace plugin that bund
 1. Create `src/cards/<card-name>/` with the card's source file, following the class/editor/registration pattern above (including the `customElements.get` existence guards).
 2. Add an import line in [src/index.js](src/index.js): `import './cards/<card-name>/<file>.js';`.
 3. Run `npm run build`.
-4. Add a row to the table in [README.md](README.md) and a `docs/<card-name>.md` file documenting its config parameters.
+4. Add a row (and a short description with a preview) to [README.md](README.md) and [README.fr.md](README.fr.md), and a `docs/<card-name>.md` file documenting its config parameters.
 5. Add a view for it in [dev/ha-config/dashboards/plooum-test.yaml](dev/ha-config/dashboards/plooum-test.yaml) (and a card in the `all` view), wired to the test entities.
 
 No other configuration (no new Rollup config, no new HACS resource) is needed — every card ships in the same bundle.
