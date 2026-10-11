@@ -8,9 +8,7 @@ _Last update: 2026-10-11, pilot session 3 (roofs and projected-facade shutters a
 
 ## Waiting on the user
 
-Floorplan topic to discuss with the user (requested 2026-10-11, after the shutters, now in the handoff's State): the user decides the design, then the pilot writes a prompt.
-
-- [ ] **Roofs in 3D**: choose how roofs and their slope are shown in the floorplan card's 3D mode. Today a hip roof is generated over each part of the home no floor covers (lean-to against a floor above), with fixed `ROOF_PITCH` / `ROOF_OVERHANG` and no config option (`docs/floorplan.md`, "3D view"). To decide: roof shapes (hip, gable, flat, lean-to…), whether the slope / shape is configurable (card-wide, per floor, per room), and how it looks.
+Nothing.
 
 ## Next
 

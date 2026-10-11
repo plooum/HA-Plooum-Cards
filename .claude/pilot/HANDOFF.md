@@ -36,10 +36,14 @@ The user works on two PCs; the pilot may start on either.
 | Skills: always watch the sub-agents | `feature/skills-always-watch`, [#23](https://github.com/plooum/HA-Plooum-Cards/pull/23) | merged 2026-10-11 |
 | Skills: `--body-file` (prompt 07) | `feature/skills-friction-07`, [#22](https://github.com/plooum/HA-Plooum-Cards/pull/22) | merged 2026-10-11 |
 | Skills: friction from prompt 06 | `feature/skills-friction-06`, [#18](https://github.com/plooum/HA-Plooum-Cards/pull/18) | merged 2026-10-11 |
+| Floorplan drawn roofs, part 1: `roofs` option + 3D (prompt 08) | `feature/floorplan-roof-zones` | sub-agent working (Sonnet, worktree) |
+| Floorplan drawn roofs, part 2: editor roof layer | — | after part 1 is merged (same file) |
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
 
 ## Decisions (user)
+
+- 2026-10-11, **roofs**: the user draws the roof like a floor: the floors' outer walls drawn as guides, **rectangular zones** (like rooms), each with **0 (flat), 1, 2, 3 or 4 slopes**, a **direction** and a **pitch per zone**; the user can add zones; zones **pre-filled from the automatic roof** when the roof layer opens; without `roofs` the automatic roof stays as today. Pilot's design: `roofs: [{x,y,w,h,slopes,direction,pitch}]`, direction north/east/south/west (north = -y), meaning per type in prompt 08; part 1 = option + 3D, part 2 = editor.
 
 - 2026-10-11, **always**: the user wants to **always be able to watch the sub-agents**: suites and hand checks in the sub-agent's own pane tab (`runner.html`), headless only for screenshots. Say so in every prompt (skills by #23).
 
@@ -69,7 +73,7 @@ The user works on two PCs; the pilot may start on either.
 
 ## Next
 
-The roofs discussion (BACKLOG.md). Merging several PRs: rebase each on the `main` left by the previous merge, wait for its CI, and re-run `dev/tests/cards-smoke.json` on a rebased branch that follows a `src/` change.
+Prompt 08 running (roofs part 1): review, show the 5 renders, merge; then prompt 09 (roofs part 2, editor). Merging several PRs: rebase each on the `main` left by the previous merge, wait for its CI, and re-run `dev/tests/cards-smoke.json` on a rebased branch that follows a `src/` change.
 
 ## Sub-agent notes
 
