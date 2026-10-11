@@ -2,9 +2,17 @@
 
 Read by the next pilot first (see the `pilot` skill). Committed straight to `main`, no PR. Keep it current.
 
-_Last update: 2026-10-11, pilot session 2 (Opus 5.5): #12–#16 merged, V1.1.1 released._
+_Last update: 2026-10-11, pilot session 3 (Opus 5.5): set up a second PC (laptop), nothing in progress._
 
 `main`'s protection: the user turned off "Lock branch" on 2026-10-11 (it blocked PR merges too); the pilot pushes `.claude/pilot/` straight to `main`. The pilot stays on `main` in the main checkout (HA on 8123) and commits the handoff there; sub-agents work in their own worktrees with their own HA (see the `pilot` skill).
+
+## Machines
+
+The user works on two PCs; the pilot may start on either.
+
+- **Desktop**: 31 GB RAM, 8 cores: 3–4 sub-agents in parallel.
+- **Laptop** (`doudou-laptop`, Linux Mint 22.3, set up 2026-10-11): **7 GB RAM**, 8 cores: **1–2 sub-agents at most** in parallel. Tools are user-level in `~/.local` (no sudo): Node 24 LTS (`~/.local/opt/node`), `gh` (`~/.local/opt/gh_*`), `uv`; all in `~/.local/bin` (on PATH via `.profile` / `.bashrc`). `gh` logged in as `plooum` (HTTPS, `gh auth setup-git`); git identity `Plooum <letailleur.edouard@gmail.com>` global. No clipboard tool: `gh auth login --web` can't copy its code, the user opens github.com/login/device by hand.
+- New PC checklist: `node`/`npm`, `uv`, `gh` + `gh auth login`, git identity, `git config fetch.prune true`, `npm install`, `npm run build`, `dev/ha.sh start` (~70 s first time: venv + HA + Playwright), then `dev/tests/cards-smoke.json` (9/9).
 
 ## State
 
