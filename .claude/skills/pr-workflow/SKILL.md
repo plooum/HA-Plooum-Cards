@@ -9,14 +9,14 @@ You were given a task by the pilot, an agent who reviews your work and loops wit
 
 ## Branch and commits
 
-- You may be in a git worktree of your own (launched with `isolation: "worktree"`): there, `dev/ha.sh start` gives you your own HA on its own port (8124+) serving your bundle; `dev/ha.sh stop` when you're done (see `ha-dev-testing`). In a worktree, create the branch off `origin/main` (`git fetch`, `git checkout -b feature/<name> origin/main`): `main` itself is checked out in the main checkout.
+- You may be in a git worktree of your own (launched with `isolation: "worktree"`): there, `dev/ha.sh start` gives you your own HA on its own port (8124+) serving your bundle; `dev/ha.sh stop` when you're done (see `ha-dev-testing`). In a worktree, create the branch off `origin/main` (`git fetch`, `git checkout -b feature/<name> origin/main`): `main` itself is checked out in the main checkout. Such a branch tracks `origin/main` until your first `git push -u origin feature/<name>`: always push with `-u`.
 - Start from an up-to-date `main`: `git checkout main`, `git fetch`, `git pull --ff-only`, then `git checkout -b feature/<name>` (the name the prompt gives).
 - Never `tags/` in a branch name: HACS strips it from download URLs and its validation fails.
 - Never commit on `main`, never merge, never force-push anything but your own feature branch.
 - The bundle (`ha-plooum-cards.js`, `.map`) is gitignored: run `npm run build` to test, never commit it. Don't commit screenshots or scratch scripts either: keep them in `dev/shots/` (gitignored) or a scratch directory.
 - Don't bump `CARD_VERSION`: that's a separate PR.
 - Commit messages: English, imperative subject, end with the attribution line from your system prompt (`Co-Authored-By: ...`).
-- Run git steps as separate commands rather than one long `&&` chain.
+- Run git steps as separate commands rather than one long `&&` chain. In a worktree the sandbox refuses "too complex" commands outright: brace expansion, and `git` mixed with `&&`, `;`, a heredoc or `python3 -`. Run plain separate commands, and write multi-line scripts or file edits with the Write / Edit tools.
 
 ## Code conventions (from CLAUDE.md)
 
