@@ -42,6 +42,8 @@ Switch it to **3D** and the same plan becomes a model of your home and garden, w
 
 By default the roof is generated. Set `roofs` to draw it yourself, as rectangular **roof zones** (in plan units, like rooms). Without `roofs`, the generated roof is unchanged; with it, only your zones are roofed (`roofs: []` shows no roof at all).
 
+You don't have to write it by hand: the editor draws it (step 11 of [Using the editor](#using-the-editor)).
+
 | Option | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `x`, `y`, `w`, `h` | number | **Required** | The zone's rectangle, `w` and `h` greater than 0. |
@@ -87,6 +89,7 @@ floors: [...]
 8. **Remove an entity**: drag it out of the plan, or select it and click **Remove from plan**.
 9. **Undo** (button or `Ctrl+Z`) reverts the last changes. With the plan focused, arrows move the selection, `Shift` + arrows resize a room, `Delete` removes it.
 10. **Floors**: `+ Floor` adds one (floors are stacked in this order in 3D, the first one on the ground); `+ Same walls` adds one with the same walls as the current floor (its indoor rooms, renamed `Room 1`, `Room 2`…, without their entities). Select no room nor entity to rename or delete the current floor.
+11. **Roof**: the **Roof** chip, after the floors, switches the plan to the roof layer (the entity list and `+ Same walls` give way to it). The outer walls of every floor are drawn as guides (the ground floor solid, the floors above dashed and lighter), the outdoor rooms faintly. The roof is shown as **zones**, pre-filled from the generated roof (a hip roof, or a lean-to against the floor above), each with a glyph: an arrow down every slope, a dashed ridge for 2 and 3 slopes, *flat* for none, and its pitch. Draw a zone like a room: drag on the grid, move it by its inside, resize it by the corner handles of the selected zone; `+ Roof zone` adds a 3 × 3 zone in the middle of the plan. Select a zone to choose its **Slopes** (flat, 1 slope, 2 slopes, 3 slopes, 4 slopes), its **Direction** (not for flat and 4 slopes; a line under the field says what it means for the chosen type) and its **Pitch** (5 to 60°, not for flat), or **Delete zone**. Nothing is written until you change something: the first change saves the whole list, pre-filled zones included, as `roofs`, and the preview shows the new roof in 3D. **Automatic roof** (shown while `roofs` is set) removes `roofs`, back to the generated roof. Everything is undoable. Deleting every zone leaves `roofs: []`: no roof.
 
 **From my areas** regenerates the whole plan from your areas (after confirmation).
 

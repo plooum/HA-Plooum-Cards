@@ -1,0 +1,77 @@
+// Floorplan editor: the roof layer (draw the `roofs` zones, pre-filled from the generated roof).
+// dev/.venv/bin/python dev/ui_test.py dev/tests/floorplan-roof-editor.json
+// Stack of /plooum-edit/floorplan: card 3 (index 2) "Home in 3D", card 6 (index 5) "Rooms in several zones".
+{
+  "path": "/plooum-edit/floorplan?edit=1",
+  "viewport": [1700, 1050],
+  "tests": [
+    {
+      "name": "auto zones match the automatic roof",
+      "steps": [
+        { "js": "S.faces = (card) => card._roofFaces(card._plans3d(card._floors(), 99)).all.map((f) => f.map((x) => x.pts));" },
+        { "js": "S.check = async (idx, title) => { await openEditor(idx); const ed = window.__ed; const zones = ed._autoRoofZones(); const card = previewCard(title); const cfg = JSON.parse(JSON.stringify(card.config)); delete cfg.roofs; card.setConfig(cfg); const auto = S.faces(card); card.setConfig({ ...cfg, roofs: zones }); const drawn = S.faces(card); card.setConfig(cfg); await cancelDialog(); const same = JSON.stringify(auto.map((f) => f.length)) === JSON.stringify(drawn.map((f) => f.length)) && auto.every((f, i) => f.every((pts, j) => pts.every((P, k) => P.every((v, m) => Math.abs(v - drawn[i][j][k][m]) < 1e-6)))); return { zones: zones.length, same, counts: auto.map((f) => f.length) }; };" },
+        { "js": "S.a = await S.check(2, 'Home in 3D');", "print": true },
+        { "assert": "S.a.zones > 0 && S.a.same", "msg": "Home in 3D: the zones give the faces (walls included) of the automatic roof (1e-6)", "show": "JSON.stringify(S.a)" },
+        { "js": "S.b = await S.check(5, 'Rooms in several zones');", "print": true },
+        { "assert": "S.b.zones > 0 && S.b.same", "msg": "Rooms in several zones: the zones give the faces (walls included) of the automatic roof (1e-6)", "show": "JSON.stringify(S.b)" }
+      ]
+    },
+    {
+      "name": "roof layer shows guides and pre-filled zones",
+      "steps": [
+        { "js": "await openEditor(2); S.ed = window.__ed; S.chip = () => deep(S.ed.shadowRoot, '.chip.roof')[0]; S.chip().click(); await S.ed.updateComplete;" },
+        { "assert": "S.chip().classList.contains('active') && S.ed._roofLayer === true", "msg": "the Roof chip selects the layer" },
+        { "assert": "deep(S.ed.shadowRoot, '.e-guide:not(.upper)').length > 0 && deep(S.ed.shadowRoot, '.e-guide.upper').length > 0", "msg": "guides of both floors (ground solid, upper dashed)" },
+        { "assert": "deep(S.ed.shadowRoot, '.e-roof').length === S.ed._autoRoofZones().length && deep(S.ed.shadowRoot, '.rz-glyph').length === S.ed._autoRoofZones().length && deep(S.ed.shadowRoot, '.e-roof').length > 0", "msg": "as many zones (with glyphs) as autoRoofZones gives", "show": "deep(S.ed.shadowRoot, '.e-roof').length" },
+        { "assert": "deep(S.ed.shadowRoot, '.palette').length === 0", "msg": "the entity palette is hidden" },
+        { "assert": "!deep(S.ed.shadowRoot, 'button').some((b) => b.textContent.includes('Same walls'))", "msg": "+ Same walls is hidden" },
+        { "assert": "S.ed._config.roofs === undefined", "msg": "nothing written to the config yet" },
+        { "assert": "S.ed.shadowRoot.textContent.includes('Automatic roof: change any zone')", "msg": "the automatic roof hint" },
+        { "js": "await sleep(200);" },
+        { "shot": "roof-editor-layer.png" }
+      ]
+    },
+    {
+      "name": "first change writes the roofs",
+      "steps": [
+        { "js": "await openEditor(2); S.ed = window.__ed; S.last = null; S.ed.addEventListener('config-changed', (e) => (S.last = e.detail.config)); deep(S.ed.shadowRoot, '.chip.roof')[0].click(); await S.ed.updateComplete; S.auto = S.ed._autoRoofZones(); S.ed._selection = { kind: 'roof', index: 0 }; await S.ed.updateComplete;" },
+        { "assert": "deep(S.ed.shadowRoot, '.selection ha-form').length === 1 && S.ed.shadowRoot.textContent.includes('Delete zone')", "msg": "the zone's panel is shown" },
+        { "js": "const form = deep(S.ed.shadowRoot, '.selection ha-form')[0]; form.dispatchEvent(new CustomEvent('value-changed', { detail: { value: { slopes: '2', direction: 'east', pitch: 45 } }, bubbles: true, composed: true })); await S.ed.updateComplete;" },
+        { "assert": "S.last && Array.isArray(S.last.roofs) && S.last.roofs.length === S.auto.length", "msg": "config-changed carries every pre-filled zone", "show": "JSON.stringify(S.last && S.last.roofs)" },
+        { "assert": "S.last.roofs[0].slopes === 2 && S.last.roofs[0].direction === 'east' && S.last.roofs[0].pitch === 45", "msg": "the changed zone is updated", "show": "JSON.stringify(S.last.roofs[0])" },
+        { "assert": "S.last.roofs.slice(1).every((z, i) => JSON.stringify(z) === JSON.stringify(S.auto[i + 1]))", "msg": "the other zones are the pre-filled ones" },
+        { "assert": "S.ed.shadowRoot.textContent.includes('Automatic roof') && !S.ed.shadowRoot.textContent.includes('change any zone')", "msg": "the hint gives way to the Automatic roof button" },
+        { "js": "await waitFor(() => previewCard('Home in 3D').config.roofs, 8000, 'the preview to get roofs'); S.ed.scrollIntoView(); previewCard('Home in 3D').scrollIntoView({ block: 'nearest' }); await sleep(600);" },
+        { "shot": "roof-editor-panel.png" }
+      ]
+    },
+    {
+      "name": "draw, move, delete a zone",
+      "steps": [
+        { "js": "await openEditor(2); S.ed = window.__ed; S.last = null; S.ed.addEventListener('config-changed', (e) => (S.last = e.detail.config)); deep(S.ed.shadowRoot, '.chip.roof')[0].click(); await S.ed.updateComplete; S.n = S.ed._autoRoofZones().length;" },
+        { "js": "S.cv = () => deep(S.ed.shadowRoot, '.canvas')[0]; S.at = (x, y) => { const r = S.cv().getBoundingClientRect(); const e = S.ed._ext; return { x: r.x + ((x - e.x) / e.w) * r.width, y: r.y + ((y - e.y) / e.h) * r.height }; }; await pointerDrag(S.cv(), S.at(11.5, 6), S.at(13, 7.5)); await S.ed.updateComplete;" },
+        { "assert": "S.last && S.last.roofs.length === S.n + 1", "msg": "a zone is added", "show": "JSON.stringify(S.last)" },
+        { "assert": "(() => { const z = S.last.roofs[S.n]; return z.x === 11.5 && z.y === 6 && z.w === 1.5 && z.h === 1.5 && z.slopes === 4; })()", "msg": "at the dragged rectangle, 4 slopes", "show": "JSON.stringify(S.last.roofs[S.n])" },
+        { "assert": "S.ed._selection && S.ed._selection.kind === 'roof' && S.ed._selection.index === S.n", "msg": "the new zone is selected" },
+        { "js": "const hit = deep(S.ed.shadowRoot, '.e-room-hit')[S.n]; const c = hit.getBoundingClientRect(); await pointerDrag(S.cv(), { x: c.x + c.width / 2, y: c.y + c.height / 2 }, S.at(10.75, 6.75), { target: hit }); await S.ed.updateComplete;" },
+        { "assert": "(() => { const z = S.last.roofs[S.n]; return z.x < 11.5 && z.y === 6 && z.w === 1.5; })()", "msg": "moving the zone changes its x", "show": "JSON.stringify(S.last.roofs[S.n])" },
+        { "js": "deep(S.ed.shadowRoot, '.selection .btn.danger')[0].click(); await S.ed.updateComplete;" },
+        { "assert": "S.last.roofs.length === S.n", "msg": "Delete zone removes it", "show": "S.last.roofs.length" },
+        { "js": "S.ed._undo(); await S.ed.updateComplete;" },
+        { "assert": "S.last.roofs.length === S.n + 1", "msg": "Undo restores it", "show": "S.last.roofs.length" }
+      ]
+    },
+    {
+      "name": "automatic roof button",
+      "steps": [
+        { "js": "await openEditor(2); S.ed = window.__ed; S.last = null; S.ed.addEventListener('config-changed', (e) => (S.last = e.detail.config)); deep(S.ed.shadowRoot, '.chip.roof')[0].click(); await S.ed.updateComplete; S.ed._selection = { kind: 'roof', index: 0 }; await S.ed.updateComplete; deep(S.ed.shadowRoot, '.selection ha-form')[0].dispatchEvent(new CustomEvent('value-changed', { detail: { value: { slopes: '0', direction: 'south', pitch: 35 } }, bubbles: true, composed: true })); await S.ed.updateComplete;" },
+        { "assert": "Array.isArray(S.last.roofs)", "msg": "roofs is set after a change" },
+        { "js": "S.btn = () => deep(S.ed.shadowRoot, '.roof-actions button').find((b) => b.textContent.includes('Automatic roof')); S.btn().click(); await S.ed.updateComplete;" },
+        { "assert": "!('roofs' in S.last)", "msg": "the button removes roofs from the config", "show": "JSON.stringify(S.last.roofs)" },
+        { "assert": "!S.btn()", "msg": "the button is gone" },
+        { "js": "S.ed._undo(); await S.ed.updateComplete;" },
+        { "assert": "Array.isArray(S.last.roofs) && S.last.roofs[0].slopes === 0", "msg": "undo brings the drawn roof back" }
+      ]
+    }
+  ]
+}
