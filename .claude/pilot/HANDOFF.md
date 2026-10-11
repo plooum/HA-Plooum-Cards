@@ -29,10 +29,13 @@ The user works on two PCs; the pilot may start on either.
 | Test view per card + `dev/tests/cards-smoke.json` (prompt 05) | `feature/card-smoke-tests`, [#15](https://github.com/plooum/HA-Plooum-Cards/pull/15) | merged 2026-10-11 (9/9 in ~4.5 s, also on main's HA) |
 | Skills: friction from prompts 04/05, skills PR right after each review (pilot) | `feature/skills-friction-04-05`, [#16](https://github.com/plooum/HA-Plooum-Cards/pull/16) | merged 2026-10-11 |
 | Release **V1.1.1** (six new `CARD_VERSION`s, smoke suite) | [release](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.1.1) | published 2026-10-11, both assets attached by build.yml |
+| Floorplan: windows / shutters on a projected facade, render experiments (prompt 06) | `feature/floorplan-projected-windows`, draft PR | sub-agent working (Sonnet, worktree) |
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
 
 ## Decisions (user)
+
+- 2026-10-11: two floorplan topics, **shutters first**, then roofs. Shutters on a projected facade: by default transparent / the projection on top; the user wants **renders of several variants before deciding** (prompt 06: `solid`, `faint`, `overlay`, `outline`, `hidden`). Roofs (shapes, slope, config level): to discuss after.
 
 - 2026-10-11, **very important**: the skills PR is opened **right after each review**, never postponed or batched (written in the `pilot` skill by #16).
 - 2026-10-11: **no Android test** of the setup view needed; **no new feature** for now.
@@ -50,7 +53,7 @@ The user works on two PCs; the pilot may start on either.
 
 ## Next
 
-Nothing in progress, no feature requested: see [BACKLOG.md](BACKLOG.md). Merging several PRs: rebase each on the `main` left by the previous merge, wait for its CI, and re-run `dev/tests/cards-smoke.json` on a rebased branch that follows a `src/` change.
+Prompt 06 running: review its draft PR and grids, show the user the renders, get the variant choice, then have the same sub-agent finish the PR with only that behavior (docs, tests). Then the roofs discussion (BACKLOG.md). Merging several PRs: rebase each on the `main` left by the previous merge, wait for its CI, and re-run `dev/tests/cards-smoke.json` on a rebased branch that follows a `src/` change.
 
 ## Sub-agent notes
 
