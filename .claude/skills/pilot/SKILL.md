@@ -25,7 +25,10 @@ When the user calls you "le pilote", you take this role for the whole session, w
    - the report format (see `pr-workflow`).
    - the **2 screenshots** the report must include, named after what they must show (`pr-workflow` requires two; say which ones help you check the work).
 2. **Launch.** Use the `Agent` tool, `subagent_type: general-purpose`, `model: sonnet`, in the background. Give it the prompt file's content (not just its path).
-   - **One sub-agent at a time.** There is a single dev HA on 127.0.0.1:8123, and it serves the bundle of the main checkout. Don't use `isolation: worktree`: a sub-agent in a worktree would test the main checkout's bundle, not its own code. While a sub-agent works, it owns the main checkout (it switches branches there): don't touch it.
+   - **Several sub-agents in parallel**, each launched with `isolation: "worktree"`. Each starts its own HA from its worktree (`dev/ha.sh start`, then `npm run build` there): own port (8124, 8125, ...), own token, own bundle, `node_modules` and venv linked from the main checkout (see `ha-dev-testing`). Tell it so in the prompt, and to `dev/ha.sh stop` when done. When the user wants to watch, you open one browser tab per instance (`tabs_create`, `navigate` to its URL); a sub-agent opens only its own, if it has the tools.
+   - **How many**: one HA instance takes ~270 MB, a headless Chrome suite some hundreds of MB more, and CPU is the real limit (8 cores): a suite takes 28 s alone and ~60 s with three at once. Three or four in parallel is comfortable on this machine (31 GB RAM); more just makes every suite slower. `dev/ha.sh list` shows what is running.
+   - **Disjoint work.** Parallel PRs touching the same file conflict (the floorplan card is one 7,000-line file): give them disjoint files or features, or run them one after the other. Rebase the later one on `main` after the earlier merge.
+   - You stay on `main` in the main checkout (HA on 8123): handoff commits are plain `git commit` + `git push origin main` there, and you review in it. Don't switch its branch.
 3. **Review.** When the sub-agent reports:
    - look at its 2 screenshots first;
    - read the PR's diff (`gh pr diff N`) in full, and check its CI (`gh pr checks N`);
@@ -34,7 +37,8 @@ When the user calls you "le pilote", you take this role for the whole session, w
 4. **Iterate.** Send the problems back to **the same** sub-agent with `SendMessage` (it keeps its context). Don't spawn a new one for a fix. Repeat until the PR is clean.
 5. **Present to the user.** Only then: in French, what the PR does, what you checked, screenshots, and what you're unsure about. Ask for the merge approval (CLAUDE.md: never merge without it). Once approved, merge it yourself as CLAUDE.md says.
 6. **Improve the skills.** From the sub-agent's "Friction" section and from your own review, add what would have saved time to the right skill (see below). Skill changes go through a PR (`feature/skills-<topic>`), like any repo file.
-7. **Update the handoff** (see below) at each step: launch, report, review, merge.
+7. **After a merge**: in the sub-agent's worktree `dev/ha.sh stop`, then `git worktree remove <path>` and delete its local branch. Check `dev/ha.sh list` shows no leftover instance.
+8. **Update the handoff** (see below) at each step: launch, report, review, merge.
 
 Only ask the user when a decision is really theirs (design, scope, a broken assumption), or for a merge approval. Sort out everything else with the sub-agent.
 
@@ -67,7 +71,7 @@ Add a skill per card or per kind of work when a sub-agent loses time on it, e.g.
 
 [.claude/pilot/HANDOFF.md](../../pilot/HANDOFF.md) is the pilot's memory between sessions. The user's exception to the PR rule: the handoff and the prompts in `.claude/pilot/` are committed **directly on `main`**, without a PR (`git commit` + `git push origin main`, never force).
 
-While a sub-agent owns the main checkout, commit them from a **detached** worktree of `origin/main` instead of switching branches under it (a worktree on `main` itself fails when the main checkout is on `main`):
+Normally you are on `main` in the main checkout and commit them there. **Fallback**, only if a sub-agent works in the main checkout (no worktree) and you can't switch branches under it, commit them from a **detached** worktree of `origin/main` (a worktree on `main` itself fails when the main checkout is on `main`):
 
 ```bash
 git worktree add --detach ../HA-Plooum-Cards-pilot origin/main   # once

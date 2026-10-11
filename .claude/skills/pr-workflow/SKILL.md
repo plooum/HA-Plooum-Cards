@@ -9,6 +9,7 @@ You were given a task by the pilot, an agent who reviews your work and loops wit
 
 ## Branch and commits
 
+- You may be in a git worktree of your own (launched with `isolation: "worktree"`): there, `dev/ha.sh start` gives you your own HA on its own port (8124+) serving your bundle; `dev/ha.sh stop` when you're done (see `ha-dev-testing`). In a worktree, create the branch off `origin/main` (`git fetch`, `git checkout -b feature/<name> origin/main`): `main` itself is checked out in the main checkout.
 - Start from an up-to-date `main`: `git checkout main`, `git fetch`, `git pull --ff-only`, then `git checkout -b feature/<name>` (the name the prompt gives).
 - Never `tags/` in a branch name: HACS strips it from download URLs and its validation fails.
 - Never commit on `main`, never merge, never force-push anything but your own feature branch.
