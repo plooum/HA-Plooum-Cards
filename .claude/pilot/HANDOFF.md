@@ -11,8 +11,9 @@ _Last update: 2026-10-11, pilot session 1 (Opus 5.5)._
 | Item | Branch / PR | Status |
 | :--- | :--- | :--- |
 | Pilot workflow: skills `pilot`, `pr-workflow`, `ha-dev-testing` (+ `editor_shot.py`), `floorplan-card`; CLAUDE.md Pilot mode | `feature/pilot-workflow`, [#6](https://github.com/plooum/HA-Plooum-Cards/pull/6) | merged 2026-10-11 |
-| Floorplan editor: 3D setup view following the projection's alignment | `feature/floorplan-setup-view`, [#7](https://github.com/plooum/HA-Plooum-Cards/pull/7) | merged 2026-10-11 (not tested yet in the Android app; no `CARD_VERSION` bump yet) |
-| Skills: friction from the setup view sub-agent | `feature/skills-setup-view-friction`, [#8](https://github.com/plooum/HA-Plooum-Cards/pull/8) | waiting for the user's merge approval |
+| Floorplan editor: 3D setup view following the projection's alignment | `feature/floorplan-setup-view`, [#7](https://github.com/plooum/HA-Plooum-Cards/pull/7) | merged 2026-10-11 (not tested yet in the Android app) |
+| Skills: friction from the setup view sub-agent | `feature/skills-setup-view-friction`, [#8](https://github.com/plooum/HA-Plooum-Cards/pull/8) | merged 2026-10-11 |
+| Floorplan `CARD_VERSION` 1.8.0 + release **V1.1.0** | [#9](https://github.com/plooum/HA-Plooum-Cards/pull/9), [release](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.1.0) | merged and published 2026-10-11, both assets attached by build.yml |
 
 The local branch `feature/dpad-keyboard` existed before this session, untouched and unpushed: not ours, leave it.
 
@@ -25,8 +26,7 @@ The local branch `feature/dpad-keyboard` existed before this session, untouched 
 
 ## Next
 
-1. Get #8 merged (user approval).
-2. Ask the user what's next: a `CARD_VERSION` bump + release for the setup view (minor: new feature), or the next development.
+Nothing in progress. Ask the user for the next development. Open point: the setup view hasn't been tried in the HA Android app (HA may hide the dialog's preview there instead of stacking it; the code handles both).
 
 ## Sub-agent notes
 
