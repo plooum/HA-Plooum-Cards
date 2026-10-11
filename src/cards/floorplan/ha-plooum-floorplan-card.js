@@ -1000,9 +1000,27 @@ function slopeFace(O, u, v) {
 // A vertical wall of a roof (gable, high wall), `n` its outward normal.
 const roofWall = (pts, n) => ({ pts, n, wall: true, plane: { o: pts[0], a: norm3(sub3(pts[1], pts[0])), b: [0, 0, 1], up: n } });
 
+// The part of the polygon `pts` (a vertical wall) with t0 <= tOf(P) <= t1, in order (Sutherland-Hodgman).
+function clipRoofEnd(pts, tOf, t0, t1) {
+  const clip = (poly, keep) => {
+    const out = [];
+    poly.forEach((P, i) => {
+      const Q = poly[(i + 1) % poly.length];
+      const p = keep(P);
+      const q = keep(Q);
+      if (p >= 0) out.push(P);
+      if ((p >= 0) !== (q >= 0)) out.push(add3(P, mul3(sub3(Q, P), p / (p - q))));
+    });
+    return out;
+  };
+  const piece = clip(clip(pts, (P) => tOf(P) - t0), (P) => t1 - tOf(P));
+  const w = piece.length ? Math.abs(Math.max(...piece.map(tOf)) - Math.min(...piece.map(tOf))) : 0;
+  return w < 0.01 ? [] : piece;
+}
+
 // The faces of a roof zone whose walls stop at height z: its slopes `{ pts, n, plane }` and its vertical
 // walls (same plus `wall: true`, drawn in the wall color); a flat roof is one face with `flat: true`.
-// `above`: the rooms of the floors above, for the lean-to's gable end (see below).
+// `above`: the rooms of the zone's floor and the floors above, for the lean-to's gable end (see below).
 function zoneFaces(zone, z, above = []) {
   const kind = zone.slopes === undefined ? 4 : zone.slopes;
   const rise = zone.pitch === undefined || zone.pitch === ROOF_DEFAULT_PITCH_DEG ? ROOF_PITCH : Math.tan(toRad(zone.pitch));
@@ -1022,18 +1040,29 @@ function zoneFaces(zone, z, above = []) {
     const ends = [];
     for (const s of slopes) for (const P of s.pts) if (Math.abs(line(P)) < 1e-6 && !ends.some((Q) => len3(sub3(P, Q)) < 1e-6)) ends.push(P);
     ends.sort((P, Q) => P[0] * -d[1] + P[1] * d[0] - (Q[0] * -d[1] + Q[1] * d[0]));
-    // No gable end where the side lies along a floor above: it would be coplanar with that wall.
-    const strictly = (r, x, y) => x > r.x && x < r.x + r.w && y > r.y && y < r.y + r.h;
-    const length = Math.abs(d[1]) * rect.w + Math.abs(d[0]) * rect.h;
-    const steps = Math.max(2, Math.ceil(length / 0.25));
-    let leaning = false;
-    for (let i = 0; i < steps && !leaning; i++) {
-      const t = (i + 0.5) / steps;
-      const x = d[0] ? a[0] + d[0] * 0.01 : rect.x + rect.w * t;
-      const y = d[1] ? a[1] + d[1] * 0.01 : rect.y + rect.h * t;
-      leaning = above.some((r) => strictly(r, x, y));
+    // The gable end is omitted where a room above stands just beyond the side (it would be coplanar with
+    // that wall), or a room of the zone's own floor (more of the same roof, as in the generated roof): keep it only over the side's uncovered intervals, measured along t.
+    const tOf = (P) => P[0] * -d[1] + P[1] * d[0];
+    const lo = d[1] ? rect.x : rect.y;
+    const hi = lo + (d[1] ? rect.w : rect.h);
+    const covered = above
+      .filter((r) => (d[1] ? r.y : r.x) < (d[1] ? a[1] : a[0]) + 0.01 * (d[1] || d[0]) && (d[1] ? a[1] : a[0]) + 0.01 * (d[1] || d[0]) < (d[1] ? r.y + r.h : r.x + r.w))
+      .map((r) => (d[1] ? [r.x, r.x + r.w] : [r.y, r.y + r.h]))
+      .sort((P, Q) => P[0] - Q[0]);
+    // t runs along -d[1] / d[0]: flip the intervals' sign when the axis is reversed.
+    const sign = d[1] ? -d[1] : d[0];
+    const walls = [];
+    let from = lo;
+    for (const [c0, c1] of [...covered, [hi, hi]]) {
+      if (c0 > from + 0.01) {
+        const t0 = Math.min(sign * from, sign * Math.min(c0, hi));
+        const t1 = Math.max(sign * from, sign * Math.min(c0, hi));
+        const piece = clipRoofEnd(ends, tOf, t0, t1);
+        if (piece.length >= 3) walls.push(roofWall(piece, [d[0], d[1], 0]));
+      }
+      from = Math.max(from, c1);
     }
-    return ends.length >= 3 && !leaning ? [...slopes, roofWall(ends, [d[0], d[1], 0])] : slopes;
+    return ends.length >= 3 ? [...slopes, ...walls] : slopes;
   }
   // Shed and gable: along the slope direction d (L long) and across it, along p (W wide).
   const p = [-d[1], d[0]];
@@ -1080,7 +1109,7 @@ function roofsFor(floors, H, roofs) {
   const out = floors.map(() => []);
   for (const zone of roofs) {
     const k = zoneFloor(zone, floors);
-    out[k].push(...zoneFaces(zone, floors[k].z0 + H, floors.slice(k + 1).flatMap((g) => g.rooms)));
+    out[k].push(...zoneFaces(zone, floors[k].z0 + H, floors.slice(k).flatMap((g) => g.rooms)));
   }
   return out;
 }

@@ -47,6 +47,18 @@
       ]
     },
     {
+      "name": "3-slope gable end only where the side is free",
+      "steps": [
+        { "js": "S.card = await waitFor(() => T.card.all('ha-plooum-floorplan-card').find((c) => c.config.title === 'Home, drawn roof' && c._scene3dState), 15000, 'the drawn roof card'); S.cfg = JSON.parse(JSON.stringify(S.card.config)); S.walls = (zone) => { S.card.setConfig({ ...S.cfg, roofs: [zone] }); return S.card._roofFaces(S.card._plans3d(S.card._floors(), 99)).all.flat().filter((x) => x.wall); };" },
+        { "js": "S.part = S.walls({ x: -3, y: 4, w: 11, h: 1, slopes: 3, direction: 'north' }); S.xs = S.part.flatMap((w) => w.pts.map((P) => P[0]));" },
+        { "assert": "S.part.length >= 1 && Math.max(...S.xs) <= 1e-6", "msg": "no gable end over x 0..8 (against the upstairs)", "show": "JSON.stringify(S.part.map((w) => w.pts))" },
+        { "assert": "Math.abs(Math.min(...S.xs) + 3) < 1e-6", "msg": "the gable end covers the free part, down to x -3", "show": "Math.min(...S.xs)" },
+        { "assert": "S.walls({ x: 0, y: 4, w: 8, h: 1, slopes: 3, direction: 'north' }).length === 0", "msg": "fully covered side: no gable end" },
+        { "assert": "S.walls({ x: -3, y: 4, w: 2, h: 1, slopes: 3, direction: 'north' }).length === 1", "msg": "free side: one gable end" },
+        { "js": "S.card.setConfig(S.cfg);" }
+      ]
+    },
+    {
       "name": "projection on drawn roof",
       "steps": [
         { "js": "S.card = await waitFor(() => T.card.all('ha-plooum-floorplan-card').find((c) => c.config.title === 'Home, drawn roof' && c._frame3d), 15000, 'the drawn roof card'); S.carries = () => (S.card._frame3d.meshes || []).filter((m) => m.mode === 3 && m.overlays.some((o) => o.proj));" },
