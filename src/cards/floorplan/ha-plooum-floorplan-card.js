@@ -1073,6 +1073,24 @@ function roofsFor(floors, H, roofs) {
   return out;
 }
 
+// The generated roof as drawn zones (what the editor's roof layer starts from): for each of `floors`
+// ([{ rooms: indoor rooms }], bottom up), its roof rectangles, a lean-to (3 slopes, against the floor
+// above) or a hip roof (4 slopes). roofsFor() of these zones gives the faces of the generated roof,
+// except the vertical gable end that a 3-slope zone adds against the wall above (no visible difference).
+function autoRoofZones(floors) {
+  const names = Object.keys(ROOF_DIRECTIONS);
+  return floors.flatMap((f, i) => {
+    const above = floors.slice(i + 1).flatMap((g) => g.rooms);
+    return roofRects(f.rooms, above).map((rect) => {
+      const lean = leanSide(rect, f.rooms, above);
+      const zone = { x: rect.x, y: rect.y, w: rect.w, h: rect.h, slopes: lean ? 3 : 4 };
+      if (lean) zone.direction = names.find((k) => ROOF_DIRECTIONS[k][0] === lean.n[0] && ROOF_DIRECTIONS[k][1] === lean.n[1]);
+      zone.pitch = ROOF_DEFAULT_PITCH_DEG;
+      return zone;
+    });
+  });
+}
+
 // The 6 faces of a box centered on c, with half-extent vectors X, Y, Z. The +X face comes first.
 function boxFaces(c, X, Y, Z) {
   const p = (sx, sy, sz) => add3(add3(add3(c, mul3(X, sx)), mul3(Y, sy)), mul3(Z, sz));
@@ -5684,6 +5702,7 @@ class HaPlooumFloorplanCardEditor extends LitElement {
       _config: { state: true },
       _floorIndex: { state: true },
       _selection: { state: true },
+      _roofLayer: { state: true },
       _drag: { state: true },
       _search: { state: true },
       _filter: { state: true },
@@ -5708,11 +5727,12 @@ class HaPlooumFloorplanCardEditor extends LitElement {
     this._matches = {}; // `${reference url}|${snapshot url}` -> matchPicture() verdict, null while comparing
     this._aspects = {}; // camera id -> picture aspect ratio
     this._floorIndex = 0;
-    this._selection = null; // { kind: 'room' | 'entity', index }
+    this._selection = null; // { kind: 'room' | 'entity' | 'roof', index }
+    this._roofLayer = false; // the roof layer is shown (zones of the `roofs` option) instead of a floor
     this._drag = null;
     this._search = '';
     this._filter = 'suggested';
-    this._history = []; // previous `floors` values, for undo (the HA card editor has none)
+    this._history = []; // previous { floors, roofs } values, for undo (the HA card editor has none)
     this._extentCache = null;
     this._narrow = false; // the dialog doesn't show the preview's card (a narrow screen): see _checkLayout()
     this._cvMode = 'setup'; // 'setup' (the camera view) | 'preview' (a 3D view of the setup view), narrow layout only
@@ -5871,11 +5891,92 @@ class HaPlooumFloorplanCardEditor extends LitElement {
 
   // `mergeKey`: consecutive commits with the same key (typing in one field) make a single undo step.
   _commitFloors(floors, mergeKey = null) {
+    this._remember(mergeKey);
+    this._setFloors(floors);
+  }
+
+  _remember(mergeKey) {
     if (!mergeKey || mergeKey !== this._lastMergeKey) {
-      this._history = [...this._history.slice(-49), this._config.floors];
+      this._history = [...this._history.slice(-49), { floors: this._config.floors, roofs: this._config.roofs }];
     }
     this._lastMergeKey = mergeKey;
-    this._setFloors(floors);
+  }
+
+  // Sets or removes (undefined) the `roofs` option.
+  _setRoofs(roofs) {
+    const config = { ...this._config, roofs };
+    if (roofs === undefined) delete config.roofs;
+    this._config = config;
+    this.dispatchEvent(new CustomEvent('config-changed', { detail: { config }, bubbles: true, composed: true }));
+  }
+
+  // --- Roof zones ----------------------------------------------------------
+
+  // The indoor rooms of every floor, bottom up, as roofsFor() takes them.
+  _roofStack() {
+    const H = this._wallHeight();
+    return this._floors().map((f, k) => ({ rooms: (f.rooms || []).map(normalizeRoom).filter((r) => !r.outdoor), z0: k * (H + SLAB) }));
+  }
+
+  _autoRoofZones() {
+    return autoRoofZones(this._roofStack());
+  }
+
+  _isAutoRoof() {
+    return !Array.isArray(this._config.roofs);
+  }
+
+  // The zones shown in the roof layer: the drawn ones, else the generated roof as zones.
+  _roofZones() {
+    return this._isAutoRoof() ? this._autoRoofZones() : this._config.roofs;
+  }
+
+  // Applies `fn` to a copy of the zones and saves them as the `roofs` option (the first change writes the pre-filled list).
+  _editRoofs(fn, mergeKey = null) {
+    const zones = JSON.parse(JSON.stringify(this._roofZones()));
+    fn(zones);
+    this._remember(mergeKey);
+    this._setRoofs(zones);
+  }
+
+  _showRoofLayer() {
+    this._roofLayer = true;
+    this._selection = null;
+    this._extentCache = null;
+  }
+
+  _addRoofZone() {
+    const ext = this._ext || { x: 0, y: 0, w: 14, h: 8 };
+    const x = snap(ext.x + ext.w / 2 - 1.5, ROOM_SNAP);
+    const y = snap(ext.y + ext.h / 2 - 1.5, ROOM_SNAP);
+    let index = 0;
+    this._editRoofs((zones) => {
+      zones.push({ x, y, w: 3, h: 3, slopes: 4, pitch: ROOF_DEFAULT_PITCH_DEG });
+      index = zones.length - 1;
+    });
+    this._selection = { kind: 'roof', index };
+  }
+
+  // Back to the generated roof.
+  _automaticRoof() {
+    this._remember(null);
+    this._selection = null;
+    this._setRoofs(undefined);
+  }
+
+  // The slopes / direction / pitch form of a zone.
+  _roofChanged(ev) {
+    const sel = this._selection;
+    const v = ev.detail.value;
+    const slopes = Number(v.slopes);
+    this._editRoofs((zones) => {
+      const z = zones[sel.index];
+      z.slopes = slopes;
+      if (slopes >= 1 && slopes <= 3) z.direction = v.direction || z.direction || 'south';
+      else delete z.direction;
+      if (slopes === 0) delete z.pitch;
+      else z.pitch = clamp(num(v.pitch, ROOF_DEFAULT_PITCH_DEG), ROOF_PITCH_RANGE[0], ROOF_PITCH_RANGE[1]);
+    }, `roof:${sel.index}`);
   }
 
   // `floors` undefined means "generated from the areas".
@@ -5892,7 +5993,12 @@ class HaPlooumFloorplanCardEditor extends LitElement {
     this._history = this._history.slice(0, -1);
     this._selection = null;
     this._extentCache = null;
-    this._setFloors(previous);
+    this._lastMergeKey = null;
+    const config = { ...this._config, floors: previous.floors, roofs: previous.roofs };
+    if (config.floors === undefined) delete config.floors;
+    if (config.roofs === undefined) delete config.roofs;
+    this._config = config;
+    this.dispatchEvent(new CustomEvent('config-changed', { detail: { config }, bubbles: true, composed: true }));
   }
 
   // Applies `fn` to a copy of the current floor and saves the result (a generated plan becomes the user's own).
@@ -5912,6 +6018,7 @@ class HaPlooumFloorplanCardEditor extends LitElement {
     const floors = this._floors();
     const fi = this._currentFloorIndex();
     const floor = this._applyDrag(floors[fi]);
+    const roofLayer = this._roofLayer;
 
     const schema = [
       { name: 'title', label: 'Title', selector: { text: {} } },
@@ -6008,12 +6115,15 @@ class HaPlooumFloorplanCardEditor extends LitElement {
       <div class="editor">
         <div class="floor-tabs">
           ${floors.map(
-            (f, i) => html`<button class="chip ${i === fi ? 'active' : ''}" @click=${() => this._selectFloor(i)}>
+            (f, i) => html`<button class="chip ${i === fi && !roofLayer ? 'active' : ''}" @click=${() => this._selectFloor(i)}>
               ${f.name || `Floor ${i + 1}`}
             </button>`
           )}
+          <button class="chip roof ${roofLayer ? 'active' : ''}" title="Draw the roof" @click=${this._showRoofLayer}>
+            <ha-icon icon="mdi:home-roof"></ha-icon> Roof
+          </button>
           <button class="chip add" title="Add a floor" @click=${this._addFloor}>+ Floor</button>
-          ${(floors[fi].rooms || []).some((r) => !r.outdoor)
+          ${!roofLayer && (floors[fi].rooms || []).some((r) => !r.outdoor)
             ? html`<button class="chip add" title="Add a floor with the same walls as ${floors[fi].name || 'this floor'}" @click=${this._addFloorSameWalls}>
                 + Same walls
               </button>`
@@ -6031,7 +6141,9 @@ class HaPlooumFloorplanCardEditor extends LitElement {
               </button>`}
         </div>
 
-        ${this._isGenerated()
+        ${roofLayer
+          ? this._renderRoofHints()
+          : this._isGenerated()
           ? html`<div class="hint generated">
               <ha-icon icon="mdi:auto-fix"></ha-icon>
               Generated from your Home Assistant areas: fix anything that is wrong by dragging it, and the
@@ -6045,8 +6157,8 @@ class HaPlooumFloorplanCardEditor extends LitElement {
 
         <!-- Plan and entity list side by side when the editor is wide enough (container query). -->
         <div class="workspace">
-          <div class="main">${this._renderCanvas(floor)} ${this._renderSelection(floor)}</div>
-          ${this._renderPalette(floors)}
+          <div class="main">${roofLayer ? this._renderRoofCanvas() : this._renderCanvas(floor)} ${this._renderSelection(floor)}</div>
+          ${roofLayer ? nothing : this._renderPalette(floors)}
         </div>
 
         <div class="section-title">Card settings</div>
@@ -6100,7 +6212,7 @@ class HaPlooumFloorplanCardEditor extends LitElement {
     let y1 = Math.floor(Math.min(...ys)) - 1;
     let x2 = Math.max(x1 + 14, Math.ceil(Math.max(...xs)) + 2);
     let y2 = Math.max(y1 + 8, Math.ceil(Math.max(...ys)) + 2);
-    const fi = this._currentFloorIndex();
+    const fi = this._roofLayer ? -1 : this._currentFloorIndex();
     const prev = this._extentCache && this._extentCache.floor === fi ? this._extentCache.ext : null;
     if (prev) {
       x1 = Math.min(x1, prev.x);
@@ -6222,6 +6334,139 @@ class HaPlooumFloorplanCardEditor extends LitElement {
     `;
   }
 
+  _renderRoofHints() {
+    const auto = this._isAutoRoof();
+    return html`<div class="hint">
+        <ha-icon icon="mdi:gesture-tap-hold"></ha-icon>
+        <span>Drag on the grid to add a roof zone. Select a zone to set its slopes, direction and pitch.</span>
+      </div>
+      ${auto
+        ? html`<div class="hint generated">
+            <ha-icon icon="mdi:auto-fix"></ha-icon>
+            <span>Automatic roof: change any zone and the roof becomes yours.</span>
+          </div>`
+        : nothing}
+      <div class="roof-actions">
+        <button class="btn flat" @click=${this._addRoofZone}><ha-icon icon="mdi:plus"></ha-icon> Roof zone</button>
+        ${auto
+          ? nothing
+          : html`<button class="btn flat" title="Forget the drawn zones: the roof is generated again" @click=${this._automaticRoof}>
+              <ha-icon icon="mdi:auto-fix"></ha-icon> Automatic roof
+            </button>`}
+      </div>`;
+  }
+
+  // The glyph of a roof zone: an arrow down each slope, the ridge for 2 and 3 slopes, "flat" for none.
+  _roofGlyph(z) {
+    const n = z.slopes === undefined ? 4 : z.slopes;
+    if (n === 0) return html`<span class="rz-flat">flat</span>`;
+    const d = ROOF_DIRECTIONS[z.direction || 'south'];
+    const arrow = (dx, dy, from, to) => {
+      const x1 = 50 + dx * from;
+      const y1 = 50 + dy * from;
+      const x2 = 50 + dx * to;
+      const y2 = 50 + dy * to;
+      const px = -dy * 7;
+      const py = dx * 7;
+      const hx = 50 + dx * (to - 12);
+      const hy = 50 + dy * (to - 12);
+      return svg`<line x1=${x1} y1=${y1} x2=${x2} y2=${y2}></line>
+        <polygon points="${x2},${y2} ${hx + px},${hy + py} ${hx - px},${hy - py}"></polygon>`;
+    };
+    const parts = [];
+    if (n === 1) parts.push(arrow(d[0], d[1], -22, 26));
+    else if (n === 2) {
+      parts.push(svg`<line class="ridge" x1=${50 - Math.abs(d[1]) * 40} y1=${50 - Math.abs(d[0]) * 40} x2=${50 + Math.abs(d[1]) * 40} y2=${50 + Math.abs(d[0]) * 40}></line>`);
+      parts.push(arrow(d[0], d[1], 6, 40), arrow(-d[0], -d[1], 6, 40));
+    } else if (n === 3) {
+      // The ridge runs towards the side without a slope.
+      parts.push(svg`<line class="ridge" x1="50" y1="50" x2=${50 + d[0] * 42} y2=${50 + d[1] * 42}></line>`);
+      parts.push(arrow(-d[0], -d[1], 6, 40), arrow(-d[1], d[0], 6, 40), arrow(d[1], -d[0], 6, 40));
+    } else {
+      for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) parts.push(arrow(dx, dy, 8, 40));
+    }
+    return html`<svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">${parts}</svg>
+      <span class="rz-pitch">${z.pitch === undefined ? ROOF_DEFAULT_PITCH_DEG : z.pitch}°</span>`;
+  }
+
+  // The roof layer of the canvas: the outer walls of every floor as guides, and the roof zones.
+  _renderRoofCanvas() {
+    const floors = this._floors();
+    const zones = this._applyRoofDrag(this._roofZones());
+    const ext = this._extent({ rooms: [...floors.flatMap((f) => f.rooms || []), ...zones], entities: [] });
+    this._ext = ext;
+    const px = (x) => ((x - ext.x) / ext.w) * 100;
+    const py = (y) => ((y - ext.y) / ext.h) * 100;
+    const sel = this._selection;
+    const selected = sel && sel.kind === 'roof' ? zones[sel.index] : null;
+    const guides = floors
+      .map((f, k) => ({ k, segs: wallSegments((f.rooms || []).map(normalizeRoom).filter((r) => !r.outdoor)).filter((s) => s.normal) }))
+      .reverse()
+      .flatMap(({ k, segs }) =>
+        segs.map((s) =>
+          s.o === 'h'
+            ? svg`<line class="e-guide ${k ? 'upper' : ''}" x1=${s.a} y1=${s.at} x2=${s.b} y2=${s.at}></line>`
+            : svg`<line class="e-guide ${k ? 'upper' : ''}" x1=${s.at} y1=${s.a} x2=${s.at} y2=${s.b}></line>`
+        )
+      );
+    return html`
+      <div
+        class="canvas roof-layer"
+        style="aspect-ratio: ${ext.w} / ${ext.h};"
+        tabindex="0"
+        @pointerdown=${this._canvasDown}
+        @pointermove=${this._canvasMove}
+        @pointerup=${this._canvasUp}
+        @pointercancel=${this._canvasCancel}
+        @keydown=${this._canvasKey}
+      >
+        <svg class="layer" viewBox="${ext.x} ${ext.y} ${ext.w} ${ext.h}" preserveAspectRatio="none">
+          <defs>
+            <pattern id="grid" width="1" height="1" patternUnits="userSpaceOnUse">
+              <path d="M 1 0 L 0 0 0 1" class="grid-line"></path>
+            </pattern>
+          </defs>
+          <rect x=${ext.x} y=${ext.y} width=${ext.w} height=${ext.h} fill="url(#grid)"></rect>
+          ${floors.flatMap((f) =>
+            (f.rooms || []).map(normalizeRoom).filter((r) => r.outdoor).map((r) => svg`<rect class="e-room outdoor faint" x=${r.x} y=${r.y} width=${r.w} height=${r.h}></rect>`)
+          )}
+          ${zones.map((z) => svg`<rect class="e-roof ${selected === z ? 'selected' : ''}" x=${z.x} y=${z.y} width=${z.w} height=${z.h}></rect>`)}
+          ${guides}
+          ${zones.map((z, i) => {
+            const inset = Math.min(EDGE_DRAW_ZONE, z.w / 4, z.h / 4);
+            return svg`<rect class="e-room-hit" data-kind="roof" data-index=${i}
+              x=${z.x + inset} y=${z.y + inset} width=${z.w - 2 * inset} height=${z.h - 2 * inset}></rect>`;
+          })}
+        </svg>
+        <div class="overlay">
+          ${zones.map(
+            (z) => html`<div class="rz-glyph" style="left: ${px(z.x)}%; top: ${py(z.y)}%; width: ${(z.w / ext.w) * 100}%; height: ${(z.h / ext.h) * 100}%;">
+              ${this._roofGlyph(z)}
+            </div>`
+          )}
+          ${selected
+            ? ['nw', 'ne', 'sw', 'se'].map((corner) => {
+                const x = corner.includes('w') ? selected.x : selected.x + selected.w;
+                const y = corner.includes('n') ? selected.y : selected.y + selected.h;
+                return html`<div class="handle ${corner}" data-kind="handle" data-corner=${corner}
+                  style="left: ${px(x)}%; top: ${py(y)}%;"></div>`;
+              })
+            : nothing}
+        </div>
+      </div>
+    `;
+  }
+
+  // The zones as currently displayed: the stored ones with the drag in progress applied.
+  _applyRoofDrag(zones) {
+    const d = this._drag;
+    if (!d || !d.moved || d.target !== 'roof') return zones;
+    const copy = [...zones];
+    if (d.type === 'draw') copy.push({ ...d.rect, slopes: 4, pitch: ROOF_DEFAULT_PITCH_DEG });
+    else if (d.type === 'move' || d.type === 'resize') copy[d.index] = { ...copy[d.index], ...d.rect };
+    return copy;
+  }
+
   _entityIcon(entityId, icon) {
     if (icon) return html`<ha-icon icon=${icon}></ha-icon>`;
     const st = this.hass.states[entityId];
@@ -6229,7 +6474,75 @@ class HaPlooumFloorplanCardEditor extends LitElement {
     return html`<ha-state-icon .hass=${this.hass} .stateObj=${st}></ha-state-icon>`;
   }
 
+  _renderRoofSelection() {
+    const sel = this._selection;
+    const zones = this._roofZones();
+    const z = sel && sel.kind === 'roof' ? zones[sel.index] : null;
+    if (!z) {
+      return html`<div class="selection">
+        <div class="selection-header"><ha-icon icon="mdi:home-roof"></ha-icon><span>Roof</span></div>
+        <div class="hint"><ha-icon icon="mdi:information-outline"></ha-icon><span>${zones.length} zone${zones.length === 1 ? '' : 's'}. Tap one to edit it.</span></div>
+      </div>`;
+    }
+    const slopes = z.slopes === undefined ? 4 : z.slopes;
+    const helper = {
+      1: 'The side the roof faces: it slopes down towards it.',
+      2: 'The roof slopes down towards this side and its opposite.',
+      3: 'The side without a slope (a wall or a gable end).',
+    }[slopes];
+    const schema = [
+      {
+        name: 'slopes',
+        label: 'Slopes',
+        selector: {
+          select: {
+            mode: 'dropdown',
+            options: [
+              { value: '0', label: 'Flat' },
+              { value: '1', label: '1 slope (shed)' },
+              { value: '2', label: '2 slopes (gable)' },
+              { value: '3', label: '3 slopes' },
+              { value: '4', label: '4 slopes (hip)' },
+            ],
+          },
+        },
+      },
+    ];
+    if (slopes >= 1 && slopes <= 3) {
+      schema.push({
+        name: 'direction',
+        label: 'Direction',
+        selector: {
+          select: {
+            mode: 'dropdown',
+            options: [
+              { value: 'north', label: 'North (top)' },
+              { value: 'east', label: 'East (right)' },
+              { value: 'south', label: 'South (bottom)' },
+              { value: 'west', label: 'West (left)' },
+            ],
+          },
+        },
+      });
+    }
+    if (slopes !== 0) {
+      schema.push({ name: 'pitch', label: 'Pitch (°)', selector: { number: { min: ROOF_PITCH_RANGE[0], max: ROOF_PITCH_RANGE[1], step: 1, mode: 'box' } } });
+    }
+    const data = { slopes: String(slopes), direction: z.direction || 'south', pitch: z.pitch === undefined ? ROOF_DEFAULT_PITCH_DEG : z.pitch };
+    return html`<div class="selection">
+      <div class="selection-header">
+        <ha-icon icon="mdi:home-roof"></ha-icon>
+        <span>Roof zone</span>
+        <span class="dims">${z.w} × ${z.h}</span>
+        <button class="btn danger" @click=${this._deleteSelection}>Delete zone</button>
+      </div>
+      <ha-form .hass=${this.hass} .data=${data} .schema=${schema} .computeLabel=${(s) => s.label || s.name} @value-changed=${this._roofChanged}></ha-form>
+      ${helper ? html`<div class="hint"><ha-icon icon="mdi:information-outline"></ha-icon><span>${helper}</span></div>` : nothing}
+    </div>`;
+  }
+
   _renderSelection(floor) {
+    if (this._roofLayer) return this._renderRoofSelection();
     const sel = this._selection;
     if (sel && sel.kind === 'room' && floor.rooms && floor.rooms[sel.index]) {
       const room = floor.rooms[sel.index];
@@ -6875,7 +7188,11 @@ class HaPlooumFloorplanCardEditor extends LitElement {
     const kind = target ? target.dataset.kind : null;
     const floor = this._floors()[this._currentFloorIndex()];
     const p = this._canvasPoint(ev);
-    const base = { start: p, moved: false, extent: this._ext, pointerId: ev.pointerId };
+    // The roof layer draws, moves and resizes its zones like rooms.
+    const roof = this._roofLayer;
+    const layer = roof ? 'roof' : 'room';
+    const rects = roof ? this._roofZones() : floor.rooms;
+    const base = { start: p, moved: false, extent: this._ext, pointerId: ev.pointerId, target: layer };
     ev.currentTarget.setPointerCapture(ev.pointerId);
     ev.currentTarget.focus();
 
@@ -6887,16 +7204,15 @@ class HaPlooumFloorplanCardEditor extends LitElement {
       const index = this._selection.index;
       const e = floor.entities[index];
       this._drag = { ...base, type: 'aim', index, center: { x: num(e.x), y: num(e.y) }, direction: num(e.direction) };
-    } else if (kind === 'handle' && this._selection && this._selection.kind === 'room') {
+    } else if (kind === 'handle' && this._selection && this._selection.kind === layer) {
       const index = this._selection.index;
-      const r = normalizeRoom(floor.rooms[index], index);
+      const r = normalizeRoom(rects[index], index);
       this._drag = { ...base, type: 'resize', index, corner: target.dataset.corner, orig: r, rect: { x: r.x, y: r.y, w: r.w, h: r.h } };
-    } else if (kind === 'room') {
+    } else if (kind === layer) {
       const index = Number(target.dataset.index);
-      const r = normalizeRoom(floor.rooms[index], index);
+      const r = normalizeRoom(rects[index], index);
       // Entities inside the room move with it.
-      const plan = resolveFloor(this.hass, floor);
-      const inner = plan.items.filter((it) => it.roomIndex === index).map((it) => ({ index: it.index, x: it.x, y: it.y }));
+      const inner = roof ? [] : resolveFloor(this.hass, floor).items.filter((it) => it.roomIndex === index).map((it) => ({ index: it.index, x: it.x, y: it.y }));
       this._drag = { ...base, type: 'move', index, orig: r, rect: { x: r.x, y: r.y, w: r.w, h: r.h }, inner, dx: 0, dy: 0 };
     } else {
       const x = snap(p.x, ROOM_SNAP);
@@ -6956,8 +7272,26 @@ class HaPlooumFloorplanCardEditor extends LitElement {
     if (!d.moved) {
       // A plain click selects what is under the pointer.
       if (d.type === 'entity' || d.type === 'aim') this._selection = { kind: 'entity', index: d.index };
-      else if (d.type === 'move' || d.type === 'resize') this._selection = { kind: 'room', index: d.index };
+      else if (d.type === 'move' || d.type === 'resize') this._selection = { kind: d.target, index: d.index };
       else this._selection = null;
+      return;
+    }
+
+    if (d.target === 'roof') {
+      if (d.type === 'draw') {
+        if (d.rect.w < 1 || d.rect.h < 1) return;
+        let newIndex = 0;
+        this._editRoofs((zones) => {
+          zones.push({ ...d.rect, slopes: 4, pitch: ROOF_DEFAULT_PITCH_DEG });
+          newIndex = zones.length - 1;
+        });
+        this._selection = { kind: 'roof', index: newIndex };
+      } else if (d.type === 'move' || d.type === 'resize') {
+        this._editRoofs((zones) => {
+          zones[d.index] = { ...zones[d.index], ...d.rect };
+        });
+        this._selection = { kind: 'roof', index: d.index };
+      }
       return;
     }
 
@@ -7022,7 +7356,14 @@ class HaPlooumFloorplanCardEditor extends LitElement {
     if (!arrows[ev.key]) return;
     ev.preventDefault();
     const [ax, ay] = arrows[ev.key];
-    if (sel.kind === 'room') {
+    if (sel.kind === 'roof') {
+      const step = ROOM_SNAP;
+      this._editRoofs((zones) => {
+        const z = zones[sel.index];
+        if (ev.shiftKey) Object.assign(z, { w: Math.max(step, z.w + ax * step), h: Math.max(step, z.h + ay * step) });
+        else Object.assign(z, { x: z.x + ax * step, y: z.y + ay * step });
+      });
+    } else if (sel.kind === 'room') {
       const step = ROOM_SNAP;
       this._editFloor((floor) => {
         const r = normalizeRoom(floor.rooms[sel.index], sel.index);
@@ -7185,13 +7526,16 @@ class HaPlooumFloorplanCardEditor extends LitElement {
   _deleteSelection() {
     const sel = this._selection;
     if (!sel) return;
-    this._editFloor((floor) => {
-      (sel.kind === 'room' ? floor.rooms : floor.entities).splice(sel.index, 1);
-    });
+    if (sel.kind === 'roof') this._editRoofs((zones) => zones.splice(sel.index, 1));
+    else
+      this._editFloor((floor) => {
+        (sel.kind === 'room' ? floor.rooms : floor.entities).splice(sel.index, 1);
+      });
     this._selection = null;
   }
 
   _selectFloor(i) {
+    this._roofLayer = false;
     this._floorIndex = i;
     this._selection = null;
     this._extentCache = null;
@@ -7200,6 +7544,7 @@ class HaPlooumFloorplanCardEditor extends LitElement {
   _addFloor() {
     const floors = JSON.parse(JSON.stringify(this._floors()));
     floors.push({ name: `Floor ${floors.length + 1}`, rooms: [], entities: [] });
+    this._roofLayer = false;
     this._commitFloors(floors);
     this._floorIndex = floors.length - 1;
     this._selection = null;
@@ -7452,6 +7797,77 @@ class HaPlooumFloorplanCardEditor extends LitElement {
       .e-room.outdoor {
         fill: rgba(102, 160, 90, 0.18);
         stroke-dasharray: 4 3;
+      }
+      .e-room.outdoor.faint {
+        opacity: 0.5;
+      }
+      .e-guide {
+        stroke: var(--fp-wall);
+        stroke-opacity: 0.8;
+        stroke-width: 2px;
+        vector-effect: non-scaling-stroke;
+        pointer-events: none;
+      }
+      .e-guide.upper {
+        stroke-opacity: 0.45;
+        stroke-dasharray: 6 4;
+      }
+      .e-roof {
+        fill: rgba(176, 96, 64, 0.28);
+        stroke: rgb(176, 96, 64);
+        stroke-width: 1.5px;
+        vector-effect: non-scaling-stroke;
+        pointer-events: none;
+      }
+      .e-roof.selected {
+        fill: rgba(176, 96, 64, 0.45);
+        stroke: var(--primary-color);
+        stroke-width: 2px;
+      }
+      .rz-glyph {
+        position: absolute;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        pointer-events: none;
+      }
+      .rz-glyph svg {
+        flex: 1;
+        min-height: 0;
+        max-width: 100%;
+        max-height: 100%;
+        stroke: var(--primary-text-color);
+        fill: var(--primary-text-color);
+        stroke-width: 3px;
+        stroke-linecap: round;
+      }
+      .rz-glyph svg .ridge {
+        stroke-dasharray: 6 4;
+        stroke-width: 2.5px;
+        opacity: 0.8;
+      }
+      .rz-glyph svg polygon {
+        stroke: none;
+      }
+      .rz-pitch,
+      .rz-flat {
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--primary-text-color);
+        line-height: 1.1;
+      }
+      .rz-flat {
+        font-style: italic;
+      }
+      .roof-actions {
+        display: flex;
+        gap: 8px;
+      }
+      .chip.roof ha-icon {
+        --mdc-icon-size: 14px;
+        vertical-align: middle;
       }
       .e-cone {
         fill: var(--primary-color);
