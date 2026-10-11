@@ -41,7 +41,7 @@ The user works on two PCs; the pilot may start on either.
 | Skills: friction from prompt 08 | `feature/skills-friction-08`, [#25](https://github.com/plooum/HA-Plooum-Cards/pull/25) | merged 2026-10-11 |
 | Floorplan drawn roofs, part 2: editor roof layer (prompt 09) | `feature/floorplan-roof-editor`, [#26](https://github.com/plooum/HA-Plooum-Cards/pull/26) | merged 2026-10-11 |
 | Skills: friction from prompt 09 | `feature/skills-friction-09`, [#27](https://github.com/plooum/HA-Plooum-Cards/pull/27) | merged 2026-10-11 |
-| Drawn roofs: partial gable end (prompt 10) | `feature/floorplan-partial-gable`, [#29](https://github.com/plooum/HA-Plooum-Cards/pull/29) | merged 2026-10-11 (not released yet: V1.3.1 with the next fixes). Deviation accepted: same-floor rooms also close the side |
+| Drawn roofs: partial gable end (prompt 10) | `feature/floorplan-partial-gable`, [#29](https://github.com/plooum/HA-Plooum-Cards/pull/29) | merged 2026-10-11, released in [V1.3.1](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.3.1) (floorplan 1.10.1, [#31](https://github.com/plooum/HA-Plooum-Cards/pull/31)). Deviation accepted: same-floor rooms also close the side |
 | Skills: faster sub-agent loop + prompt 10 friction (also CLAUDE.md: no rebase for `.claude/pilot/`-only moves of `main`) | `feature/skills-friction-10`, [#30](https://github.com/plooum/HA-Plooum-Cards/pull/30) | merged 2026-10-11 |
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
@@ -80,7 +80,7 @@ The user works on two PCs; the pilot may start on either.
 
 ## Next
 
-Nothing in progress. #29 to release (V1.3.1, floorplan `CARD_VERSION` 1.10.1) when the user wants. Next candidate: roof layer checks (BACKLOG.md). Apply #30's faster loop and record each sub-agent's time. Merging several PRs: rebase each on the `main` left by the previous merge, wait for its CI, and re-run `dev/tests/cards-smoke.json` on a rebased branch that follows a `src/` change.
+Nothing in progress, V1.3.1 published. Next candidate: roof layer checks (BACKLOG.md). Apply #30's faster loop and record each sub-agent's time. Merging several PRs: rebase each on the `main` left by the previous merge, wait for its CI, and re-run `dev/tests/cards-smoke.json` on a rebased branch that follows a `src/` change.
 
 ## Sub-agent notes
 
