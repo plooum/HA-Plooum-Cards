@@ -29,12 +29,14 @@ The user works on two PCs; the pilot may start on either.
 | Test view per card + `dev/tests/cards-smoke.json` (prompt 05) | `feature/card-smoke-tests`, [#15](https://github.com/plooum/HA-Plooum-Cards/pull/15) | merged 2026-10-11 (9/9 in ~4.5 s, also on main's HA) |
 | Skills: friction from prompts 04/05, skills PR right after each review (pilot) | `feature/skills-friction-04-05`, [#16](https://github.com/plooum/HA-Plooum-Cards/pull/16) | merged 2026-10-11 |
 | Release **V1.1.1** (six new `CARD_VERSION`s, smoke suite) | [release](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.1.1) | published 2026-10-11, both assets attached by build.yml |
-| Floorplan: windows / shutters on a projected facade, render experiments (prompt 06) | `feature/floorplan-projected-windows`, draft [#17](https://github.com/plooum/HA-Plooum-Cards/pull/17) | 5 renders shown to the user, **waiting for the variant choice**; then the same sub-agent finishes it |
-| Skills: friction from prompt 06 | `feature/skills-friction-06`, [#18](https://github.com/plooum/HA-Plooum-Cards/pull/18) | waiting for approval |
+| Floorplan: windows / shutters on a projected facade, render experiments (prompt 06) | `feature/floorplan-projected-windows`, draft [#17](https://github.com/plooum/HA-Plooum-Cards/pull/17) | user chose: drop `faint`, keep `overlay` (default, pilot's pick), `solid`, `outline`, `hidden` as a permanent option (docs, editor, suite): same sub-agent finishing it |
+| Skills: friction from prompt 06 | `feature/skills-friction-06`, [#18](https://github.com/plooum/HA-Plooum-Cards/pull/18) | merged 2026-10-11 |
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
 
 ## Decisions (user)
+
+- 2026-10-11: `projected_windows` stays a **real option** with `overlay`, `solid`, `outline`, `hidden` (`faint` removed). Default `overlay`: the pilot's pick from "transparent / projection on top", to confirm with the user at the review.
 
 - 2026-10-11: two floorplan topics, **shutters first**, then roofs. Shutters on a projected facade: by default transparent / the projection on top; the user wants **renders of several variants before deciding** (prompt 06: `solid`, `faint`, `overlay`, `outline`, `hidden`). **Only 5 renders** (one per variant, close view, shutters at 50): the user found 30 too long; keep render requests minimal. Roofs (shapes, slope, config level): to discuss after.
 
