@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Plooum UI test runner</title>
+<link rel="icon" href="data:,">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #111418; color: #d8dde3; font: 13px/1.4 system-ui, sans-serif; display: flex; height: 100vh; overflow: hidden; }
+  #side { width: 340px; flex: none; overflow: auto; border-right: 1px solid #2a3038; padding: 10px; }
+  #side h1 { font-size: 14px; margin: 0 0 4px; }
+  #summary { font-weight: 600; margin: 6px 0 10px; }
+  .t { padding: 4px 6px; border-radius: 4px; margin-bottom: 2px; border-left: 3px solid #444; }
+  .t.running { background: #1d2733; border-color: #4ea1ff; }
+  .t.pass { border-color: #3fb950; }
+  .t.fail { border-color: #f85149; background: #2a1517; }
+  .t .m { display: inline-block; width: 3.4em; font-weight: 700; }
+  .t.pass .m { color: #3fb950; } .t.fail .m { color: #f85149; } .t.running .m { color: #4ea1ff; }
+  .t .time { float: right; color: #8b949e; }
+  .t .d { color: #f0a0a0; white-space: pre-wrap; word-break: break-word; font-size: 12px; margin-top: 2px; }
+  .t .step { color: #8b949e; font-size: 12px; }
+  #stage { flex: 1; overflow: hidden; padding: 10px; }
+  #wrap { position: relative; }
+  #frame { border: 0; background: #000; transform-origin: 0 0; position: absolute; left: 0; top: 0; }
+  body.headless { display: block; }
+  body.headless #side { display: none; }
+  body.headless #stage { padding: 0; }
+</style>
+</head>
+<body>
+<div id="side"><h1 id="title">UI test runner</h1><div id="summary">loading...</div><div id="list"></div></div>
+<div id="stage"><div id="wrap"><iframe id="frame" title="test page"></iframe></div></div>
+<script src="ui_runner.js"></script>
+</body>
+</html>

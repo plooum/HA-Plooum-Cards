@@ -2,7 +2,8 @@
 
   dev/.venv/bin/python dev/ui_test.py dev/tests/floorplan-setup-view.json [--only <substring>] [--out dev/shots] [--verbose]
 
-Runs a whole suite in ONE browser. Each test starts on a fresh page load of its path and
+Runs a whole suite in ONE browser, through dev/ui_runner.js (the same step runner as the live page
+runner.html, which the built-in browser pane can open: see the ha-dev-testing skill). Each test starts on a fresh page load of its path and
 viewport, then runs its steps; a failing test doesn't stop the suite. Prints one PASS / FAIL
 line per test, the failing step, its message and the console errors of the test, and the total
 time. Exit code 1 if a test failed or the page logged console errors.
@@ -34,34 +35,6 @@ from playwright.sync_api import sync_playwright
 from ha_env import ha_token, ha_url
 
 DEV = Path(__file__).parent
-# Noise from HA itself / the headless environment, not from our cards (same list as shot.py).
-IGNORED_ERRORS = ("favicon", "manifest", "service worker", "serviceworker")
-
-# In the page: compiles and runs a step body with the helpers as local names.
-RUNNER = """
-window.__run = async (code, asExpr) => {
-  const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-  const pre = 'const {' + Object.keys(T).filter((k) => /^[A-Za-z_]+$/.test(k) && k !== 's').join(',') + '} = T; const S = T.s;\\n';
-  let fn;
-  if (asExpr) {
-    try { fn = new AsyncFunction(pre + 'return (' + code + '\\n);'); } catch (e) { fn = null; }
-  }
-  if (!fn) fn = new AsyncFunction(pre + code);
-  return await fn();
-};
-"""
-
-READY = """
-() => {
-  const ha = document.querySelector('home-assistant');
-  if (!(ha && ha.hass && ha.hass.connected)) return false;
-  const cards = T.deep(document, '*').filter((e) => /^ha-plooum-.*-card$/.test(e.localName));
-  // Every card wrapper has built its card (stacks build theirs asynchronously), and each is rendered.
-  const wrappers = T.deep(document, 'hui-card');
-  return cards.length > 0 && wrappers.every((w) => w._element) && cards.every((c) => c.shadowRoot && c.shadowRoot.children.length > 0);
-}
-"""
-
 
 def strip_comments(text: str) -> str:
     return "\n".join(line for line in text.splitlines() if not re.match(r"\s*//", line))
@@ -91,70 +64,46 @@ def main() -> int:
         "hassUrl": URL, "clientId": URL + "/", "access_token": token, "token_type": "Bearer",
         "expires_in": 315360000, "expires": int(time.time() * 1000) + 315360000 * 1000, "refresh_token": "",
     }
-    helpers = (DEV / "ui_helpers.js").read_text()
     t_start = time.time()
     failed = 0
     all_errors = 0
+    stem = Path(args.suite).stem
     with sync_playwright() as p:
         browser = p.chromium.launch(channel="chrome", headless=True)
         ctx = browser.new_context(viewport={"width": 1700, "height": 1050}, color_scheme="dark", locale="en-US")
         ctx.add_init_script(f"localStorage.setItem('hassTokens', {json.dumps(json.dumps(hass_tokens))});")
-        ctx.add_init_script(helpers + RUNNER)
         page = ctx.new_page()
-        errors: list[str] = []
-        page.on("pageerror", lambda e: errors.append(f"pageerror: {e}"))
-        page.on("console", lambda m: errors.append(f"console.error: {m.text}") if m.type == "error" else None)
 
-        for test in tests:
-            t0 = time.time()
-            errors.clear()
+        for index, test in enumerate(suite["tests"]):
+            if test not in tests:
+                continue
             vw, vh = test.get("viewport") or suite.get("viewport") or [1700, 1050]
             page.set_viewport_size({"width": vw, "height": vh})
-            failure = None
-            try:
-                page.goto(URL + (test.get("path") or suite["path"]))
-                page.wait_for_function(READY, timeout=20000)
-            except Exception as e:  # noqa: BLE001
-                failure = ("page load", f"page not ready: {str(e).splitlines()[0]}", None)
-            for i, step in enumerate(test["steps"] if not failure else []):
-                label = f"step {i + 1}"
-                try:
-                    if "wait" in step:
-                        page.wait_for_timeout(step["wait"])
-                    if "js" in step:
-                        v = page.evaluate("([c]) => window.__run(c, false)", [step["js"]])
-                        if args.verbose or step.get("print"):
-                            print(f"    [{test['name']}] {label}: {short(v)}")
-                    elif "assert" in step:
-                        v = page.evaluate("([c]) => window.__run(c, true)", [step["assert"]])
-                        if not v:
-                            extra = None
-                            if "show" in step:
-                                extra = page.evaluate("([c]) => window.__run(c, true)", [step["show"]])
-                            failure = (label, step.get("msg") or step["assert"], {"value": v, **({"show": extra} if "show" in step else {})})
-                    elif "shot" in step:
-                        path = str(out / step["shot"])
-                        if "el" in step:
-                            r = page.evaluate("([c]) => window.__run('const e = (' + c + '); const r = e.getBoundingClientRect(); return {x: r.x, y: r.y, width: r.width, height: r.height};', false)", [step["el"]])
-                            page.screenshot(path=path, clip=r)
-                        else:
-                            page.screenshot(path=path)
-                        if args.verbose:
-                            print(f"    screenshot: {path}")
-                except Exception as e:  # noqa: BLE001
-                    failure = (label, str(e).splitlines()[0] if str(e) else repr(e), None)
-                if failure:
+            # The steps run in dev/ui_runner.js (the same code as the live runner page), one test per page.
+            page.goto(f"{URL}/plooum_dev/runner.html?suite={stem}&headless=1&index={index}{'&verbose=1' if args.verbose else ''}")
+            while True:
+                page.wait_for_function("() => window.uiResult || window.uiShot", timeout=600000)
+                shot = page.evaluate("() => window.uiShot")
+                if not shot:
                     break
-            errs = [e for e in errors if not any(k in e.lower() for k in IGNORED_ERRORS)]
+                path = str(out / shot["name"])
+                r = shot["rect"]
+                page.screenshot(path=path, clip=r) if r else page.screenshot(path=path)
+                if args.verbose:
+                    print(f"    screenshot: {path}")
+                page.evaluate("() => { window.uiShot = null; window.uiShotResolve(); }")
+            res = page.evaluate("() => window.uiResult")["tests"][0]
+            for pr in res["prints"]:
+                print(f"    [{test['name']}] {pr}")
+            errs = res["errors"]
             all_errors += len(errs)
-            dt = time.time() - t0
-            if failure or errs:
+            if not res["ok"]:
                 failed += 1
-            print(f"{'FAIL' if failure or errs else 'PASS'}  {dt:4.1f}s  {test['name']}")
-            if failure:
-                print(f"      {failure[0]}: {failure[1]}")
-                if failure[2] is not None:
-                    print(f"      got: {short(failure[2])}")
+            print(f"{'PASS' if res['ok'] else 'FAIL'}  {res['seconds']:4.1f}s  {test['name']}")
+            if res["message"]:
+                print(f"      {res['failedStep']}: {res['message']}")
+                if res["got"] is not None:
+                    print(f"      got: {short(res['got'])}")
             for e in errs:
                 print(f"      console: {e[:400]}")
         browser.close()

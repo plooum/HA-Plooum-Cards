@@ -105,6 +105,8 @@ dev/.venv/bin/python dev/shot.py /plooum-test/multistatus -e ha-plooum-multi-sta
 
 [dev/ui_test.py](dev/ui_test.py) runs a feature's whole test list in one command, in one headless Chrome, with assertions: `dev/.venv/bin/python dev/ui_test.py dev/tests/<suite>.json [--only <name>]` prints PASS / FAIL per test, the failing step and the console errors, and exits 1 on any failure. Suites live in [dev/tests/](dev/tests/) (JSON: tests made of `js` / `assert` / `shot` steps); their helpers (open an editor dialog, drag, wait for a condition, floorplan specifics) are in [dev/ui_helpers.js](dev/ui_helpers.js). The `ha-dev-testing` skill documents the format.
 
+**Live in the browser pane.** The steps are run by [dev/ui_runner.js](dev/ui_runner.js), which `ui_test.py` loads headless and the pane can open too: `http://127.0.0.1:<port>/plooum_dev/runner.html?suite=<name>[&only=<substring>][&pause=<ms>]` (served by `plooum_dev`, suites from `dev/tests/`). It runs each test in a same-origin iframe at the test's viewport (scaled to fit the pane), lists PASS / FAIL live, and ends with `window.uiResult` (`{ passed, failed, errors, summary, tests }`, also in the page title). When the user watches, run the suites there (`pause=300` to follow); `shot` steps are skipped in the pane.
+
 **Smoke suite, to run after any card change** (about 5 s, all nine cards: each renders, reacts once, and its editor renders): `dev/.venv/bin/python dev/ui_test.py dev/tests/cards-smoke.json`. One test per card, on its own `/plooum-test/<view>`; it restores the states it changes.
 
 ### Test entities (all in [configuration.yaml](dev/ha-config/configuration.yaml))

@@ -37,6 +37,7 @@ def main() -> int:
     parser.add_argument("--height", type=int, default=900)
     parser.add_argument("--light", action="store_true", help="light color scheme (default dark)")
     parser.add_argument("--url", help="HA base URL (default: this checkout's instance, see dev/ha_env.py)")
+    parser.add_argument("--ready", help="JS predicate to wait for instead of HA being connected (e.g. \"() => window.uiResult\" on the runner page)")
     parser.add_argument("--wait", type=float, default=2.0, help="extra seconds after the cards render")
     args = parser.parse_args()
 
@@ -71,7 +72,7 @@ def main() -> int:
         )
 
         page.goto(URL + args.path)
-        page.wait_for_function("() => document.querySelector('home-assistant')?.hass?.connected")
+        page.wait_for_function(args.ready or "() => document.querySelector('home-assistant')?.hass?.connected", timeout=300000 if args.ready else 30000)
         if args.element:
             page.locator(args.element).first.wait_for(state="visible", timeout=15000)
         page.wait_for_timeout(args.wait * 1000)
