@@ -60,6 +60,15 @@ HOUSE_VIEW = {
     "fov": 90,
     "distortion": -0.25,
 }
+# Windows drawn on the house's facades, as the card draws a cover in 3D (sill at 0.36 and top at
+# 0.84 of the wall height, a shutter coming down to the cover's position). Keep them in sync with
+# the covers of the test dashboard's floorplan view (cover.kitchen_cover, cover.hallway_cover):
+# (facade: "e" east wall at x = at, "s" south wall at y = at), center along it, length, cover entity.
+WINDOWS = [
+    ("e", 11, 1.5, 1.5, "cover.kitchen_cover"),
+    ("s", 5, 9, 2.0, "cover.hallway_cover"),
+]
+WALL_HEIGHT = 2.5
 # Wall colors by the side they face: north (-y), east (+x), south (+y), west (-x).
 WALL_COLORS = [(222, 120, 110), (110, 170, 222), (130, 200, 130), (230, 200, 110)]
 
@@ -113,7 +122,40 @@ def _house_polygons() -> list[Polygon]:
     return faces
 
 
-def draw_view(draw: ImageDraw.ImageDraw, view: dict, polygons: list[Polygon]) -> None:
+def _window_polygons(positions: dict[str, int]) -> list[Polygon]:
+    """The windows of WINDOWS: a dark frame, the glass, and the slats of the shutter down to the
+    cover's position (100 = open). Drawn just in front of the facade."""
+    out: list[Polygon] = []
+    sill, top = WALL_HEIGHT * 0.36, WALL_HEIGHT * 0.84
+    frame = 0.04
+    for facade, at, center, length, entity in WINDOWS:
+        normal = (1, 0, 0) if facade == "e" else (0, 1, 0)
+        off = 0.02
+
+        def rect(a0: float, a1: float, z0: float, z1: float, color) -> Polygon:
+            if facade == "e":
+                pts = [(at + off, center + a0, z0), (at + off, center + a1, z0), (at + off, center + a1, z1), (at + off, center + a0, z1)]
+            else:
+                pts = [(center + a0, at + off, z0), (center + a1, at + off, z0), (center + a1, at + off, z1), (center + a0, at + off, z1)]
+            return (pts, color, normal)
+
+        h = length / 2
+        out.append(rect(-h, h, sill, top, (40, 40, 45)))
+        out.append(rect(-h + frame, h - frame, sill + frame, top - frame, (150, 190, 225)))
+        closed = (100 - positions.get(entity, 100)) / 100
+        inner_h = top - sill - 2 * frame
+        if closed > 0:
+            bottom = top - frame - inner_h * closed
+            n = max(1, round(inner_h * closed / 0.12))
+            for i in range(n):
+                z1 = top - frame - inner_h * closed * i / n
+                z0 = top - frame - inner_h * closed * (i + 1) / n
+                shade = (205, 195, 175) if i % 2 == 0 else (165, 155, 135)
+                out.append(rect(-h + frame, h - frame, z0, z1, shade))
+    return out
+
+
+def draw_view(draw: ImageDraw.ImageDraw, view: dict, polygons: list[Polygon], decals: list[Polygon] | None = None) -> None:
     """View of polygons, with the same camera model as the floorplan card (a pinhole, and its lens
     distortion: edges are then drawn curved). Polygons with a normal are culled when facing away and
     drawn far to near, after those without (the ground)."""
@@ -145,7 +187,9 @@ def draw_view(draw: ImageDraw.ImageDraw, view: dict, polygons: list[Polygon]) ->
 
     flat = [pg for pg in polygons if pg[2] is None]
     solid = [pg for pg in polygons if pg[2] is not None and dot(tuple(c - v for c, v in zip(cam_pos, pg[0][0])), pg[2]) > 0]
-    for poly, color, _ in flat + sorted(solid, key=distance, reverse=True):
+    # Decals (windows) go on the facades, in their order, after everything else.
+    facing = [pg for pg in decals or [] if dot(tuple(c - v for c, v in zip(cam_pos, pg[0][0])), pg[2]) > 0]
+    for poly, color, _ in flat + sorted(solid, key=distance, reverse=True) + facing:
         cam = [tuple(p[i] - c for i, c in enumerate(cam_pos)) for p in poly]
         # Clip against the near plane (depth along fwd >= near).
         clipped = []
@@ -167,7 +211,7 @@ def draw_view(draw: ImageDraw.ImageDraw, view: dict, polygons: list[Polygon]) ->
         draw.polygon(pts, fill=color, outline=(60, 50, 45))
 
 
-def draw_frame(name: str, scene: str, colors: tuple, width: int, height: int) -> bytes:
+def draw_frame(name: str, scene: str, colors: tuple, width: int, height: int, positions: dict[str, int] | None = None) -> bytes:
     top, bottom = colors
     img = Image.new("RGB", (WIDTH, HEIGHT), top)
     draw = ImageDraw.Draw(img)
@@ -180,7 +224,7 @@ def draw_frame(name: str, scene: str, colors: tuple, width: int, height: int) ->
     if scene == "room":
         draw_view(draw, ROOM_VIEW, _room_polygons())
     elif scene == "house":
-        draw_view(draw, HOUSE_VIEW, _house_polygons())
+        draw_view(draw, HOUSE_VIEW, _house_polygons(), _window_polygons(positions or {}))
     elif scene == "outdoor":
         # A sun that crosses the sky once a minute.
         x = (now % 60) / 60 * WIDTH
@@ -251,4 +295,10 @@ class FakeCamera(Camera):
         return state is None or state.state != "off"
 
     async def async_camera_image(self, width: int | None = None, height: int | None = None) -> bytes | None:
-        return await self.hass.async_add_executor_job(draw_frame, self.name, self._scene, self._colors, width, height)
+        positions = {}
+        if self._scene == "house":
+            for *_, entity in WINDOWS:
+                state = self.hass.states.get(entity)
+                if state is not None and state.attributes.get("current_position") is not None:
+                    positions[entity] = int(state.attributes["current_position"])
+        return await self.hass.async_add_executor_job(draw_frame, self.name, self._scene, self._colors, width, height, positions)

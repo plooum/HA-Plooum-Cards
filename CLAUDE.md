@@ -115,6 +115,7 @@ dev/.venv/bin/python dev/shot.py /plooum-test/multistatus -e ha-plooum-multi-sta
 | `switch.tv_plug` | toggle target, **becomes `unavailable`** | `input_boolean.tv_plug`, availability: `input_boolean.tv_plug_available` |
 | `sensor.living_room_temperature` / `sensor.living_room_humidity` | numeric values (°C, %) | `input_number.living_room_temperature` / `input_number.living_room_humidity` |
 | `cover.living_room_cover` / `cover.bedroom_cover` | position covers (open/close/stop/set_position) | `input_number.*_cover_position` |
+| `cover.kitchen_cover` / `cover.hallway_cover` | position covers on the outer walls the garden camera sees (east wall of the Kitchen, south wall of the Hallway); drawn in its fake picture (`WINDOWS` in `camera.py`) | `input_number.kitchen_cover_position` / `input_number.hallway_cover_position` |
 | `button.ptz_up/down/left/right` | D-Pad `press` | each press increments `counter.ptz_presses` |
 | `script.test_script` | script actions | each run increments `counter.script_runs` |
 | `input_boolean.aquarium_pump/co2/uv`, `input_boolean.mower` | plain booleans | themselves |

@@ -148,6 +148,18 @@ input_number:
     max: 100
     step: 1
     initial: 30
+  kitchen_cover_position:
+    name: Kitchen cover position (backing)
+    min: 0
+    max: 100
+    step: 1
+    initial: 100
+  hallway_cover_position:
+    name: Hallway cover position (backing)
+    min: 0
+    max: 100
+    step: 1
+    initial: 100
   bedroom_temperature:
     name: Bedroom temperature (backing)
     min: -10
@@ -466,6 +478,52 @@ template:
           - action: input_number.set_value
             target:
               entity_id: input_number.bedroom_cover_position
+            data:
+              value: "{{ position }}"
+      - name: Kitchen Cover
+        unique_id: plooum_dev_kitchen_cover
+        device_class: shutter
+        position: "{{ states('input_number.kitchen_cover_position') | int }}"
+        open_cover:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.kitchen_cover_position
+            data:
+              value: 100
+        close_cover:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.kitchen_cover_position
+            data:
+              value: 0
+        stop_cover: []
+        set_cover_position:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.kitchen_cover_position
+            data:
+              value: "{{ position }}"
+      - name: Hallway Cover
+        unique_id: plooum_dev_hallway_cover
+        device_class: shutter
+        position: "{{ states('input_number.hallway_cover_position') | int }}"
+        open_cover:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.hallway_cover_position
+            data:
+              value: 100
+        close_cover:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.hallway_cover_position
+            data:
+              value: 0
+        stop_cover: []
+        set_cover_position:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.hallway_cover_position
             data:
               value: "{{ position }}"
 
