@@ -43,6 +43,7 @@ The user works on two PCs; the pilot may start on either.
 | Skills: friction from prompt 09 | `feature/skills-friction-09`, [#27](https://github.com/plooum/HA-Plooum-Cards/pull/27) | merged 2026-10-11 |
 | Drawn roofs: partial gable end (prompt 10) | `feature/floorplan-partial-gable`, [#29](https://github.com/plooum/HA-Plooum-Cards/pull/29) | merged 2026-10-11, released in [V1.3.1](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.3.1) (floorplan 1.10.1, [#31](https://github.com/plooum/HA-Plooum-Cards/pull/31)). Deviation accepted: same-floor rooms also close the side |
 | Skills: faster sub-agent loop + prompt 10 friction (also CLAUDE.md: no rebase for `.claude/pilot/`-only moves of `main`) | `feature/skills-friction-10`, [#30](https://github.com/plooum/HA-Plooum-Cards/pull/30) | merged 2026-10-11 |
+| Bug: projected windows reappear when the view turns (prompt 11, fast path) | `feature/floorplan-window-sides` | sub-agent working (Sonnet, worktree) |
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
 
