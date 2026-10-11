@@ -16,7 +16,7 @@ _Last update: 2026-10-11, pilot session 1 (Opus 5.5)._
 | Floorplan `CARD_VERSION` 1.8.0 + release **V1.1.0** | [#9](https://github.com/plooum/HA-Plooum-Cards/pull/9), [release](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.1.0) | merged and published 2026-10-11, both assets attached by build.yml |
 
 The local branch `feature/dpad-keyboard` existed before this session, untouched and unpushed: not ours, leave it.
-| UI test runner `dev/ui_test.py` + floorplan setup view suite | `feature/ui-test-runner` | prompt [02](prompts/02-ui-test-runner.md) written, Sonnet sub-agent launched 2026-10-11 |
+| UI test runner `dev/ui_test.py` + floorplan setup view suite | `feature/ui-test-runner`, [#10](https://github.com/plooum/HA-Plooum-Cards/pull/10) | delivered in one round, CI green; pilot re-ran the suite: 9/9 PASS in 27.8 s; **waiting for the user's merge approval** |
 
 ## Decisions (user)
 
@@ -28,10 +28,12 @@ The local branch `feature/dpad-keyboard` existed before this session, untouched 
 
 ## Next
 
-1. Review the UI test runner PR: re-run `dev/tests/floorplan-setup-view.json` yourself, check the timings (≤ 3 s per simple test, ≤ 60 s for the suite).
+1. Get #10 merged (user approval). From then on, every prompt specifies its tests as a `dev/tests/<feature>.json` suite, and the pilot reviews by re-running it.
 2. Open point: the setup view hasn't been tried in the HA Android app.
 
 ## Sub-agent notes
+
+- Prompt 02 (Sonnet, ~13 min, 31 tool calls): no review round needed. Its friction is already in the skills it rewrote (`wait_for_function` doesn't await promises: readiness check must be sync; no `about:blank` between tests; the dashboard builds stack cards lazily: snapshot by title).
 
 - Prompt 01 (Sonnet, ~13 min, 48 tool calls): delivered all 10 test cases and the 2 screenshots. Deviations accepted: narrow = preview hidden **or stacked below** the editor (HA 2026.10 stacks it at 420 px instead of hiding it); entering 3D preview bumps seq. Friction, put in the skills by #8: 420 px stacks the preview; stub `setPointerCapture` for synthetic pointer events; `editor_shot.py` js steps are separate evaluates (persist with `window.x`), one `openEditor` per run; `hui-dialog-edit-card` stays in the DOM after Cancel; to drop a corner in place move ≥4 px then back; pilot skill: commit the handoff from a **detached** worktree (`git worktree add --detach`, `git push origin HEAD:main`); floorplan skill: the setup view's design (setupView, setupDialogs, _setupBump).
 
