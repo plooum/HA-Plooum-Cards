@@ -192,6 +192,16 @@ async def ensure_areas(session: aiohttp.ClientSession) -> None:
         await client.ws.close()
 
 
+async def ensure_english(session: aiohttp.ClientSession) -> None:
+    """Set the dev user's language to English, so a browser in another locale (the pane) still sees "Edit" / "27.3"."""
+    client = await WsClient.connect(session)
+    try:
+        value = {"language": "en", "number_format": "language", "time_format": "language"}
+        await client.call(type="frontend/set_user_data", key="language", value=value)
+    finally:
+        await client.ws.close()
+
+
 async def ensure_edit_dashboard(session: aiohttp.ClientSession) -> None:
     """Storage-mode dashboard: the only kind whose cards can be edited in the UI (card editors)."""
     async with session.ws_connect(f"{URL}/api/websocket") as ws:
@@ -229,6 +239,7 @@ async def main() -> None:
             await onboard(session)
         await wait_running(session)
         await ensure_areas(session)
+        await ensure_english(session)
         await ensure_edit_dashboard(session)
 
 

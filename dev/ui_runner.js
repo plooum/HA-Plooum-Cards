@@ -60,9 +60,6 @@
       const w = frame.contentWindow;
       if (!w || w.__uiPatched || w.location.href === 'about:blank') return;
       w.__uiPatched = true;
-      // The suites assume ui_test.py's locale (en-US: "27.3", "Edit"), not the pane's.
-      Object.defineProperty(w.navigator, 'language', { get: () => 'en-US' });
-      Object.defineProperty(w.navigator, 'languages', { get: () => ['en-US', 'en'] });
       const orig = w.console.error.bind(w.console);
       w.console.error = (...a) => { errors.push('console.error: ' + a.map((x) => (x && x.message) || String(x)).join(' ')); orig(...a); };
       w.addEventListener('error', (e) => errors.push('pageerror: ' + (e.message || e.type)));
