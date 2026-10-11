@@ -37,6 +37,16 @@ One file, [src/cards/floorplan/ha-plooum-floorplan-card.js](../../../src/cards/f
 - The card has no direct link to its editor: they're separate elements, both somewhere under `hui-dialog-edit-card`'s shadow root. Both are defined in this file, so module-level state is shared between them.
 - In edit mode `card.preview` is true for the dashboard cards too, not only for the dialog's preview (see `ha-dev-testing`).
 
+## Setup view (editor ↔ preview)
+
+While a projecting camera is lined up (Advanced panel open), the dialog's preview card, or the editor's embedded card in a narrow dialog, shows the projection from a checking viewpoint. Design, to reuse for anything else the editor must show in the preview:
+
+- `setupView(hass, floors, req, vp, wallHeight)`: the one function computing the viewpoint (outdoor: facing `facadeCorners`' facade; indoor: above the camera, its floor only; else behind the camera).
+- `setupDialogs`: module-level `Map` keyed by the `hui-dialog-edit-card` element (found with `dialogOf()`, walking `parentNode || host`): the editor, its config, the request `{ camera, floor, aspect, seq }`, the registered cards, free-view state, the view to restore (`before`). Cards register in `connectedCallback` and read it right away, which is how a card rebuilt by HA keeps the setup. Readable in tests as `customElements.get('ha-plooum-floorplan-card').setupDialogs`.
+- `setupTarget(state)`: the preview's card, matched by config (`configKey()` caches the JSON strings per config object: it runs on every card update).
+- Editor: `_setupBump()` after each alignment change (`seq++`), `_checkLayout()` (rAF-coalesced, never during a drag) decides wide vs narrow, `_embeddedCard()` is a real card with `_embedded = true` (no header).
+- Card: `_syncSetup()` (from connect, `setConfig`, `updated`), `_userMoved()` in every 3D gesture → free view, `_renderSetupBadge()`.
+
 ## Test plan
 
 `/plooum-test/floorplan` and `/plooum-edit/floorplan?edit=1` (stack card 1 "Home" in 2D, card 3 "Home in 3D", card 4 "floating screens"). Cameras: `camera.garden_camera` (outdoor, wide angle, `distortion: -0.25`, projected), `camera.living_room_camera` (indoor, projected), `camera.garage_camera` (can become unavailable), `camera.does_not_exist` (missing). Their pictures are rendered from their real pose, so a right setting makes the projection fall exactly on the walls and floor.

@@ -20,7 +20,7 @@ CLAUDE.md's **Testing** section is the reference (start / stop, dashboards, test
 - For scripted checks and screenshots, use headless Chrome:
   - `dev/shot.py` for a page or a card (exit code 1 on console errors);
   - [editor_shot.py](editor_shot.py) (in this skill's folder) for anything in the **editor dialog**: it opens the editor, runs JS steps, takes page or element screenshots. Read its docstring.
-- Phone layout: `--width 420 --height 900`. HA then **hides the editor dialog's preview** entirely.
+- Phone layout: `--width 420 --height 900`. HA 2026.10 then **stacks the editor dialog's preview below the editor** (rendered, ~2900 px down, out of sight), it doesn't hide it: "rendered with a non-zero size" doesn't tell a narrow dialog. Check whether the preview is *beside* the editor (no horizontal overlap) instead.
 
 ## The editor dialog, by script
 
@@ -32,6 +32,14 @@ CLAUDE.md's **Testing** section is the reference (start / stop, dashboards, test
 - You can drive lit components through their reactive properties, e.g. the floorplan editor: `ed._selection = { kind: 'entity', index }`, `ed._cameraAdvanced = true`. Lit re-renders on its own.
 - To simulate a user action that emits `config-changed`, prefer calling the real handler, or dispatching the real DOM event, over setting the config: the point is to test the event path.
 - Native `<input type="color">`: set `.value` and dispatch an `input` event.
+- Synthetic `PointerEvent`s: `setPointerCapture` throws on a made-up `pointerId`. Stub it on the element first (`el.setPointerCapture = () => {}; el.releasePointerCapture = () => {}`), then dispatch `pointerdown` on the target and `pointermove` / `pointerup` on the element holding the handlers, with `bubbles: true, composed: true, pointerId, button: 0, isPrimary: true`.
+- The floorplan editor ignores moves under 4 px (a tap): to drop a corner exactly where it is, move it ≥ 4 px, then back to the start before `pointerup`.
+
+## editor_shot.py pitfalls
+
+- Each `js` step is a separate `evaluate`: local variables don't survive to the next step. Keep what you need on `window` (`window.__ed`, `window.__pc`).
+- Call `openEditor()` once per run: a second call opens a second dialog in the same page. A test that needs a fresh dialog gets its own run.
+- `hui-dialog-edit-card` stays in the DOM after **Cancel**: its presence doesn't tell the dialog is open. For the floorplan card, check `customElements.get('ha-plooum-floorplan-card').setupDialogs.size` (0 once every editor dialog is closed).
 
 ## Checking
 

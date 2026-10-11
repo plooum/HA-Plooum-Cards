@@ -67,15 +67,18 @@ Add a skill per card or per kind of work when a sub-agent loses time on it, e.g.
 
 [.claude/pilot/HANDOFF.md](../../pilot/HANDOFF.md) is the pilot's memory between sessions. The user's exception to the PR rule: the handoff and the prompts in `.claude/pilot/` are committed **directly on `main`**, without a PR (`git commit` + `git push origin main`, never force).
 
-While a sub-agent owns the main checkout, commit them from a worktree of `main` instead of switching branches under it:
+While a sub-agent owns the main checkout, commit them from a **detached** worktree of `origin/main` instead of switching branches under it (a worktree on `main` itself fails when the main checkout is on `main`):
 
 ```bash
-git worktree add ../HA-Plooum-Cards-pilot main   # once; the main checkout must not be on main
+git worktree add --detach ../HA-Plooum-Cards-pilot origin/main   # once
+git -C ../HA-Plooum-Cards-pilot fetch -q
+git -C ../HA-Plooum-Cards-pilot checkout -q --detach origin/main  # before each edit
 # edit ../HA-Plooum-Cards-pilot/.claude/pilot/..., then:
-git -C ../HA-Plooum-Cards-pilot pull --ff-only
 git -C ../HA-Plooum-Cards-pilot commit -am "Pilot handoff: <what>"
-git -C ../HA-Plooum-Cards-pilot push origin main
+git -C ../HA-Plooum-Cards-pilot push origin HEAD:main
 ```
+
+The push lists "Bypassed rule violations" (pull request required): expected, the user allows it for `.claude/pilot/`. Before merging a PR, rebase it on `origin/main` if the handoff moved `main` (CLAUDE.md).
 
 Keep it current. Sections:
 
