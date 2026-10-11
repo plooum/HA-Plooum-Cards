@@ -38,7 +38,8 @@ The user works on two PCs; the pilot may start on either.
 | Skills: friction from prompt 06 | `feature/skills-friction-06`, [#18](https://github.com/plooum/HA-Plooum-Cards/pull/18) | merged 2026-10-11 |
 | Floorplan drawn roofs, part 1: `roofs` option + 3D (prompt 08) | `feature/floorplan-roof-zones`, [#24](https://github.com/plooum/HA-Plooum-Cards/pull/24) | merged 2026-10-11 |
 | Skills: friction from prompt 08 | `feature/skills-friction-08`, [#25](https://github.com/plooum/HA-Plooum-Cards/pull/25) | merged 2026-10-11 |
-| Floorplan drawn roofs, part 2: editor roof layer (prompt 09) | `feature/floorplan-roof-editor` | sub-agent working (Sonnet, worktree) |
+| Floorplan drawn roofs, part 2: editor roof layer (prompt 09) | `feature/floorplan-roof-editor`, [#26](https://github.com/plooum/HA-Plooum-Cards/pull/26) | review round 2: no gable wall against a floor above, `zoneFloor` non-strict |
+| Skills: friction from prompt 09 | `feature/skills-friction-09`, [#27](https://github.com/plooum/HA-Plooum-Cards/pull/27) | waiting for approval; merge **after** #26 (names its internals) |
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
 
