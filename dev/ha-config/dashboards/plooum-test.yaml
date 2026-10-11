@@ -96,6 +96,123 @@ views:
           - counter.ptz_presses
           - counter.script_runs
 
+  - title: D-Pad
+    path: dpad
+    cards:
+      # Press on four directions, a script on the center.
+      - type: custom:ha-plooum-dpad-card
+        up_action_type: press
+        up_entity: button.ptz_up
+        down_action_type: press
+        down_entity: button.ptz_down
+        left_action_type: press
+        left_entity: button.ptz_left
+        right_action_type: press
+        right_entity: button.ptz_right
+        center_action_type: execute_script
+        center_script: script.test_script
+      # Missing entity: a press must not break the card.
+      - type: custom:ha-plooum-dpad-card
+        up_action_type: press
+        up_entity: button.does_not_exist
+        center_action_type: toggle
+        center_entity: switch.does_not_exist
+      - type: entities
+        title: Test controls
+        entities:
+          - counter.ptz_presses
+          - counter.script_runs
+
+  - title: Cover
+    path: cover
+    cards:
+      - type: custom:ha-plooum-cover-card
+        lock_enabled: false
+        covers:
+          - entity: cover.living_room_cover
+            name: Living Room
+          - entity: cover.bedroom_cover
+            name: Bedroom
+      - type: custom:ha-plooum-cover-card
+        lock_enabled: true
+        covers:
+          - entity: cover.living_room_cover
+            name: Locked Living Room
+          - entity: cover.does_not_exist
+            name: Missing cover
+      - type: entities
+        title: Test controls
+        entities:
+          - input_number.living_room_cover_position
+          - input_number.bedroom_cover_position
+
+  - title: Grid Icons
+    path: gridicons
+    cards:
+      # On / off / unavailable / missing.
+      - type: custom:ha-plooum-gridicons-card
+        icons:
+          - entity: light.living_room_light
+            icon: mdi:ceiling-light
+            tap_action: { action: toggle }
+          - entity: input_boolean.mower
+            icon: mdi:robot-mower
+            tap_action: { action: toggle }
+          - entity: switch.tv_plug
+            icon: mdi:television
+            tap_action: { action: toggle }
+          - entity: switch.does_not_exist
+            icon: mdi:help-circle
+            tap_action: { action: toggle }
+      - type: entities
+        title: Test controls
+        entities:
+          - input_boolean.living_room_light
+          - input_boolean.mower
+          - input_boolean.tv_plug
+          - input_boolean.tv_plug_available
+
+  - title: Tabs
+    path: tabbed
+    cards:
+      - type: custom:ha-plooum-tabs-card
+        tabs:
+          - name: LIVING ROOM
+            cards:
+              - type: entities
+                entities: [light.living_room_light, switch.tv_plug]
+          - name: AQUARIUM
+            cards:
+              - type: entities
+                entities: [input_boolean.aquarium_pump, input_boolean.aquarium_co2]
+
+  - title: Button Badge
+    path: button-badge
+    cards:
+      - type: custom:ha-plooum-buttonbadge-card
+        entity: light.living_room_light
+        name: Living Room
+        icon: mdi:ceiling-light
+        tap_action_type: toggle
+        badge_entity: switch.tv_plug
+        badge_icon: mdi:television
+        badge_tap_action_type: toggle
+      # Missing main entity.
+      - type: custom:ha-plooum-buttonbadge-card
+        entity: light.does_not_exist
+        name: Missing
+        icon: mdi:help-circle
+        tap_action_type: toggle
+        badge_entity: switch.does_not_exist
+        badge_icon: mdi:help
+        badge_tap_action_type: toggle
+      - type: entities
+        title: Test controls
+        entities:
+          - input_boolean.living_room_light
+          - input_boolean.tv_plug
+          - input_boolean.tv_plug_available
+
   - title: Multi Status
     path: multistatus
     cards:

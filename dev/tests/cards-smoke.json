@@ -1,0 +1,290 @@
+{
+  "path": "/plooum-test/all",
+  "viewport": [
+    1400,
+    900
+  ],
+  "tests": [
+    {
+      "name": "dpad: renders, reacts, editor",
+      "path": "/plooum-test/dpad",
+      "steps": [
+        {
+          "js": "S.cards = await T.card.rendered('ha-plooum-dpad-card', 2);"
+        },
+        {
+          "js": "S.n0 = Number(T.hass().states['counter.ptz_presses'].state); deep(S.cards[0].shadowRoot, '.remote-btn')[0].dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true }));"
+        },
+        {
+          "assert": "await T.card.waitState('counter.ptz_presses', (s) => Number(s.state) === S.n0 + 1)",
+          "msg": "a press increments counter.ptz_presses"
+        },
+        {
+          "js": "await T.card.call('counter', 'set_value', { entity_id: 'counter.ptz_presses', value: S.n0 });"
+        },
+        {
+          "assert": "await T.card.waitState('counter.ptz_presses', (s) => Number(s.state) === S.n0)",
+          "msg": "counter restored"
+        },
+        {
+          "js": "S.n = await T.card.editorRenders(S.cards[0]);"
+        },
+        {
+          "assert": "S.n >= 3",
+          "msg": "the editor renders",
+          "show": "S.n"
+        }
+      ]
+    },
+    {
+      "name": "cover: renders, reacts, editor",
+      "path": "/plooum-test/cover",
+      "steps": [
+        {
+          "js": "S.cards = await T.card.rendered('ha-plooum-cover-card', 2);"
+        },
+        {
+          "js": "S.p0 = T.hass().states['cover.bedroom_cover'].attributes.current_position; deep(S.cards[0].shadowRoot, '.cover-column')[1].querySelectorAll('.control-icon')[1].click();"
+        },
+        {
+          "assert": "await T.card.waitState('cover.bedroom_cover', (s) => s.attributes.current_position !== S.p0)",
+          "msg": "the down button moves the Bedroom cover"
+        },
+        {
+          "js": "await T.card.call('cover', 'set_cover_position', { entity_id: 'cover.bedroom_cover', position: S.p0 });"
+        },
+        {
+          "assert": "await T.card.waitState('cover.bedroom_cover', (s) => s.attributes.current_position === S.p0)",
+          "msg": "position restored"
+        },
+        {
+          "js": "S.n = await T.card.editorRenders(S.cards[0]);"
+        },
+        {
+          "assert": "S.n >= 3",
+          "msg": "the editor renders",
+          "show": "S.n"
+        }
+      ]
+    },
+    {
+      "name": "gridicons: renders, reacts, editor",
+      "path": "/plooum-test/gridicons",
+      "steps": [
+        {
+          "js": "S.cards = await T.card.rendered('ha-plooum-gridicons-card', 1);"
+        },
+        {
+          "assert": "deep(S.cards[0].shadowRoot, '.icon-wrapper').length === 4",
+          "msg": "on, off, unavailable and missing icons are all there"
+        },
+        {
+          "js": "S.s0 = T.hass().states['light.living_room_light'].state; const w = deep(S.cards[0].shadowRoot, '.icon-wrapper')[0]; w.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); w.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));"
+        },
+        {
+          "assert": "await T.card.waitState('light.living_room_light', (s) => s.state !== S.s0)",
+          "msg": "a tap toggles light.living_room_light"
+        },
+        {
+          "js": "const w = deep(S.cards[0].shadowRoot, '.icon-wrapper')[0]; w.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); w.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));"
+        },
+        {
+          "assert": "await T.card.waitState('light.living_room_light', (s) => s.state === S.s0)",
+          "msg": "light restored"
+        },
+        {
+          "js": "S.n = await T.card.editorRenders(S.cards[0]);"
+        },
+        {
+          "assert": "S.n >= 3",
+          "msg": "the editor renders",
+          "show": "S.n"
+        }
+      ]
+    },
+    {
+      "name": "tabbed: renders, reacts, editor",
+      "path": "/plooum-test/tabbed",
+      "steps": [
+        {
+          "js": "S.cards = await T.card.rendered('ha-plooum-tabs-card', 1);"
+        },
+        {
+          "js": "S.tabs = deep(S.cards[0].shadowRoot, '.tab-button'); S.tabs[1].click(); await S.cards[0].updateComplete;"
+        },
+        {
+          "assert": "S.tabs.length === 2 && deep(S.cards[0].shadowRoot, '.tab-pane')[1].style.display === 'flex' && deep(S.cards[0].shadowRoot, '.tab-pane')[0].style.display === 'none'",
+          "msg": "a click on the second tab shows its pane"
+        },
+        {
+          "js": "S.n = await T.card.editorRenders(S.cards[0]);"
+        },
+        {
+          "assert": "S.n >= 3",
+          "msg": "the editor renders",
+          "show": "S.n"
+        }
+      ]
+    },
+    {
+      "name": "button-badge: renders, reacts, editor",
+      "path": "/plooum-test/button-badge",
+      "steps": [
+        {
+          "js": "S.cards = await T.card.rendered('ha-plooum-buttonbadge-card', 2);"
+        },
+        {
+          "js": "S.s0 = T.hass().states['light.living_room_light'].state; const c = deep(S.cards[0].shadowRoot, 'ha-card')[0]; c.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, composed: true })); c.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true }));"
+        },
+        {
+          "assert": "await T.card.waitState('light.living_room_light', (s) => s.state !== S.s0)",
+          "msg": "a tap toggles light.living_room_light"
+        },
+        {
+          "js": "const c = deep(S.cards[0].shadowRoot, 'ha-card')[0]; c.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, composed: true })); c.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true }));"
+        },
+        {
+          "assert": "await T.card.waitState('light.living_room_light', (s) => s.state === S.s0)",
+          "msg": "light restored"
+        },
+        {
+          "js": "S.n = await T.card.editorRenders(S.cards[0]);"
+        },
+        {
+          "assert": "S.n >= 3",
+          "msg": "the editor renders",
+          "show": "S.n"
+        }
+      ]
+    },
+    {
+      "name": "multistatus: renders, reacts, editor",
+      "path": "/plooum-test/multistatus",
+      "steps": [
+        {
+          "js": "S.cards = await T.card.rendered('ha-plooum-multi-status-card', 1);"
+        },
+        {
+          "js": "S.ic = () => deep(S.cards[0].shadowRoot, 'ha-icon').map((i) => i.getAttribute('icon') || i.icon).join(); S.i0 = S.ic(); S.on0 = T.hass().states['input_boolean.aquarium_pump'].state; await T.card.call('input_boolean', 'toggle', { entity_id: 'input_boolean.aquarium_pump' });"
+        },
+        {
+          "assert": "await waitFor(() => S.ic() !== S.i0, 8000, 'the pump icon to change')",
+          "msg": "toggling the pump changes the icon"
+        },
+        {
+          "js": "await T.card.call('input_boolean', 'toggle', { entity_id: 'input_boolean.aquarium_pump' });"
+        },
+        {
+          "assert": "await T.card.waitState('input_boolean.aquarium_pump', (s) => s.state === S.on0)",
+          "msg": "pump restored"
+        },
+        {
+          "js": "S.n = await T.card.editorRenders(S.cards[0]);"
+        },
+        {
+          "assert": "S.n >= 3",
+          "msg": "the editor renders",
+          "show": "S.n"
+        }
+      ]
+    },
+    {
+      "name": "temp-humidity: renders, reacts, editor",
+      "path": "/plooum-test/temp-humidity",
+      "steps": [
+        {
+          "js": "S.cards = await T.card.rendered('ha-plooum-temp-humidity-card', 1);"
+        },
+        {
+          "js": "S.v0 = Number(T.hass().states['input_number.living_room_temperature'].state); await T.card.call('input_number', 'set_value', { entity_id: 'input_number.living_room_temperature', value: 27.3 });"
+        },
+        {
+          "assert": "await waitFor(() => S.cards[0].shadowRoot.textContent.includes('27.3'), 8000, '27.3 on the card')",
+          "msg": "the new temperature is shown"
+        },
+        {
+          "js": "await T.card.call('input_number', 'set_value', { entity_id: 'input_number.living_room_temperature', value: S.v0 });"
+        },
+        {
+          "assert": "await T.card.waitState('input_number.living_room_temperature', (s) => Number(s.state) === S.v0)",
+          "msg": "temperature restored"
+        },
+        {
+          "js": "S.n = await T.card.editorRenders(S.cards[0]);"
+        },
+        {
+          "assert": "S.n >= 3",
+          "msg": "the editor renders",
+          "show": "S.n"
+        }
+      ]
+    },
+    {
+      "name": "vivarium: renders, reacts, editor",
+      "path": "/plooum-test/vivarium",
+      "steps": [
+        {
+          "js": "S.cards = await T.card.rendered('ha-plooum-vivarium-card', 1);"
+        },
+        {
+          "js": "S.v0 = Number(T.hass().states['input_number.aquarium_60_temperature'].state); S.c = S.cards.find((c) => c.config.name === 'Aquarium 60L'); await T.card.call('input_number', 'set_value', { entity_id: 'input_number.aquarium_60_temperature', value: 24.7 });"
+        },
+        {
+          "assert": "await waitFor(() => S.c.shadowRoot.textContent.includes('24.7'), 8000, '24.7 on the Aquarium 60L card')",
+          "msg": "the new temperature is shown"
+        },
+        {
+          "js": "await T.card.call('input_number', 'set_value', { entity_id: 'input_number.aquarium_60_temperature', value: S.v0 });"
+        },
+        {
+          "assert": "await T.card.waitState('input_number.aquarium_60_temperature', (s) => Number(s.state) === S.v0)",
+          "msg": "temperature restored"
+        },
+        {
+          "js": "S.n = await T.card.editorRenders(S.cards[0]);"
+        },
+        {
+          "assert": "S.n >= 3",
+          "msg": "the editor renders",
+          "show": "S.n"
+        }
+      ]
+    },
+    {
+      "name": "floorplan: renders, reacts, editor",
+      "path": "/plooum-test/floorplan",
+      "steps": [
+        {
+          "js": "S.cards = await T.card.rendered('ha-plooum-floorplan-card', 1);"
+        },
+        {
+          "assert": "S.cards.length >= 6",
+          "msg": "the view's plan cards are all there",
+          "show": "S.cards.length"
+        },
+        {
+          "js": "S.v0 = Number(T.hass().states['input_number.living_room_temperature'].state); await T.card.call('input_number', 'set_value', { entity_id: 'input_number.living_room_temperature', value: 27.3 });"
+        },
+        {
+          "assert": "await waitFor(() => S.cards[0].shadowRoot.textContent.includes('27.3'), 8000, '27.3 on the plan')",
+          "msg": "the new temperature is shown on the plan"
+        },
+        {
+          "js": "await T.card.call('input_number', 'set_value', { entity_id: 'input_number.living_room_temperature', value: S.v0 });"
+        },
+        {
+          "assert": "await T.card.waitState('input_number.living_room_temperature', (s) => Number(s.state) === S.v0)",
+          "msg": "temperature restored"
+        },
+        {
+          "js": "S.n = await T.card.editorRenders(S.cards[0]);"
+        },
+        {
+          "assert": "S.n >= 3",
+          "msg": "the editor renders",
+          "show": "S.n"
+        }
+      ]
+    }
+  ]
+}

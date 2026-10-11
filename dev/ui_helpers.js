@@ -132,6 +132,61 @@
     await T.waitFor(() => !T.editor(), 8000, 'the dialog to close');
   };
 
+  // --- any card (smoke tests) ---------------------------------------------------
+
+  T.card = {};
+
+  T.hass = () => document.querySelector('home-assistant').hass;
+
+  // The page's cards of this tag.
+  T.card.all = (tag) => T.deep(document, tag);
+
+  // Waits for at least `count` cards of this tag, each rendered (content in its shadow root), and
+  // throws if a hui-error-card is on the page. Returns the cards.
+  T.card.rendered = async (tag, count = 1) => {
+    const cards = await T.waitFor(
+      () => {
+        const c = T.card.all(tag);
+        return c.length >= count && c.every((e) => e.shadowRoot && e.shadowRoot.children.length > 0) ? c : null;
+      },
+      8000,
+      `${count} rendered ${tag}`
+    );
+    const err = T.deep(document, 'hui-error-card');
+    if (err.length) throw new Error(`${err.length} hui-error-card on the page`);
+    return cards;
+  };
+
+  T.card.call = (domain, service, data) => T.hass().callService(domain, service, data);
+
+  // Waits until predicate(state object) is truthy for the entity; returns the state object.
+  T.card.waitState = (entity, predicate, timeout = 8000) =>
+    T.waitFor(
+      () => {
+        const st = T.hass().states[entity];
+        return st && predicate(st) ? st : null;
+      },
+      timeout,
+      `${entity} to match`
+    );
+
+  // Builds the card's editor like the edit dialog does (without opening it), checks that it
+  // rendered something, removes it. Returns the number of elements in its shadow root.
+  T.card.editorRenders = async (card) => {
+    const ed = await customElements.get(card.localName).getConfigElement();
+    ed.hass = T.hass();
+    ed.setConfig(card.config);
+    card.parentNode.append(ed); // inside the app, so HA's context (localize...) reaches the editor's pickers
+    try {
+      await ed.updateComplete;
+      const n = ed.shadowRoot ? ed.shadowRoot.querySelectorAll('*').length : 0;
+      if (n < 3) throw new Error(`editor of ${card.localName} rendered ${n} elements`);
+      return n;
+    } finally {
+      ed.remove();
+    }
+  };
+
   // --- floorplan card ---------------------------------------------------------
 
   const Card = () => customElements.get('ha-plooum-floorplan-card');
