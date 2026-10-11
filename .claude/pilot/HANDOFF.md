@@ -43,8 +43,8 @@ The user works on two PCs; the pilot may start on either.
 | Skills: friction from prompt 09 | `feature/skills-friction-09`, [#27](https://github.com/plooum/HA-Plooum-Cards/pull/27) | merged 2026-10-11 |
 | Drawn roofs: partial gable end (prompt 10) | `feature/floorplan-partial-gable`, [#29](https://github.com/plooum/HA-Plooum-Cards/pull/29) | merged 2026-10-11, released in [V1.3.1](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.3.1) (floorplan 1.10.1, [#31](https://github.com/plooum/HA-Plooum-Cards/pull/31)). Deviation accepted: same-floor rooms also close the side |
 | Skills: faster sub-agent loop + prompt 10 friction (also CLAUDE.md: no rebase for `.claude/pilot/`-only moves of `main`) | `feature/skills-friction-10`, [#30](https://github.com/plooum/HA-Plooum-Cards/pull/30) | merged 2026-10-11 |
-| Bug: projected windows reappear when the view turns (prompt 11, fast path) | `feature/floorplan-window-sides`, [#32](https://github.com/plooum/HA-Plooum-Cards/pull/32) | reviewed (pilot ran the suite live 3/3, CI pass): **waiting for merge approval**, then V1.3.2 |
-| Skills: measure each sub-agent (`agent_timing.py`) and cut what takes time | `feature/skills-agent-timing`, [#33](https://github.com/plooum/HA-Plooum-Cards/pull/33) | waiting for approval |
+| Bug: projected windows reappear when the view turns (prompt 11, fast path) | `feature/floorplan-window-sides`, [#32](https://github.com/plooum/HA-Plooum-Cards/pull/32) | merged 2026-10-11, released in [V1.3.2](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.3.2) (floorplan 1.10.2, [#34](https://github.com/plooum/HA-Plooum-Cards/pull/34)) |
+| Skills: measure each sub-agent (`agent_timing.py`) and cut what takes time | `feature/skills-agent-timing`, [#33](https://github.com/plooum/HA-Plooum-Cards/pull/33) | merged 2026-10-11 |
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
 
@@ -84,7 +84,7 @@ The user works on two PCs; the pilot may start on either.
 
 ## Next
 
-Nothing in progress, V1.3.1 published. Next candidate: roof layer checks (BACKLOG.md). Apply #30's faster loop and record each sub-agent's time. Merging several PRs: rebase each on the `main` left by the previous merge, wait for its CI, and re-run `dev/tests/cards-smoke.json` on a rebased branch that follows a `src/` change.
+Nothing in progress, V1.3.2 published. Next candidate: roof layer checks (BACKLOG.md). Apply #30's faster loop and record each sub-agent's time. Merging several PRs: rebase each on the `main` left by the previous merge, wait for its CI, and re-run `dev/tests/cards-smoke.json` on a rebased branch that follows a `src/` change.
 
 ## Sub-agent notes
 
