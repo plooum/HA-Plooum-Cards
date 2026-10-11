@@ -36,9 +36,9 @@ The user works on two PCs; the pilot may start on either.
 | Skills: always watch the sub-agents | `feature/skills-always-watch`, [#23](https://github.com/plooum/HA-Plooum-Cards/pull/23) | merged 2026-10-11 |
 | Skills: `--body-file` (prompt 07) | `feature/skills-friction-07`, [#22](https://github.com/plooum/HA-Plooum-Cards/pull/22) | merged 2026-10-11 |
 | Skills: friction from prompt 06 | `feature/skills-friction-06`, [#18](https://github.com/plooum/HA-Plooum-Cards/pull/18) | merged 2026-10-11 |
-| Floorplan drawn roofs, part 1: `roofs` option + 3D (prompt 08) | `feature/floorplan-roof-zones`, [#24](https://github.com/plooum/HA-Plooum-Cards/pull/24) | reviewed (suite 4/4 live in the pane), 5 renders shown: **waiting for the user** (look + merge) |
-| Skills: friction from prompt 08 | `feature/skills-friction-08`, [#25](https://github.com/plooum/HA-Plooum-Cards/pull/25) | waiting for approval |
-| Floorplan drawn roofs, part 2: editor roof layer | — | after part 1 is merged (same file) |
+| Floorplan drawn roofs, part 1: `roofs` option + 3D (prompt 08) | `feature/floorplan-roof-zones`, [#24](https://github.com/plooum/HA-Plooum-Cards/pull/24) | merged 2026-10-11 |
+| Skills: friction from prompt 08 | `feature/skills-friction-08`, [#25](https://github.com/plooum/HA-Plooum-Cards/pull/25) | merged 2026-10-11 |
+| Floorplan drawn roofs, part 2: editor roof layer (prompt 09) | `feature/floorplan-roof-editor` | sub-agent working (Sonnet, worktree) |
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
 
@@ -74,7 +74,7 @@ The user works on two PCs; the pilot may start on either.
 
 ## Next
 
-Prompt 08 running (roofs part 1): review, show the 5 renders, merge; then prompt 09 (roofs part 2, editor). Merging several PRs: rebase each on the `main` left by the previous merge, wait for its CI, and re-run `dev/tests/cards-smoke.json` on a rebased branch that follows a `src/` change.
+Prompt 09 running (roofs part 2, editor): review, show the user, merge; then floorplan `CARD_VERSION` 1.10.0 + release V1.3.0 (#24 + part 2), with the user's go. Merging several PRs: rebase each on the `main` left by the previous merge, wait for its CI, and re-run `dev/tests/cards-smoke.json` on a rebased branch that follows a `src/` change.
 
 ## Sub-agent notes
 
