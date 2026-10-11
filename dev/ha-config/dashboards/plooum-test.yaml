@@ -492,6 +492,16 @@ views:
             view: 3d
             floors: *home_floors
           - type: custom:ha-plooum-floorplan-card
+            title: Home, drawn roof
+            view: 3d
+            # Roof zones drawn by hand: a gable over the upstairs, a shed on the wing, a 3-slope strip
+            # against the upstairs wall.
+            roofs:
+              - { x: 0, y: 0, w: 8, h: 4, slopes: 2, direction: south }
+              - { x: 8, y: 0, w: 3, h: 5, slopes: 1, direction: east, pitch: 20 }
+              - { x: 0, y: 4, w: 8, h: 1, slopes: 3, direction: north }
+            floors: *home_floors
+          - type: custom:ha-plooum-floorplan-card
             title: Home in 3D, floating screens
             view: 3d
             roof: false

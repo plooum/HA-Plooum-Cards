@@ -1,0 +1,49 @@
+// Floorplan card: drawn roof zones (the `roofs` option), 3D rendering.
+// dev/.venv/bin/python dev/ui_test.py dev/tests/floorplan-roofs.json
+{
+  "path": "/plooum-test/floorplan",
+  "viewport": [1700, 1050],
+  "tests": [
+    {
+      "name": "without roofs: unchanged",
+      "steps": [
+        { "js": "S.card = await waitFor(() => T.card.all('ha-plooum-floorplan-card').find((c) => c.config.title === 'Home in 3D' && c._scene3dState), 15000, 'the 3D card');" },
+        { "js": "S.faces = S.card._roofFaces(S.card._plans3d(S.card._floors(), 99)); S.got = S.faces.all.map((f) => f.map((x) => x.pts));" },
+        { "js": "S.want = [[[[8,-0.25,2.325],[11.25,-0.25,2.325],[8.5,2.5,4.25],[8,2.5,4.25]],[[11.25,-0.25,2.325],[11.25,5.25,2.325],[8.5,2.5,4.25],[8.5,2.5,4.25]],[[11.25,5.25,2.325],[8,5.25,2.325],[8,2.5,4.25],[8.5,2.5,4.25]],[[11.25,4,2.325],[11.25,5.25,2.325],[10,4,3.2],[10,4,3.2]],[[11.25,5.25,2.325],[-0.25,5.25,2.325],[1,4,3.2],[10,4,3.2]],[[-0.25,5.25,2.325],[-0.25,4,2.325],[1,4,3.2],[1,4,3.2]]],[[[-0.25,-0.25,5.075],[8.25,-0.25,5.075],[6,2,6.65],[2,2,6.65]],[[8.25,-0.25,5.075],[8.25,4.25,5.075],[6,2,6.65],[6,2,6.65]],[[8.25,4.25,5.075],[-0.25,4.25,5.075],[2,2,6.65],[6,2,6.65]],[[-0.25,4.25,5.075],[-0.25,-0.25,5.075],[2,2,6.65],[2,2,6.65]]]];" },
+        { "assert": "JSON.stringify(S.got.map((f) => f.length)) === JSON.stringify(S.want.map((f) => f.length)) && S.got.every((f, i) => f.every((pts, j) => pts.every((P, k) => P.every((v, m) => Math.abs(v - S.want[i][j][k][m]) < 1e-6))))", "msg": "the generated roof's faces of the test house are those of the hip / lean-to roof (1e-6)", "show": "JSON.stringify(S.got)" },
+        { "assert": "S.faces.all.flat().every((x) => !x.wall && !x.flat)", "msg": "the generated roof has slopes only" }
+      ]
+    },
+    {
+      "name": "each slope count renders",
+      "steps": [
+        { "js": "S.card = await waitFor(() => T.card.all('ha-plooum-floorplan-card').find((c) => c.config.title === 'Home, drawn roof' && c._scene3dState), 15000, 'the drawn roof card'); S.cfg = JSON.parse(JSON.stringify(S.card.config));" },
+        { "js": "S.counts = {}; for (const n of [0, 1, 2, 3, 4]) { const roofs = S.cfg.roofs.map((z, i) => (i === 0 ? { ...z, slopes: n } : z)); S.card.setConfig({ ...S.cfg, roofs }); S.card.requestUpdate(); await S.card.updateComplete; await T.fp.waitIdle(S.card, 8000); if (S.card.shadowRoot.querySelector('.error')) throw new Error('error with slopes ' + n); const up = S.card._roofFaces(S.card._plans3d(S.card._floors(), 99)).all[1]; S.counts[n] = [up.filter((x) => !x.wall).length, up.filter((x) => x.wall).length]; if (n === 0) S.flat = up.every((x) => x.flat === true); }" },
+        { "assert": "JSON.stringify(S.counts) === JSON.stringify({ 0: [1, 0], 1: [1, 3], 2: [2, 2], 3: [3, 1], 4: [4, 0] })", "msg": "slopes 0..4 give [slope faces, vertical walls] = 0:[1,0] 1:[1,3] 2:[2,2] 3:[3,1] 4:[4,0]", "show": "JSON.stringify(S.counts)" },
+        { "assert": "S.flat === true", "msg": "slopes 0 is a flat face" },
+        { "js": "S.card.setConfig(S.cfg); S.card.requestUpdate();" }
+      ]
+    },
+    {
+      "name": "invalid zone throws",
+      "steps": [
+        { "js": "S.card = await waitFor(() => T.card.all('ha-plooum-floorplan-card').find((c) => c.config.title === 'Home, drawn roof'), 15000, 'the drawn roof card'); S.cfg = JSON.parse(JSON.stringify(S.card.config)); S.zone = S.cfg.roofs[0]; S.fails = (patch) => { try { S.card.setConfig({ ...S.cfg, roofs: [{ ...S.zone, ...patch }] }); return null; } catch (e) { return e.message; } };" },
+        { "assert": "/slopes must be/.test(S.fails({ slopes: 5 }))", "msg": "slopes 5 throws" },
+        { "assert": "/direction must be/.test(S.fails({ direction: 'up' }))", "msg": "an unknown direction throws" },
+        { "assert": "/pitch must be/.test(S.fails({ pitch: 80 }))", "msg": "pitch 80 throws" },
+        { "assert": "/w and h must be greater than 0/.test(S.fails({ w: 0 }))", "msg": "w 0 throws" },
+        { "assert": "/must be a number/.test(S.fails({ x: 'a' }))", "msg": "a non numeric x throws" },
+        { "assert": "S.fails({}) === null", "msg": "the valid zone does not throw" },
+        { "js": "S.card.setConfig(S.cfg);" }
+      ]
+    },
+    {
+      "name": "projection on drawn roof",
+      "steps": [
+        { "js": "S.card = await waitFor(() => T.card.all('ha-plooum-floorplan-card').find((c) => c.config.title === 'Home, drawn roof' && c._frame3d), 15000, 'the drawn roof card'); S.carries = () => (S.card._frame3d.meshes || []).filter((m) => m.mode === 3 && m.overlays.some((o) => o.proj));" },
+        { "js": "await waitFor(() => { S.card.requestUpdate(); return S.carries().length > 0; }, 15000, 'a roof slope with a projected picture');" },
+        { "assert": "S.carries().length >= 1", "msg": "at least one roof slope of the drawn roof carries the garden camera's picture", "show": "S.carries().length" }
+      ]
+    }
+  ]
+}
