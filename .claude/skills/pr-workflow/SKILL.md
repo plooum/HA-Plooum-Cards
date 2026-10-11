@@ -51,7 +51,7 @@ Deviations from the prompt: <each one, with the reason; "none" otherwise>
 Tested: <the suite's output pasted in full (PASS / FAIL lines, total time) and its path under dev/tests/; then what the suite doesn't cover and what you checked by hand>
 Screenshots: <2 PNG paths in dev/shots/, see below>
 Not tested: <and why>
-Open questions: <decisions you need from the pilot>
+Open questions: <decisions you need from the pilot> (when you need one to go on, stop there: report and end your turn; the pilot resumes you with the answer. Never wait or poll.)
 Friction: <what made you lose time: a command that failed, something hard to find, a wrong assumption in the prompt or a skill, and how you got past it>
 ```
 
