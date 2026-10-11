@@ -18,7 +18,7 @@ _Last update: 2026-10-11, pilot session 2 (Opus 5.5)._
 | UI test runner `dev/ui_test.py` + floorplan setup view suite | `feature/ui-test-runner`, [#10](https://github.com/plooum/HA-Plooum-Cards/pull/10) | merged 2026-10-11 (suite 9/9 PASS in 27.8 s) |
 | One dev HA per worktree (ports 8124+), parallel sub-agents | `feature/parallel-instances`, [#11](https://github.com/plooum/HA-Plooum-Cards/pull/11) | merged 2026-10-11 |
 | `CARD_VERSION` 1.0.0 for button-badge, cover, dpad, gridicons, tabbed, temp-humidity (prompt 04) | `feature/card-versions`, [#14](https://github.com/plooum/HA-Plooum-Cards/pull/14) | reviewed, waiting for approval |
-| Test view per card + `dev/tests/cards-smoke.json` (prompt 05) | `feature/card-smoke-tests` | sub-agent working (worktree) |
+| Test view per card + `dev/tests/cards-smoke.json` (prompt 05) | `feature/card-smoke-tests`, [#15](https://github.com/plooum/HA-Plooum-Cards/pull/15) | reviewed (1 round), waiting for approval |
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | waiting for approval |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | waiting for approval |
 
@@ -42,6 +42,8 @@ _Last update: 2026-10-11, pilot session 2 (Opus 5.5)._
 See [BACKLOG.md](BACKLOG.md): the complete inventory (user decisions pending, work ready to launch, housekeeping). Nothing in progress. Sub-agents run in parallel (`isolation: "worktree"`, own HA 8124+, 3–4 at a time, disjoint files).
 
 ## Sub-agent notes
+
+- Prompt 05 (Sonnet, ~6 min + 1 min review round, 53 tool calls): 9/9 in ~4.4 s. Review round: floorplan test flaked on a cold instance (`rendered(tag, 1)` vs lazy dashboard: pass the view's real count), redundant editor assert, cover test depended on the current position, machine-formatted JSON. Friction: worktree sandbox refuses compound `git` / heredoc / `python3 -` commands; a card's shadow root has 1 child (`ha-card`, styles adopted); an editor appended to `body` fails on `localize` (append next to the card, in the skill now).
 
 - Prompt 04 (Sonnet, ~2 min, 18 tool calls): no review round. Friction to put in skills (with prompt 05's): `dev/shot.py` doesn't print `console.info` (wanted: `--console <substr>`); in a worktree the sandbox refuses compound commands (brace expansion, `git` with `&&` / `;` / heredoc): plain separate commands, scripts written with Write; `git checkout -b x origin/main` tracks origin/main until `git push -u`. The banner logs on every `connectedCallback` (several times per page): existing pattern, accepted.
 
