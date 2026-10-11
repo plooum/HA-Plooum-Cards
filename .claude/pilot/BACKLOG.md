@@ -4,11 +4,14 @@ What is left to do, kept by the pilot (user's request, 2026-10-11). Committed st
 
 [TODO.md](../../TODO.md) stays the repo's list of out-of-scope issues noticed while working (changed through PRs); its items are mirrored here so this file is the one complete inventory.
 
-_Last update: 2026-10-11, pilot session 2 (#12–#16 merged, V1.1.1 released)._
+_Last update: 2026-10-11, pilot session 3 (roofs and projected-facade shutters added)._
 
 ## Waiting on the user
 
-Nothing: no feature requested for now (2026-10-11).
+Two floorplan topics to discuss with the user (requested 2026-10-11): the user decides the design, then the pilot writes a prompt.
+
+- [ ] **Roofs in 3D**: choose how roofs and their slope are shown in the floorplan card's 3D mode. Today a hip roof is generated over each part of the home no floor covers (lean-to against a floor above), with fixed `ROOF_PITCH` / `ROOF_OVERHANG` and no config option (`docs/floorplan.md`, "3D view"). To decide: roof shapes (hip, gable, flat, lean-to…), whether the slope / shape is configurable (card-wide, per floor, per room), and how it looks.
+- [ ] **Shutters on a projected facade**: whether the 3D shutters (covers on outer walls) are shown or not on a facade onto which a camera projects its picture (the projected picture already shows the real shutters).
 
 ## Next
 
