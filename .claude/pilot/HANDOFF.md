@@ -15,12 +15,20 @@ _Last update: 2026-10-11, pilot session 2 (Opus 5.5)._
 | Skills: friction from the setup view sub-agent | `feature/skills-setup-view-friction`, [#8](https://github.com/plooum/HA-Plooum-Cards/pull/8) | merged 2026-10-11 |
 | Floorplan `CARD_VERSION` 1.8.0 + release **V1.1.0** | [#9](https://github.com/plooum/HA-Plooum-Cards/pull/9), [release](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.1.0) | merged and published 2026-10-11, both assets attached by build.yml |
 
-The local branch `feature/dpad-keyboard` existed before this session, untouched and unpushed: not ours, leave it.
 | UI test runner `dev/ui_test.py` + floorplan setup view suite | `feature/ui-test-runner`, [#10](https://github.com/plooum/HA-Plooum-Cards/pull/10) | merged 2026-10-11 (suite 9/9 PASS in 27.8 s) |
 | One dev HA per worktree (ports 8124+), parallel sub-agents | `feature/parallel-instances`, [#11](https://github.com/plooum/HA-Plooum-Cards/pull/11) | merged 2026-10-11 |
+| `CARD_VERSION` 1.0.0 for button-badge, cover, dpad, gridicons, tabbed, temp-humidity (prompt 04) | `feature/card-versions` | sub-agent working (worktree) |
+| Test view per card + `dev/tests/cards-smoke.json` (prompt 05) | `feature/card-smoke-tests` | sub-agent working (worktree) |
+| Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | waiting for approval |
+| Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | waiting for approval |
 
 ## Decisions (user)
 
+- 2026-10-11: **no Android test** of the setup view needed; **no new feature** for now.
+- 2026-10-11: **never** more complex camera handling in the floorplan (fisheye or other), now or later.
+- 2026-10-11: a `CARD_VERSION` for every card (prompt 04).
+- 2026-10-11: a test view per card, and tests for all cards that are **simple and fast** (the user finds tests long): prompt 05.
+- 2026-10-11: no useless branch left behind, now or later: GitHub "Automatically delete head branches" turned on, `fetch.prune=true` in the main checkout, check in the pilot skill (#13). `feature/dpad-keyboard` deleted.
 - 2026-10-11: the pilot keeps the **inventory of what's left** in [BACKLOG.md](BACKLOG.md), itself (no sub-agent), straight on `main`.
 - 2026-10-11: **Setup view** for the floorplan camera projection. Wide layout: the dialog's preview (right side) becomes the setup view, re-applied after each alignment change even when the preview reloads; the user can move it freely in between ("free view"). Narrow layout: a **Setup / 3D preview** toggle at the top of the alignment zone. Outdoor: facing the pinned facade. Indoor: view **B** (above the camera, looking down to the middle of the room, camera's floor only). The alignment itself stays flexible (free pins). Re-apply only after an alignment change, not when opening the panel; wide vs narrow decided by measuring whether the preview is rendered; UI strings in English.
 - 2026-10-11: **one single PR** for the wide and narrow layouts (shared code, no duplication).
