@@ -11,7 +11,8 @@ _Last update: 2026-10-11, pilot session 1 (Opus 5.5)._
 | Item | Branch / PR | Status |
 | :--- | :--- | :--- |
 | Pilot workflow: skills `pilot`, `pr-workflow`, `ha-dev-testing` (+ `editor_shot.py`), `floorplan-card`; CLAUDE.md Pilot mode | `feature/pilot-workflow`, [#6](https://github.com/plooum/HA-Plooum-Cards/pull/6) | merged 2026-10-11 |
-| Floorplan editor: 3D setup view following the projection's alignment | `feature/floorplan-setup-view`, [#7](https://github.com/plooum/HA-Plooum-Cards/pull/7) | review round 2 clean (commit 9c0feb4), pilot's own checks pass (wide: south facade + free view, dashboard cards untouched; narrow: embedded view B without header); **waiting for the user's merge approval** |
+| Floorplan editor: 3D setup view following the projection's alignment | `feature/floorplan-setup-view`, [#7](https://github.com/plooum/HA-Plooum-Cards/pull/7) | merged 2026-10-11 (not tested yet in the Android app; no `CARD_VERSION` bump yet) |
+| Skills: friction from the setup view sub-agent | `feature/skills-setup-view-friction`, [#8](https://github.com/plooum/HA-Plooum-Cards/pull/8) | waiting for the user's merge approval |
 
 The local branch `feature/dpad-keyboard` existed before this session, untouched and unpushed: not ours, leave it.
 
@@ -24,11 +25,11 @@ The local branch `feature/dpad-keyboard` existed before this session, untouched 
 
 ## Next
 
-1. Review its PR (diff, CI, own checks in the dev HA, wide and narrow), loop until clean, present it to the user.
-2. After it: put the sub-agent's friction into the skills (PR `feature/skills-...`).
+1. Get #8 merged (user approval).
+2. Ask the user what's next: a `CARD_VERSION` bump + release for the setup view (minor: new feature), or the next development.
 
 ## Sub-agent notes
 
-- Prompt 01 (Sonnet, ~13 min, 48 tool calls): delivered all 10 test cases and the 2 screenshots. Deviations accepted: narrow = preview hidden **or stacked below** the editor (HA 2026.10 stacks it at 420 px instead of hiding it); entering 3D preview bumps seq. Friction to put in the skills after #7 (one skills PR): 420 px stacks the preview; stub `setPointerCapture` for synthetic pointer events; `editor_shot.py` js steps are separate evaluates (persist with `window.x`), one `openEditor` per run; `hui-dialog-edit-card` stays in the DOM after Cancel; to drop a corner in place move ≥4 px then back; pilot skill: commit the handoff from a **detached** worktree (`git worktree add --detach`, `git push origin HEAD:main`); floorplan skill: the setup view's design (setupView, setupDialogs, _setupBump).
+- Prompt 01 (Sonnet, ~13 min, 48 tool calls): delivered all 10 test cases and the 2 screenshots. Deviations accepted: narrow = preview hidden **or stacked below** the editor (HA 2026.10 stacks it at 420 px instead of hiding it); entering 3D preview bumps seq. Friction, put in the skills by #8: 420 px stacks the preview; stub `setPointerCapture` for synthetic pointer events; `editor_shot.py` js steps are separate evaluates (persist with `window.x`), one `openEditor` per run; `hui-dialog-edit-card` stays in the DOM after Cancel; to drop a corner in place move ≥4 px then back; pilot skill: commit the handoff from a **detached** worktree (`git worktree add --detach`, `git push origin HEAD:main`); floorplan skill: the setup view's design (setupView, setupDialogs, _setupBump).
 
 None yet. Every report must include 2 screenshots (user, 2026-10-11): the prompt names them.
