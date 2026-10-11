@@ -868,13 +868,13 @@ function roofRects(rooms, above) {
 
 // The 4 slopes of a hip roof on a rectangle whose walls stop at height z: their corners, normal,
 // and plane (top-left corner at the eave, unit edges, upward normal) for projected pictures.
-function hipRoof(rect, z) {
+function hipRoof(rect, z, rise = ROOF_PITCH) {
   const o = ROOF_OVERHANG;
   const x0 = rect.x - o;
   const y0 = rect.y - o;
   const x1 = rect.x + rect.w + o;
   const y1 = rect.y + rect.h + o;
-  const eave = z - o * ROOF_PITCH;
+  const eave = z - o * rise;
   const run = Math.min(x1 - x0, y1 - y0) / 2;
   const sides = [
     { p: [x0, y0], q: [x1, y0], d: [0, 1] },
@@ -884,7 +884,7 @@ function hipRoof(rect, z) {
   ];
   return sides.map(({ p, q, d }) => {
     const u = [q[0] - p[0], q[1] - p[1], 0];
-    const v = [d[0] * run, d[1] * run, run * ROOF_PITCH];
+    const v = [d[0] * run, d[1] * run, run * rise];
     const k = run / len3(u);
     const O = [p[0], p[1], eave];
     return {
@@ -930,8 +930,8 @@ function leanSide(rect, rooms, above) {
 // Slopes of the roof on a rectangle whose walls stop at height z (see hipRoof()). A rectangle that
 // leans on a floor above gets a lean-to roof: half of a hip roof twice as deep, its ridge against
 // the wall above (a hip roof would leave a ledge along that wall).
-function roofSlopes(rect, z, lean) {
-  if (!lean) return hipRoof(rect, z);
+function roofSlopes(rect, z, lean, rise = ROOF_PITCH) {
+  if (!lean) return hipRoof(rect, z, rise);
   const [nx, ny] = lean.n;
   const doubled = {
     x: rect.x + Math.min(0, nx) * rect.w,
@@ -942,7 +942,7 @@ function roofSlopes(rect, z, lean) {
   // Keep what lies on the rectangle's side of the wall line.
   const keep = (P) => -((P[0] - lean.a[0]) * nx + (P[1] - lean.a[1]) * ny);
   const out = [];
-  for (const slope of hipRoof(doubled, z)) {
+  for (const slope of hipRoof(doubled, z, rise)) {
     const pts = [];
     slope.pts.forEach((P, i) => {
       const Q = slope.pts[(i + 1) % slope.pts.length];
@@ -958,6 +958,120 @@ function roofSlopes(rect, z, lean) {
 
 // Every roof slope of a floor whose walls stop at height z, under the floors above.
 const floorRoof = (rooms, above, z) => roofRects(rooms, above).flatMap((rect) => roofSlopes(rect, z, leanSide(rect, rooms, above)));
+
+// --- Drawn roof zones (`roofs` option) ---------------------------------------------------------
+// A zone is a rectangle `{ x, y, w, h, slopes, direction, pitch }`; see docs/floorplan.md.
+
+const ROOF_DIRECTIONS = { north: [0, -1], east: [1, 0], south: [0, 1], west: [-1, 0] };
+const ROOF_PITCH_RANGE = [5, 60]; // degrees
+const ROOF_DEFAULT_PITCH_DEG = 35; // = ROOF_PITCH
+
+// Throws when a `roofs` option isn't a list of valid zones.
+function checkRoofs(roofs) {
+  if (roofs === undefined) return;
+  if (!Array.isArray(roofs)) throw new Error('roofs must be a list');
+  roofs.forEach((z, i) => {
+    const at = `roofs[${i}]`;
+    if (!z || typeof z !== 'object') throw new Error(`${at} must be a zone: { x, y, w, h }`);
+    for (const k of ['x', 'y', 'w', 'h']) {
+      if (typeof z[k] !== 'number' || !Number.isFinite(z[k])) throw new Error(`${at}.${k} must be a number`);
+    }
+    if (z.w <= 0 || z.h <= 0) throw new Error(`${at}: w and h must be greater than 0`);
+    if (z.slopes !== undefined && ![0, 1, 2, 3, 4].includes(z.slopes)) throw new Error(`${at}.slopes must be 0, 1, 2, 3 or 4`);
+    if (z.direction !== undefined && !ROOF_DIRECTIONS[z.direction]) throw new Error(`${at}.direction must be one of ${Object.keys(ROOF_DIRECTIONS).join(', ')}`);
+    if (z.pitch !== undefined && !(typeof z.pitch === 'number' && z.pitch >= ROOF_PITCH_RANGE[0] && z.pitch <= ROOF_PITCH_RANGE[1])) {
+      throw new Error(`${at}.pitch must be a number of degrees between ${ROOF_PITCH_RANGE[0]} and ${ROOF_PITCH_RANGE[1]}`);
+    }
+  });
+}
+
+// A roof slope from its eave corner O, its edge u along the eave and v up the slope: corners, upward
+// normal, and plane (see hipRoof()).
+function slopeFace(O, u, v) {
+  let n = norm3(cross3(u, v));
+  if (n[2] < 0) {
+    O = add3(O, u);
+    u = mul3(u, -1);
+    n = mul3(n, -1);
+  }
+  return { pts: quad(O, u, v), n, plane: { o: O, a: norm3(u), b: norm3(v), up: n } };
+}
+
+// A vertical wall of a roof (gable, high wall), `n` its outward normal.
+const roofWall = (pts, n) => ({ pts, n, wall: true, plane: { o: pts[0], a: norm3(sub3(pts[1], pts[0])), b: [0, 0, 1], up: n } });
+
+// The faces of a roof zone whose walls stop at height z: its slopes `{ pts, n, plane }` and its vertical
+// walls (same plus `wall: true`, drawn in the wall color); a flat roof is one face with `flat: true`.
+function zoneFaces(zone, z) {
+  const kind = zone.slopes === undefined ? 4 : zone.slopes;
+  const rise = zone.pitch === undefined || zone.pitch === ROOF_DEFAULT_PITCH_DEG ? ROOF_PITCH : Math.tan(toRad(zone.pitch));
+  const rect = { x: zone.x, y: zone.y, w: zone.w, h: zone.h };
+  const o = ROOF_OVERHANG;
+  if (kind === 4) return hipRoof(rect, z, rise);
+  if (kind === 0) {
+    return [{ ...slopeFace([rect.x - o, rect.y - o, z + 0.03], [rect.w + 2 * o, 0, 0], [0, rect.h + 2 * o, 0]), flat: true }];
+  }
+  const d = ROOF_DIRECTIONS[zone.direction || 'south'];
+  if (kind === 3) {
+    // Against the wall on the `direction` side: half of a hip roof twice as deep (see roofSlopes()),
+    // closed by a vertical gable end along the cut.
+    const a = [d[0] > 0 ? rect.x + rect.w : rect.x, d[1] > 0 ? rect.y + rect.h : rect.y];
+    const slopes = roofSlopes(rect, z, { n: d, a }, rise);
+    const line = (P) => (P[0] - a[0]) * d[0] + (P[1] - a[1]) * d[1];
+    const ends = [];
+    for (const s of slopes) for (const P of s.pts) if (Math.abs(line(P)) < 1e-6 && !ends.some((Q) => len3(sub3(P, Q)) < 1e-6)) ends.push(P);
+    ends.sort((P, Q) => P[0] * -d[1] + P[1] * d[0] - (Q[0] * -d[1] + Q[1] * d[0]));
+    return ends.length >= 3 ? [...slopes, roofWall(ends, [d[0], d[1], 0])] : slopes;
+  }
+  // Shed and gable: along the slope direction d (L long) and across it, along p (W wide).
+  const p = [-d[1], d[0]];
+  const L = Math.abs(d[0]) * rect.w + Math.abs(d[1]) * rect.h;
+  const W = Math.abs(d[0]) * rect.h + Math.abs(d[1]) * rect.w;
+  const c = [rect.x + rect.w / 2, rect.y + rect.h / 2];
+  const at = (along, across, h) => [c[0] + d[0] * along + p[0] * across, c[1] + d[1] * along + p[1] * across, h];
+  if (kind === 1) {
+    // Faces d: low at the d side, a wall under the high edge, a triangle on each side (flush, no overhang).
+    const top = z + L * rise;
+    const eave = at(L / 2 + o, -W / 2, z - o * rise);
+    const out = [slopeFace(eave, [p[0] * W, p[1] * W, 0], sub3(at(-L / 2, -W / 2, top), eave))];
+    out.push(roofWall([at(-L / 2, -W / 2, z), at(-L / 2, W / 2, z), at(-L / 2, W / 2, top), at(-L / 2, -W / 2, top)], [-d[0], -d[1], 0]));
+    for (const s of [-1, 1]) out.push(roofWall([at(L / 2, (s * W) / 2, z), at(-L / 2, (s * W) / 2, z), at(-L / 2, (s * W) / 2, top)], [p[0] * s, p[1] * s, 0]));
+    return out;
+  }
+  // Gable: slopes facing d and -d meeting at the ridge, a triangle at each end (flush).
+  const ridge = z + (L / 2) * rise;
+  const out = [];
+  for (const t of [1, -1]) {
+    const eave = at(t * (L / 2 + o), -W / 2, z - o * rise);
+    out.push(slopeFace(eave, [p[0] * W, p[1] * W, 0], sub3(at(0, -W / 2, ridge), eave)));
+  }
+  for (const s of [-1, 1]) out.push(roofWall([at(L / 2, (s * W) / 2, z), at(-L / 2, (s * W) / 2, z), at(0, (s * W) / 2, ridge)], [p[0] * s, p[1] * s, 0]));
+  return out;
+}
+
+// The highest floor whose rooms cover the zone's center (the ground floor if none). `floors`: [{ rooms }].
+function zoneFloor(zone, floors) {
+  const cx = zone.x + zone.w / 2;
+  const cy = zone.y + zone.h / 2;
+  let k = 0;
+  floors.forEach((f, i) => {
+    if (f.rooms.some((r) => cx > r.x && cx < r.x + r.w && cy > r.y && cy < r.y + r.h)) k = i;
+  });
+  return k;
+}
+
+// The one place the roof comes from, for the rendering and the outdoor-projection occluders: for each
+// of `floors` ([{ rooms: indoor rooms, z0 }], bottom up), the faces of its roof, whose walls stop at
+// z0 + H. From the drawn zones (`roofs`, the config option) when set, else the generated roof.
+function roofsFor(floors, H, roofs) {
+  if (!roofs) return floors.map((f, i) => floorRoof(f.rooms, floors.slice(i + 1).flatMap((g) => g.rooms), f.z0 + H));
+  const out = floors.map(() => []);
+  for (const zone of roofs) {
+    const k = zoneFloor(zone, floors);
+    out[k].push(...zoneFaces(zone, floors[k].z0 + H));
+  }
+  return out;
+}
 
 // The 6 faces of a box centered on c, with half-extent vectors X, Y, Z. The +X face comes first.
 function boxFaces(c, X, Y, Z) {
@@ -1968,8 +2082,9 @@ function facadeCorners(indoor, wallHeight, pose, aspect, hidden) {
 
 // What hides a floor from its outdoor cameras: its indoor rooms and those of the floors above
 // (`above`: [{ rooms, z0 }], z0 from this floor's), as boxes slightly smaller than them (their walls
-// don't hide what lies on them), and their roofs.
-function planOccluders(rooms, above, wallHeight) {
+// don't hide what lies on them), and their roofs (`roofs`: drawn zones standing on these floors, see
+// roofsFor(); null for the generated roof).
+function planOccluders(rooms, above, wallHeight, roofs = null) {
   const e = 0.02;
   const floors = [{ rooms: rooms.filter((r) => !r.outdoor), z0: 0 }, ...above];
   const boxes = [];
@@ -1977,8 +2092,8 @@ function planOccluders(rooms, above, wallHeight) {
   floors.forEach(({ rooms: fr, z0 }, i) => {
     const bottom = i ? z0 - SLAB : 0;
     for (const r of fr) boxes.push([r.x + e, r.y + e, bottom + e, r.x + r.w - e, r.y + r.h - e, z0 + wallHeight - e]);
-    slopes.push(...floorRoof(fr, floors.slice(i + 1).flatMap((f) => f.rooms), z0 + wallHeight));
   });
+  slopes.push(...roofsFor(floors, wallHeight, roofs).flat());
   return { boxes, slopes };
 }
 
@@ -2195,12 +2310,15 @@ const SETUP_TILT_OUTDOOR = 72; // 18° above the horizontal, facing a facade
 const SETUP_TILT_INDOOR = 50; // looking down into the room
 
 // What hides a floor's outdoor cameras' sight (see planOccluders()), for floor `fi` of `floors`.
-function floorOccluders(floors, fi, plan, wallHeight) {
+function floorOccluders(floors, fi, plan, wallHeight, roofs = null) {
+  // Drawn zones standing on this floor or above, their floor counted from this one.
+  const stack = floors.map((f, k) => ({ rooms: k === fi ? plan.rooms.filter((r) => !r.outdoor) : (f.rooms || []).map(normalizeRoom).filter((r) => !r.outdoor) }));
+  const zones = roofs ? roofs.filter((zn) => zoneFloor(zn, stack) >= fi) : null;
   const above = floors.slice(fi + 1).map((f, i) => ({
     rooms: (f.rooms || []).map(normalizeRoom).filter((r) => !r.outdoor),
     z0: (i + 1) * (wallHeight + SLAB),
   }));
-  return planOccluders(plan.rooms, above, wallHeight);
+  return planOccluders(plan.rooms, above, wallHeight, zones);
 }
 
 // The setup view of a camera (`req`: { camera, floor, aspect }) for a 3D viewport `vp`: the `orbit`
@@ -2209,7 +2327,7 @@ function floorOccluders(floors, fi, plan, wallHeight) {
 //  - outdoor camera: facing the facade the editor offers for pinning, a little above it;
 //  - indoor camera: from above the camera, looking at the middle of its room, its floor only;
 //  - otherwise: behind the camera, facing what it films.
-function setupView(hass, floors, req, vp, wallHeight) {
+function setupView(hass, floors, req, vp, wallHeight, roofs = null) {
   const floor = floors[req.floor];
   if (!floor) return null;
   const plan = resolveFloor(hass, floor);
@@ -2238,7 +2356,7 @@ function setupView(hass, floors, req, vp, wallHeight) {
   } else {
     const pose = cameraPose(cam, C);
     const hidden = (() => {
-      const occ = floorOccluders(floors, req.floor, plan, wallHeight);
+      const occ = floorOccluders(floors, req.floor, plan, wallHeight, roofs);
       return (P) => sightBlocked(occ, C, P);
     })();
     const corners = facadeCorners(plan.indoor, wallHeight, pose, req.aspect || 16 / 9, hidden);
@@ -2486,6 +2604,7 @@ class HaPlooumFloorplanCard extends LitElement {
     if (config.projection_picture !== undefined && !PROJECTION_PICTURES.includes(config.projection_picture)) {
       throw new Error(`projection_picture must be one of ${PROJECTION_PICTURES.join(', ')}`);
     }
+    checkRoofs(config.roofs);
     if (config.projected_windows !== undefined && !PROJECTED_WINDOWS.includes(config.projected_windows)) {
       throw new Error(`projected_windows must be one of ${PROJECTED_WINDOWS.join(', ')}`);
     }
@@ -2531,7 +2650,7 @@ class HaPlooumFloorplanCard extends LitElement {
       if (snap) Object.assign(this, { _view: snap.view, _level3d: snap.level, _orbit: snap.orbit });
       return;
     }
-    const v = setupView(this.hass, this._floors(), req, this._viewport3d(), this._wallHeight());
+    const v = setupView(this.hass, this._floors(), req, this._viewport3d(), this._wallHeight(), this.config.roofs);
     if (!v) return;
     state.label = v.label;
     this._view = '3d';
@@ -3643,6 +3762,15 @@ class HaPlooumFloorplanCard extends LitElement {
 
   // Meshes of the scene for a point of view: `eye` is the viewer's position, `toViewer` the
   // horizontal direction from the scene towards the viewer (walls facing it are cut away).
+  // The roof faces of the stacked floors `s` (see _plans3d()), per floor: `all` for the home as it
+  // stands (what hides the outdoor pictures), `shown` for the floors shown (the generated roof leaves
+  // out what the floors not shown would cover). See roofsFor().
+  _roofFaces(s) {
+    const stack = (list) => list.map((p) => ({ rooms: p.indoor, z0: p.z0 }));
+    const all = roofsFor(stack(s.all), s.H, this.config.roofs);
+    return { all, shown: this.config.roofs ? all : roofsFor(stack(s.shown), s.H, null) };
+  }
+
   _buildScene(s, eye, toViewer, mode, colors) {
     const H = s.H;
     const meshes = [];
@@ -3700,6 +3828,7 @@ class HaPlooumFloorplanCard extends LitElement {
     }
     // What hides the outdoor pictures: the home as it stands, every floor with its outer walls up
     // and its roof on, whatever the view shows or cuts away.
+    const roofFaces = this._roofFaces(s);
     let occluders = null;
     if (projectors.some((pr) => !pr.indoor)) {
       occluders = new Mesh();
@@ -3710,8 +3839,7 @@ class HaPlooumFloorplanCard extends LitElement {
           const bottom = p.k > 0 ? p.z0 - SLAB : 0;
           occluders.poly(quad(o, mul3(seg.o === 'h' ? X : Y, seg.b - seg.a), [0, 0, bottom - p.z0 - H]), [0, 0, 0, 1]);
         }
-        const above = s.all.filter((q) => q.k > p.k).flatMap((q) => q.indoor);
-        for (const slope of floorRoof(p.indoor, above, p.z0 + H)) occluders.poly(slope.pts, [0, 0, 0, 1]);
+        for (const face of roofFaces.all[p.k]) occluders.poly(face.pts, [0, 0, 0, 1]);
       }
     }
     // A projected picture goes onto the floor and walls of the camera's room, or outdoors onto the
@@ -3858,12 +3986,18 @@ class HaPlooumFloorplanCard extends LitElement {
 
     // Roofs: on each floor shown, over the part that no floor shown above covers.
     for (const p of s.roof ? s.shown : s.shown.slice(0, -1)) {
-      const above = s.shown.filter((q) => q.k > p.k).flatMap((q) => q.indoor);
-      for (const slope of floorRoof(p.indoor, above, p.z0 + H)) {
+      for (const slope of roofFaces.shown[p.k]) {
+        if (slope.wall) {
+          // A vertical wall of the roof (gable end, high wall): the wall color and shading.
+          const wall = add(new Mesh().poly(slope.pts, darken(colors.wall, shade(slope.n))));
+          project(wall, outdoorProjectors(null).filter((pr) => dot3(sub3(pr.pose.C, slope.plane.o), slope.n) > 0.05 && dot3(sub3(eye, slope.plane.o), slope.n) > 0), slope.pts);
+          continue;
+        }
         // Tiles: a darker line every 25 cm up the slope.
         const { o, b, up } = slope.plane;
+        const color = darken(colors.roof, shade(slope.n, 45));
         const uvs = slope.pts.map((P) => [0, dot3(sub3(P, o), b) / 0.25, 22 / 25, 0.84]);
-        const roof = add(new Mesh(MODE.stripes).poly(slope.pts, darken(colors.roof, shade(slope.n, 45)), uvs));
+        const roof = add(slope.flat ? new Mesh().poly(slope.pts, color) : new Mesh(MODE.stripes).poly(slope.pts, color, uvs));
         // Slopes facing an outdoor camera get its picture.
         project(roof, outdoorProjectors(null).filter((pr) => dot3(sub3(pr.pose.C, o), up) > 0.05 && dot3(sub3(eye, o), up) > 0), slope.pts);
       }
@@ -6437,10 +6571,10 @@ class HaPlooumFloorplanCardEditor extends LitElement {
   // move while dragging.
   _sightTest(plan, C, wallHeight) {
     const floors = this._floors();
-    const key = [floors, this._currentFloorIndex(), wallHeight, JSON.stringify(plan.rooms.map((r) => [r.x, r.y, r.w, r.h, r.outdoor]))];
+    const key = [floors, this._currentFloorIndex(), wallHeight, JSON.stringify(plan.rooms.map((r) => [r.x, r.y, r.w, r.h, r.outdoor])), JSON.stringify(this._config.roofs || null)];
     if (!this._occKey || this._occKey.some((v, i) => v !== key[i])) {
       this._occKey = key;
-      this._occ = floorOccluders(floors, this._currentFloorIndex(), plan, wallHeight);
+      this._occ = floorOccluders(floors, this._currentFloorIndex(), plan, wallHeight, this._config.roofs);
     }
     const occ = this._occ;
     return (P) => sightBlocked(occ, C, P);

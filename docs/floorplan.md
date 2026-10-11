@@ -36,7 +36,38 @@ Switch it to **3D** and the same plan becomes a model of your home and garden, w
 - **Projected pictures** (`projection_picture`): a camera lined up in the editor matches the picture it was lined up on; once the camera turns (PTZ, a knock), a fresh picture would fall askew. So **Capture** a reference picture in the editor's camera view: by default (`frozen`) the camera always projects that picture. With `live`, it projects a snapshot taken every 5 minutes instead, but only as long as it still looks like the reference (their edges are compared, not their colors, so the light of the day doesn't matter): a snapshot that differs too much is not projected, and the camera's screen shows **Camera moved? Re-align it**. Black or failed snapshots are skipped: the last good picture stays. Gray night (infrared) pictures are checked like the others: one that matches is projected. `snapshot` projects the latest snapshot, refreshed every `refresh_interval`, as do cameras without a reference picture.
 - **Windows on a projected facade** (`projected_windows`): the projected picture already shows the real windows and shutters, so a window drawn on top of it would hide and double them. On a facade an outdoor camera projects onto (the window falls in its picture), only the **outer side** of a window follows `projected_windows`; the inner side and the windows of other facades are drawn as usual.
 - Room names on the floor, with their temperature and humidity, turn by quarter turns to read upright from where you look.
-- Grid units are taken as meters: walls are 2.5 high (`wall_height`). The roof is a best effort: the plan says nothing about it, so a hip roof is generated over each part of the home that no floor covers. A part that leans against a floor above (a strip along its wall, a wing ending against it) gets a lean-to roof rising to that wall instead.
+- Grid units are taken as meters: walls are 2.5 high (`wall_height`). The roof is generated, a best effort, unless you draw it with `roofs` (below): the plan says nothing about it, so a hip roof is generated over each part of the home that no floor covers. A part that leans against a floor above (a strip along its wall, a wing ending against it) gets a lean-to roof rising to that wall instead.
+
+## Drawn roof (`roofs`)
+
+By default the roof is generated. Set `roofs` to draw it yourself, as rectangular **roof zones** (in plan units, like rooms). Without `roofs`, the generated roof is unchanged; with it, only your zones are roofed (`roofs: []` shows no roof at all).
+
+| Option | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `x`, `y`, `w`, `h` | number | **Required** | The zone's rectangle, `w` and `h` greater than 0. |
+| `slopes` | number | `4` | Number of slopes, see below. |
+| `direction` | string | `south` | `north` (top of the plan), `east`, `south` or `west`; its meaning depends on `slopes`. |
+| `pitch` | number | `35` | Slope angle in degrees, from 5 to 60. Ignored for `0`. |
+
+| `slopes` | Roof | `direction` |
+| :--- | :--- | :--- |
+| `0` | Flat roof (no tiles) | ignored |
+| `1` | Shed: one slope, a vertical wall under its high side and a triangle on each side | the side the slope faces (runs down towards) |
+| `2` | Gable: two slopes, a vertical gable wall at each end | the slopes face `direction` and its opposite (`north` is `south`, `east` is `west`) |
+| `3` | Three slopes and one vertical gable end (the lean-to) | the side **without** a slope, the one against a wall |
+| `4` | Hip: four slopes | ignored |
+
+A zone stands on the highest floor whose rooms cover its center (the ground floor if none), starting at that floor's wall top, and follows that floor's chips: the roof chip shows it, a floor chip hides it. Eaves overhang; under a gable or a high wall the roof stops flush with the wall. Projected pictures of outdoor cameras fall on the slopes and walls facing them.
+
+```yaml
+type: custom:ha-plooum-floorplan-card
+view: 3d
+roofs:
+  - { x: 0, y: 0, w: 8, h: 4, slopes: 2, direction: south }              # gable over the upstairs
+  - { x: 8, y: 0, w: 3, h: 5, slopes: 1, direction: east, pitch: 20 }    # shed over the wing
+  - { x: 0, y: 4, w: 8, h: 1, slopes: 3, direction: north }              # strip against the upstairs wall
+floors: [...]
+```
 
 ## Using the editor
 
