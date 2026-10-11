@@ -33,6 +33,8 @@ gh pr create --base main --title "<English title>" --body "<body>"
 gh pr checks <N> --watch      # Build and Validate must pass
 ```
 
+Right after a push, `gh pr checks --watch` may still list the previous commit's runs: run it again until it shows the new ones (`gh pr view <N> --json headRefOid,statusCheckRollup`). Don't `sleep` to wait: the harness blocks it; `--watch` waits for you.
+
 The body: what changed and why, how it was tested, what wasn't tested. It ends with the line from your system prompt (`🤖 Generated with [Claude Code](https://claude.com/claude-code)`).
 
 ## Report to the pilot
