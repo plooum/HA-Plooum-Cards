@@ -35,6 +35,8 @@ One file, [src/cards/floorplan/ha-plooum-floorplan-card.js](../../../src/cards/f
 
 ## Editor pitfalls
 
+- Editor undo: `_history` entries are `{ floors, roofs }` (`_remember`, `_undo`). The roof layer (`_roofLayer`) edits `roofs` through `_editRoofs` / `_setRoofs`; rooms and roof zones share the canvas pointer code (the drag's `target: 'room' | 'roof'`). For tests: `_autoRoofZones()` / `_roofZones()`.
+
 - During a corner or picture drag, the new camera settings only live in `this._camDrag.settings` (applied to the rendered floor by `_applyDrag`). **`config-changed` is only dispatched on pointer up** (`_cvUp`): the HA preview card updates on drop, not during the drag.
 - HA may give the preview card a new config through `setConfig` or recreate it (stacks rebuild their cards): state that must survive an update can't live only on the card instance.
 - The card has no direct link to its editor: they're separate elements, both somewhere under `hui-dialog-edit-card`'s shadow root. Both are defined in this file, so module-level state is shared between them.
