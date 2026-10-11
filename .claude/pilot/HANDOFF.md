@@ -33,7 +33,7 @@ The user works on two PCs; the pilot may start on either.
 | Skills: stop for answers, keep sub-agents, HA stopped before merge | `feature/skills-friction-06b`, [#19](https://github.com/plooum/HA-Plooum-Cards/pull/19) | merged 2026-10-11 |
 | Floorplan `CARD_VERSION` 1.9.0 + release **V1.2.0** (for #17) | `feature/floorplan-version-1.9.0`, [#20](https://github.com/plooum/HA-Plooum-Cards/pull/20) | merged 2026-10-11, [release V1.2.0](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.2.0) published, both assets attached by build.yml |
 | Live test runner in the pane (prompt 07) | `feature/live-test-runner`, [#21](https://github.com/plooum/HA-Plooum-Cards/pull/21) | merged 2026-10-11 (main HA restarted + bootstrap: English, runner served) |
-| Skills: always watch the sub-agents | `feature/skills-always-watch`, [#23](https://github.com/plooum/HA-Plooum-Cards/pull/23) | waiting for approval |
+| Skills: always watch the sub-agents | `feature/skills-always-watch`, [#23](https://github.com/plooum/HA-Plooum-Cards/pull/23) | merged 2026-10-11 |
 | Skills: `--body-file` (prompt 07) | `feature/skills-friction-07`, [#22](https://github.com/plooum/HA-Plooum-Cards/pull/22) | merged 2026-10-11 |
 | Skills: friction from prompt 06 | `feature/skills-friction-06`, [#18](https://github.com/plooum/HA-Plooum-Cards/pull/18) | merged 2026-10-11 |
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
@@ -69,7 +69,7 @@ The user works on two PCs; the pilot may start on either.
 
 ## Next
 
-#23 approval. Then the roofs discussion (BACKLOG.md). Merging several PRs: rebase each on the `main` left by the previous merge, wait for its CI, and re-run `dev/tests/cards-smoke.json` on a rebased branch that follows a `src/` change.
+The roofs discussion (BACKLOG.md). Merging several PRs: rebase each on the `main` left by the previous merge, wait for its CI, and re-run `dev/tests/cards-smoke.json` on a rebased branch that follows a `src/` change.
 
 ## Sub-agent notes
 
