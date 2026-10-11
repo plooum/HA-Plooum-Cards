@@ -29,4 +29,4 @@ The local branch `feature/dpad-keyboard` existed before this session, untouched 
 
 ## Sub-agent notes
 
-None yet.
+None yet. Every report must include 2 screenshots (user, 2026-10-11): the prompt names them.

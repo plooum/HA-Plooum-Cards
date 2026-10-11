@@ -71,3 +71,9 @@ Dev HA, `/plooum-edit/floorplan?edit=1`, with `.claude/skills/ha-dev-testing/edi
 8. Narrow (420×900): the toggle shows above **Camera view**; **3D preview** shows the embedded 3D view in the setup view with its badge; an alignment change made in **Setup** shows in **3D preview**; free view and **Setup view** work there too.
 9. Close the dialog: no errors, nothing left registered (the module state is empty again).
 10. `editor_shot.py` / `dev/shot.py` exit code 0 on `/plooum-test/floorplan` and on the editor runs (no console errors), and the card outside the editor behaves as before.
+
+## The 2 screenshots of your report
+
+1. `dev/shots/setup-wide.png`: the whole editor dialog at 1700×1050, `camera.garden_camera` selected, Advanced open, after a corner drop: camera view on the left, the preview's "Home in 3D" card facing the south facade with its `Setup · …` badge on the right.
+2. `dev/shots/setup-narrow.png`: the dialog at 420×900, same camera, the toggle on **3D preview**, showing the embedded 3D view in the setup view with its badge.
+
