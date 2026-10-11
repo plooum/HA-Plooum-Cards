@@ -36,10 +36,11 @@ The user works on two PCs; the pilot may start on either.
 | Skills: always watch the sub-agents | `feature/skills-always-watch`, [#23](https://github.com/plooum/HA-Plooum-Cards/pull/23) | merged 2026-10-11 |
 | Skills: `--body-file` (prompt 07) | `feature/skills-friction-07`, [#22](https://github.com/plooum/HA-Plooum-Cards/pull/22) | merged 2026-10-11 |
 | Skills: friction from prompt 06 | `feature/skills-friction-06`, [#18](https://github.com/plooum/HA-Plooum-Cards/pull/18) | merged 2026-10-11 |
+| Floorplan `CARD_VERSION` 1.10.0 + release **V1.3.0** (drawn roofs) | [#28](https://github.com/plooum/HA-Plooum-Cards/pull/28), [release](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.3.0) | published 2026-10-11, both assets attached |
 | Floorplan drawn roofs, part 1: `roofs` option + 3D (prompt 08) | `feature/floorplan-roof-zones`, [#24](https://github.com/plooum/HA-Plooum-Cards/pull/24) | merged 2026-10-11 |
 | Skills: friction from prompt 08 | `feature/skills-friction-08`, [#25](https://github.com/plooum/HA-Plooum-Cards/pull/25) | merged 2026-10-11 |
-| Floorplan drawn roofs, part 2: editor roof layer (prompt 09) | `feature/floorplan-roof-editor`, [#26](https://github.com/plooum/HA-Plooum-Cards/pull/26) | reviewed after round 2 (pilot ran the editor suite live in the pane 5/5): **waiting for merge approval** |
-| Skills: friction from prompt 09 | `feature/skills-friction-09`, [#27](https://github.com/plooum/HA-Plooum-Cards/pull/27) | waiting for approval; merge **after** #26 (names its internals) |
+| Floorplan drawn roofs, part 2: editor roof layer (prompt 09) | `feature/floorplan-roof-editor`, [#26](https://github.com/plooum/HA-Plooum-Cards/pull/26) | merged 2026-10-11 |
+| Skills: friction from prompt 09 | `feature/skills-friction-09`, [#27](https://github.com/plooum/HA-Plooum-Cards/pull/27) | merged 2026-10-11 |
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
 
@@ -75,7 +76,7 @@ The user works on two PCs; the pilot may start on either.
 
 ## Next
 
-Prompt 09 running (roofs part 2, editor): review, show the user, merge; then floorplan `CARD_VERSION` 1.10.0 + release V1.3.0 (#24 + part 2), with the user's go. Merging several PRs: rebase each on the `main` left by the previous merge, wait for its CI, and re-run `dev/tests/cards-smoke.json` on a rebased branch that follows a `src/` change.
+Nothing in progress. Known limits of the drawn roofs (in BACKLOG.md): a 3-slope zone only partly against a floor above leaves the rest of that side open; roof layer untested on touch / narrow dialog / plan generated from areas. Merging several PRs: rebase each on the `main` left by the previous merge, wait for its CI, and re-run `dev/tests/cards-smoke.json` on a rebased branch that follows a `src/` change.
 
 ## Sub-agent notes
 

@@ -12,6 +12,9 @@ Nothing.
 
 ## Next
 
+- [ ] **Drawn roofs, partial gable end**: a 3-slope zone whose `direction` side is only partly against a floor above gets no gable end at all; close the uncovered part (prompt 09 review).
+- [ ] **Roof layer checks**: touch input, narrow edit dialog, a plan generated from areas (not tested by prompt 09).
+
 - [ ] **Suites restore entity states even when a test fails** (prompt 07 friction): a failing smoke test leaves e.g. `input_number.living_room_temperature` changed; a `finally`-style restore step in `ui_runner.js` / the suites. Small dev-tool PR.
 
 - [ ] **`dev/shot.py --console <substr>`**: print matching `console.info` / `log` lines (prompt 04 friction; the skill points to the pane meanwhile). Small dev-tool PR, when convenient.
