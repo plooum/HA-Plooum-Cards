@@ -31,6 +31,13 @@ You were given a task by the pilot, an agent who reviews your work and loops wit
 
 The user watches: run your suites and hand checks **in your own tab of the built-in browser pane** (`runner.html`, see `ha-dev-testing`), headless only for screenshots and a final re-run.
 
+**Be fast** (the user finds the loop long):
+- Read only the sections the prompt names (grep, then read around); don't read a 7,000-line file or a whole skill you don't need.
+- While you work, run only the test you're on (`&only=<name>` in the pane, `--only` headless); run the full suites the prompt lists **once**, at the end, with `pause=0`.
+- One `npm run build` per change you want to see, then a page reload; no HA restart unless `configuration.yaml` changed.
+- Screenshots only if the prompt asks for them; one try per shot: check the viewpoint on a first shot before a series.
+- **Fast path** (the prompt says so: a one-function fix): no screenshots, the new test plus `cards-smoke`, a 5-line report.
+
 ## Pull request
 
 ```bash
@@ -53,7 +60,7 @@ Branch / PR: feature/<name>, #<N> (CI: pass | fail: <which>)
 Done: <bullets: what changed, which functions/files>
 Deviations from the prompt: <each one, with the reason; "none" otherwise>
 Tested: <the suite's output pasted in full (PASS / FAIL lines, total time) and its path under dev/tests/; then what the suite doesn't cover and what you checked by hand>
-Screenshots: <2 PNG paths in dev/shots/, see below>
+Screenshots: <PNG paths in dev/shots/ when the prompt asks for them, see below>
 Not tested: <and why>
 Open questions: <decisions you need from the pilot> (when you need one to go on, stop there: report and end your turn; the pilot resumes you with the answer. Never wait or poll.)
 Friction: <what made you lose time: a command that failed, something hard to find, a wrong assumption in the prompt or a skill, and how you got past it>
@@ -61,7 +68,7 @@ Friction: <what made you lose time: a command that failed, something hard to fin
 
 **Tests are a suite**: write the prompt's test cases as `dev/tests/<feature>.json` and run `dev/ui_test.py` (see `ha-dev-testing`); the pilot re-runs it. The **Tested** section is its output, not a narrative of what you clicked. The suite is committed with the PR.
 
-**Two screenshots, always**: the two that best show the change working (the prompt may name them; otherwise the main state and the most important other one, e.g. wide and narrow layout, before and after an action). Full page or cropped to the card, in `dev/shots/`, never committed. The pilot looks at them first to check your work.
+**Screenshots when the prompt asks for them** (a visual change): those it names, otherwise the main state and the most important other one (e.g. wide and narrow layout, before and after an action). Full page or cropped to the card, in `dev/shots/`, never committed. The pilot looks at them first to check your work.
 
 The **Friction** section matters: the pilot turns it into skills so the next sub-agent doesn't lose the same time. Be concrete ("`deep()` selector with a descendant combinator doesn't cross shadow roots: walk with `.shadowRoot`"), not vague.
 

@@ -25,7 +25,8 @@ When the user calls you "le pilote", you take this role for the whole session, w
    - the branch name, and "open the PR, never merge it";
    - the report format (see `pr-workflow`).
    - that it **stops** when it needs an answer: the question goes in its report's Open questions and it ends its turn; it never waits, polls or works around it (user, 2026-10-11: saves tokens). You answer later with `SendMessage`, which resumes it with its context.
-   - the **2 screenshots** the report must include, named after what they must show (`pr-workflow` requires two; say which ones help you check the work).
+   - the screenshots, **only when the change is visual** (0 to 2), named after what they must show; none for geometry or logic a suite asserts.
+   - **Speed** (user, 2026-10-11: the loop felt long). Prompts are **short and exact**: the functions and approximate lines to touch, the file sections to read (never "read the card"), the test cases with their **premises checked against the test plan**, and the suites to run at the end (the new one, plus `cards-smoke`; the other floorplan suites only when the change can break them). Small fixes (one function, one test) say "fast path" (see `pr-workflow`).
    - **Renders for a user decision: the fewest that show the choice**, one per option from one viewpoint (2026-10-11: the user wanted 5 renders, not a 30-shot grid; it took 10 minutes). Add viewpoints or states only when the user asks.
    - **This machine's RAM** (see the handoff's Machines): on the 7 GB laptop, one or two sub-agents at a time.
 2. **Launch.** Use the `Agent` tool, `subagent_type: general-purpose`, `model: sonnet`, in the background. Give it the prompt file's content (not just its path).
@@ -34,15 +35,16 @@ When the user calls you "le pilote", you take this role for the whole session, w
    - **Disjoint work.** Parallel PRs touching the same file conflict (the floorplan card is one 7,000-line file): give them disjoint files or features, or run them one after the other. Rebase the later one on `main` after the earlier merge.
    - You stay on `main` in the main checkout (HA on 8123): handoff commits are plain `git commit` + `git push origin main` there, and you review in it. Don't switch its branch.
 3. **Review.** When the sub-agent reports:
-   - look at its 2 screenshots first;
+   - look at its screenshots first, if any;
    - read the PR's diff (`gh pr diff N`) in full, and check its CI (`gh pr checks N`);
    - check it against the prompt and CLAUDE.md, with the checklist below;
-   - re-run the sub-agent's suite yourself (`dev/.venv/bin/python dev/ui_test.py dev/tests/<feature>.json`) and read its output; add a test for anything you suspect. Don't take "tested" on trust.
+   - re-run the sub-agent's new suite **once**, live in your pane tab (`runner.html`, `pause=0`) so the user sees it; add a test for anything you suspect. Don't take "tested" on trust, but don't re-run what CI or the sub-agent's final run already covers either.
 4. **Iterate.** Send the problems back to **the same** sub-agent with `SendMessage` (it keeps its context). Don't spawn a new one for a fix. Repeat until the PR is clean. **Keep the sub-agent** (its context, worktree and HA) until the user has validated its work: through every round trip, and until the merge is approved, in case of changes (user, 2026-10-11).
 5. **Present to the user.** Only then: in French, what the PR does, what you checked, screenshots, and what you're unsure about. Ask for the merge approval (CLAUDE.md: never merge without it). Once approved, merge it yourself as CLAUDE.md says.
 6. **Improve the skills, right away.** As soon as a review is done (the user insists: never wait, never batch it for later, never ask first), open the skills PR yourself: from the sub-agent's "Friction" section and from your own review, add what would have saved time to the right skill (see below). Skill changes go through a PR (`feature/skills-<topic>`), like any repo file; present it to the user together with the reviewed PR. A friction that needs a code change (a dev tool flag, a helper) goes in BACKLOG.md instead.
 7. **After the merge is approved**: in the sub-agent's worktree `dev/ha.sh stop` **before** `gh pr merge` (its `--delete-branch` also removes the local worktree when the branch is checked out there, leaving its HA running orphaned: then find it with `ss -ltnp | grep 812` and kill it), then `git worktree remove <path>` and delete its local branch. Check `dev/ha.sh list` shows no leftover instance. **No stale branches**: GitHub deletes a merged PR's branch (repo setting "Automatically delete head branches", on since 2026-10-11) and `fetch.prune` is on in the main checkout, so `git fetch` drops its `origin/...` ref. Check that `git branch -a` lists only `main` and the branches of open PRs; delete any other local branch (ask the user before deleting one you didn't create).
-8. **Update the handoff** (see below) at each step: launch, report, review, merge.
+8. **Update the handoff** (see below) at launch, after the review and after the merge: one commit each, not one per small step (each push to `main` is one more thing to rebase on).
+9. **Merging fast**: once approved, stop the sub-agent's HA, then for the feature PR and its skills PR: rebase only if `main` moved outside `.claude/pilot/` (CLAUDE.md), wait with `gh pr checks <N> --watch` (no `sleep` before it beyond the few seconds CI needs to register), merge, next. Note each sub-agent's duration and tool calls in the handoff to see whether the loop gets faster.
 
 Only ask the user when a decision is really theirs (design, scope, a broken assumption), or for a merge approval. Sort out everything else with the sub-agent.
 

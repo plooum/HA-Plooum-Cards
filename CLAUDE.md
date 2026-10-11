@@ -49,7 +49,7 @@ Every change goes through a pull request: code, docs, READMEs, this file, [TODO.
 2. Commit there and push the branch. One feature or fix per PR: several TODO items mean several PRs.
 3. Open a PR against `main` with `gh pr create` and check that its CI (Build, Validate) passes.
 4. Wait for the owner's explicit approval. Never merge a PR before it.
-5. Once approved: if `main` has moved, rebase the branch on `origin/main` and push it again (force-push is allowed on the feature branch only) so CI runs on the real result. Then **squash-merge** it: `gh pr merge <N> --squash --delete-branch`, subject `<PR title> (#<N>)`. Each PR becomes a single commit on `main`.
+5. Once approved: if `main` has moved (other than commits touching only `.claude/pilot/`, which change nothing CI checks), rebase the branch on `origin/main` and push it again (force-push is allowed on the feature branch only) so CI runs on the real result. Then **squash-merge** it: `gh pr merge <N> --squash --delete-branch`, subject `<PR title> (#<N>)`. Each PR becomes a single commit on `main`.
 6. Locally: `git checkout main`, `git pull --ff-only`, `git branch -D feature/<name>` (`-D`: a squashed branch isn't an ancestor of `main`). Check the Build and Validate runs on `main`.
 
 ### Releases
