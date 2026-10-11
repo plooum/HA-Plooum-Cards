@@ -24,6 +24,8 @@ When the user calls you "le pilote", you take this role for the whole session, w
    - the branch name, and "open the PR, never merge it";
    - the report format (see `pr-workflow`).
    - the **2 screenshots** the report must include, named after what they must show (`pr-workflow` requires two; say which ones help you check the work).
+   - **Renders for a user decision: the fewest that show the choice**, one per option from one viewpoint (2026-10-11: the user wanted 5 renders, not a 30-shot grid; it took 10 minutes). Add viewpoints or states only when the user asks.
+   - **This machine's RAM** (see the handoff's Machines): on the 7 GB laptop, one or two sub-agents at a time.
 2. **Launch.** Use the `Agent` tool, `subagent_type: general-purpose`, `model: sonnet`, in the background. Give it the prompt file's content (not just its path).
    - **Several sub-agents in parallel**, each launched with `isolation: "worktree"`. Each starts its own HA from its worktree (`dev/ha.sh start`, then `npm run build` there): own port (8124, 8125, ...), own token, own bundle, `node_modules` and venv linked from the main checkout (see `ha-dev-testing`). Tell it so in the prompt, and to `dev/ha.sh stop` when done. When the user wants to watch, you open one browser tab per instance (`tabs_create`, `navigate` to its URL); a sub-agent opens only its own, if it has the tools.
    - **How many**: one HA instance takes ~270 MB, a headless Chrome suite some hundreds of MB more, and CPU is the real limit (8 cores): a suite takes 28 s alone and ~60 s with three at once. Three or four in parallel is comfortable on this machine (31 GB RAM); more just makes every suite slower. `dev/ha.sh list` shows what is running.

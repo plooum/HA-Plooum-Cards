@@ -16,7 +16,8 @@ You were given a task by the pilot, an agent who reviews your work and loops wit
 - The bundle (`ha-plooum-cards.js`, `.map`) is gitignored: run `npm run build` to test, never commit it. Don't commit screenshots or scratch scripts either: keep them in `dev/shots/` (gitignored) or a scratch directory.
 - Don't bump `CARD_VERSION`: that's a separate PR.
 - Commit messages: English, imperative subject, end with the attribution line from your system prompt (`Co-Authored-By: ...`).
-- Run git steps as separate commands rather than one long `&&` chain. In a worktree the sandbox refuses "too complex" commands outright: brace expansion, and `git` mixed with `&&`, `;`, a heredoc or `python3 -`. Run plain separate commands, and write multi-line scripts or file edits with the Write / Edit tools.
+- Run git steps as separate commands rather than one long `&&` chain. In a worktree the sandbox refuses "too complex" commands outright: brace expansion, and `git` mixed with `&&`, `;`, a heredoc or `python3 -`. Run plain separate commands, and write multi-line scripts or file edits with the Write / Edit tools. The refusal also hits a `python3` call on a path containing `git` when chained, and `git` / `gh` / `sed` with shell variables.
+- `node`, `npm`, `gh` or `uv` not found: on the laptop they live in `~/.local/bin` (`export PATH=~/.local/bin:$PATH`, or the full path).
 
 ## Code conventions (from CLAUDE.md)
 
