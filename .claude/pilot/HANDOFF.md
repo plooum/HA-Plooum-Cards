@@ -42,11 +42,13 @@ The user works on two PCs; the pilot may start on either.
 | Floorplan drawn roofs, part 2: editor roof layer (prompt 09) | `feature/floorplan-roof-editor`, [#26](https://github.com/plooum/HA-Plooum-Cards/pull/26) | merged 2026-10-11 |
 | Skills: friction from prompt 09 | `feature/skills-friction-09`, [#27](https://github.com/plooum/HA-Plooum-Cards/pull/27) | merged 2026-10-11 |
 | Drawn roofs: partial gable end (prompt 10) | `feature/floorplan-partial-gable`, [#29](https://github.com/plooum/HA-Plooum-Cards/pull/29) | reviewed (pilot ran floorplan-roofs live 6/6): **waiting for merge approval**. Deviation accepted: same-floor rooms also close the side (needed for the auto-roof match) |
-| Skills: friction from prompt 10 | `feature/skills-friction-10`, [#30](https://github.com/plooum/HA-Plooum-Cards/pull/30) | waiting for approval |
+| Skills: faster sub-agent loop + prompt 10 friction (also CLAUDE.md: no rebase for `.claude/pilot/`-only moves of `main`) | `feature/skills-friction-10`, [#30](https://github.com/plooum/HA-Plooum-Cards/pull/30) | waiting for approval |
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
 
 ## Decisions (user)
+
+- 2026-10-11: **the sub-agent loop is too long: optimize it** (#30). Baseline: prompts 06–10 took 8–13 min and 49–78 tool calls each, plus 2–4 min of pilot CI waits per merge.
 
 - 2026-10-11, **roofs**: the user draws the roof like a floor: the floors' outer walls drawn as guides, **rectangular zones** (like rooms), each with **0 (flat), 1, 2, 3 or 4 slopes**, a **direction** and a **pitch per zone**; the user can add zones; zones **pre-filled from the automatic roof** when the roof layer opens; without `roofs` the automatic roof stays as today. Pilot's design: `roofs: [{x,y,w,h,slopes,direction,pitch}]`, direction north/east/south/west (north = -y), meaning per type in prompt 08; part 1 = option + 3D, part 2 = editor.
 
