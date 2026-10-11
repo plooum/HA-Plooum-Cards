@@ -2,7 +2,7 @@
 
 Read by the next pilot first (see the `pilot` skill). Committed straight to `main`, no PR. Keep it current.
 
-_Last update: 2026-10-11, pilot session 1 (Opus 5.5)._
+_Last update: 2026-10-11, pilot session 2 (Opus 5.5)._
 
 `main`'s protection: the user turned off "Lock branch" on 2026-10-11 (it blocked PR merges too); the pilot pushes `.claude/pilot/` straight to `main`. The pilot stays on `main` in the main checkout (HA on 8123) and commits the handoff there; sub-agents work in their own worktrees with their own HA (see the `pilot` skill).
 
@@ -21,6 +21,7 @@ The local branch `feature/dpad-keyboard` existed before this session, untouched 
 
 ## Decisions (user)
 
+- 2026-10-11: the pilot keeps the **inventory of what's left** in [BACKLOG.md](BACKLOG.md), itself (no sub-agent), straight on `main`.
 - 2026-10-11: **Setup view** for the floorplan camera projection. Wide layout: the dialog's preview (right side) becomes the setup view, re-applied after each alignment change even when the preview reloads; the user can move it freely in between ("free view"). Narrow layout: a **Setup / 3D preview** toggle at the top of the alignment zone. Outdoor: facing the pinned facade. Indoor: view **B** (above the camera, looking down to the middle of the room, camera's floor only). The alignment itself stays flexible (free pins). Re-apply only after an alignment change, not when opening the panel; wide vs narrow decided by measuring whether the preview is rendered; UI strings in English.
 - 2026-10-11: **one single PR** for the wide and narrow layouts (shared code, no duplication).
 - 2026-10-11: don't add the staircase-looking stripes on the garden camera's projected facade to TODO.md (the user said no).
@@ -30,7 +31,7 @@ The local branch `feature/dpad-keyboard` existed before this session, untouched 
 
 ## Next
 
-Nothing in progress: ask the user for the next development. Sub-agents now run in parallel (`isolation: "worktree"`, own HA 8124+, 3–4 at a time, disjoint files). Open point: the setup view hasn't been tried in the HA Android app.
+See [BACKLOG.md](BACKLOG.md): the complete inventory (user decisions pending, work ready to launch, housekeeping). Nothing in progress. Sub-agents run in parallel (`isolation: "worktree"`, own HA 8124+, 3–4 at a time, disjoint files).
 
 ## Sub-agent notes
 
