@@ -8,12 +8,12 @@
     {
       "name": "auto zones match the automatic roof",
       "steps": [
-        { "js": "S.faces = (card) => card._roofFaces(card._plans3d(card._floors(), 99)).all.map((f) => f.filter((x) => !x.wall).map((x) => x.pts));" },
+        { "js": "S.faces = (card) => card._roofFaces(card._plans3d(card._floors(), 99)).all.map((f) => f.map((x) => x.pts));" },
         { "js": "S.check = async (idx, title) => { await openEditor(idx); const ed = window.__ed; const zones = ed._autoRoofZones(); const card = previewCard(title); const cfg = JSON.parse(JSON.stringify(card.config)); delete cfg.roofs; card.setConfig(cfg); const auto = S.faces(card); card.setConfig({ ...cfg, roofs: zones }); const drawn = S.faces(card); card.setConfig(cfg); await cancelDialog(); const same = JSON.stringify(auto.map((f) => f.length)) === JSON.stringify(drawn.map((f) => f.length)) && auto.every((f, i) => f.every((pts, j) => pts.every((P, k) => P.every((v, m) => Math.abs(v - drawn[i][j][k][m]) < 1e-6)))); return { zones: zones.length, same, counts: auto.map((f) => f.length) }; };" },
         { "js": "S.a = await S.check(2, 'Home in 3D');", "print": true },
-        { "assert": "S.a.zones > 0 && S.a.same", "msg": "Home in 3D: the zones give the faces of the automatic roof (1e-6)", "show": "JSON.stringify(S.a)" },
+        { "assert": "S.a.zones > 0 && S.a.same", "msg": "Home in 3D: the zones give the faces (walls included) of the automatic roof (1e-6)", "show": "JSON.stringify(S.a)" },
         { "js": "S.b = await S.check(5, 'Rooms in several zones');", "print": true },
-        { "assert": "S.b.zones > 0 && S.b.same", "msg": "Rooms in several zones: the zones give the faces of the automatic roof (1e-6)", "show": "JSON.stringify(S.b)" }
+        { "assert": "S.b.zones > 0 && S.b.same", "msg": "Rooms in several zones: the zones give the faces (walls included) of the automatic roof (1e-6)", "show": "JSON.stringify(S.b)" }
       ]
     },
     {

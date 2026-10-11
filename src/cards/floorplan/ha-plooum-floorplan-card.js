@@ -1002,7 +1002,8 @@ const roofWall = (pts, n) => ({ pts, n, wall: true, plane: { o: pts[0], a: norm3
 
 // The faces of a roof zone whose walls stop at height z: its slopes `{ pts, n, plane }` and its vertical
 // walls (same plus `wall: true`, drawn in the wall color); a flat roof is one face with `flat: true`.
-function zoneFaces(zone, z) {
+// `above`: the rooms of the floors above, for the lean-to's gable end (see below).
+function zoneFaces(zone, z, above = []) {
   const kind = zone.slopes === undefined ? 4 : zone.slopes;
   const rise = zone.pitch === undefined || zone.pitch === ROOF_DEFAULT_PITCH_DEG ? ROOF_PITCH : Math.tan(toRad(zone.pitch));
   const rect = { x: zone.x, y: zone.y, w: zone.w, h: zone.h };
@@ -1021,7 +1022,18 @@ function zoneFaces(zone, z) {
     const ends = [];
     for (const s of slopes) for (const P of s.pts) if (Math.abs(line(P)) < 1e-6 && !ends.some((Q) => len3(sub3(P, Q)) < 1e-6)) ends.push(P);
     ends.sort((P, Q) => P[0] * -d[1] + P[1] * d[0] - (Q[0] * -d[1] + Q[1] * d[0]));
-    return ends.length >= 3 ? [...slopes, roofWall(ends, [d[0], d[1], 0])] : slopes;
+    // No gable end where the side lies along a floor above: it would be coplanar with that wall.
+    const strictly = (r, x, y) => x > r.x && x < r.x + r.w && y > r.y && y < r.y + r.h;
+    const length = Math.abs(d[1]) * rect.w + Math.abs(d[0]) * rect.h;
+    const steps = Math.max(2, Math.ceil(length / 0.25));
+    let leaning = false;
+    for (let i = 0; i < steps && !leaning; i++) {
+      const t = (i + 0.5) / steps;
+      const x = d[0] ? a[0] + d[0] * 0.01 : rect.x + rect.w * t;
+      const y = d[1] ? a[1] + d[1] * 0.01 : rect.y + rect.h * t;
+      leaning = above.some((r) => strictly(r, x, y));
+    }
+    return ends.length >= 3 && !leaning ? [...slopes, roofWall(ends, [d[0], d[1], 0])] : slopes;
   }
   // Shed and gable: along the slope direction d (L long) and across it, along p (W wide).
   const p = [-d[1], d[0]];
@@ -1055,7 +1067,7 @@ function zoneFloor(zone, floors) {
   const cy = zone.y + zone.h / 2;
   let k = 0;
   floors.forEach((f, i) => {
-    if (f.rooms.some((r) => cx > r.x && cx < r.x + r.w && cy > r.y && cy < r.y + r.h)) k = i;
+    if (f.rooms.some((r) => cx >= r.x && cx <= r.x + r.w && cy >= r.y && cy <= r.y + r.h)) k = i;
   });
   return k;
 }
@@ -1068,7 +1080,7 @@ function roofsFor(floors, H, roofs) {
   const out = floors.map(() => []);
   for (const zone of roofs) {
     const k = zoneFloor(zone, floors);
-    out[k].push(...zoneFaces(zone, floors[k].z0 + H));
+    out[k].push(...zoneFaces(zone, floors[k].z0 + H, floors.slice(k + 1).flatMap((g) => g.rooms)));
   }
   return out;
 }

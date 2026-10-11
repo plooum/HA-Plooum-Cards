@@ -38,6 +38,15 @@
       ]
     },
     {
+      "name": "zone centered on a shared wall of an upper floor stays on it",
+      "steps": [
+        { "js": "S.card = await waitFor(() => T.card.all('ha-plooum-floorplan-card').find((c) => c.config.title === 'Home, drawn roof' && c._scene3dState), 15000, 'the drawn roof card'); S.cfg = JSON.parse(JSON.stringify(S.card.config)); const up = S.card._floors()[1].rooms.filter((r) => !r.outdoor); S.pair = null; for (const a of up) for (const b of up) if (a !== b && a.x + a.w === b.x && !S.pair) S.pair = [a, b];" },
+        { "assert": "!!S.pair", "msg": "the upstairs has two rooms sharing a wall" },
+        { "js": "const [a] = S.pair; S.card.setConfig({ ...S.cfg, roofs: [{ x: a.x + a.w - 0.5, y: a.y + 0.5, w: 1, h: 1, slopes: 4 }] }); const f = S.card._roofFaces(S.card._plans3d(S.card._floors(), 99)).all; S.counts = f.map((x) => x.length); S.card.setConfig(S.cfg);" },
+        { "assert": "S.counts[0] === 0 && S.counts[1] === 4", "msg": "the zone's roof is on the upper floor, not the ground floor", "show": "JSON.stringify(S.counts)" }
+      ]
+    },
+    {
       "name": "projection on drawn roof",
       "steps": [
         { "js": "S.card = await waitFor(() => T.card.all('ha-plooum-floorplan-card').find((c) => c.config.title === 'Home, drawn roof' && c._frame3d), 15000, 'the drawn roof card'); S.carries = () => (S.card._frame3d.meshes || []).filter((m) => m.mode === 3 && m.overlays.some((o) => o.proj));" },
