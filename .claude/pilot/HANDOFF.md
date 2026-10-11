@@ -16,7 +16,7 @@ _Last update: 2026-10-11, pilot session 1 (Opus 5.5)._
 | Floorplan `CARD_VERSION` 1.8.0 + release **V1.1.0** | [#9](https://github.com/plooum/HA-Plooum-Cards/pull/9), [release](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.1.0) | merged and published 2026-10-11, both assets attached by build.yml |
 
 The local branch `feature/dpad-keyboard` existed before this session, untouched and unpushed: not ours, leave it.
-| UI test runner `dev/ui_test.py` + floorplan setup view suite | `feature/ui-test-runner`, [#10](https://github.com/plooum/HA-Plooum-Cards/pull/10) | delivered in one round, CI green; pilot re-ran the suite: 9/9 PASS in 27.8 s; **waiting for the user's merge approval** |
+| UI test runner `dev/ui_test.py` + floorplan setup view suite | `feature/ui-test-runner`, [#10](https://github.com/plooum/HA-Plooum-Cards/pull/10) | merged 2026-10-11 (suite 9/9 PASS in 27.8 s) |
 
 ## Decisions (user)
 
@@ -28,8 +28,7 @@ The local branch `feature/dpad-keyboard` existed before this session, untouched 
 
 ## Next
 
-1. Get #10 merged (user approval). From then on, every prompt specifies its tests as a `dev/tests/<feature>.json` suite, and the pilot reviews by re-running it.
-2. Open point: the setup view hasn't been tried in the HA Android app.
+Nothing in progress: ask the user for the next development. Every prompt now specifies its tests as a `dev/tests/<feature>.json` suite run by `dev/ui_test.py`, and the pilot reviews by re-running it. Open point: the setup view hasn't been tried in the HA Android app.
 
 ## Sub-agent notes
 
