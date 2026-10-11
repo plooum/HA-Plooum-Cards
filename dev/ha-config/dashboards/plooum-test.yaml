@@ -440,6 +440,10 @@ views:
                   # Top wall: horizontal window, a bay window down to the floor.
                   - { entity: cover.living_room_cover, x: 3.5, y: 0, length: 2.5, floor_length: true }
                   - { entity: light.kitchen_light, x: 9, y: 1.5 }
+                  # Outer walls the garden camera sees (windows in its fake picture: WINDOWS in
+                  # plooum_dev/camera.py, keep them in sync): the Kitchen's east wall, the Hallway's south wall.
+                  - { entity: cover.kitchen_cover, x: 11, y: 1.5 }
+                  - { entity: cover.hallway_cover, x: 9, y: 5, length: 2 }
                   - { entity: sensor.kitchen_temperature, x: 10.5, y: 0.5 }
                   - { entity: binary_sensor.front_door, x: 10.25, y: 4.25 }
                   - { entity: binary_sensor.hallway_motion, x: 8, y: 4 }
