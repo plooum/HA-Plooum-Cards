@@ -4,19 +4,13 @@ What is left to do, kept by the pilot (user's request, 2026-10-11). Committed st
 
 [TODO.md](../../TODO.md) stays the repo's list of out-of-scope issues noticed while working (changed through PRs); its items are mirrored here so this file is the one complete inventory.
 
-_Last update: 2026-10-11, pilot session 2 (prompts 04 and 05 launched)._
+_Last update: 2026-10-11, pilot session 2 (#12–#15 merged)._
 
 ## Waiting on the user
 
 Nothing: no feature requested for now (2026-10-11).
 
-## In progress (see the handoff's State)
-
-- `CARD_VERSION` 1.0.0 for the six cards without one (prompt 04).
-- A test view per card + fast smoke suite for all nine (prompt 05).
-- PR #12 (drop fisheye from TODO.md), PR #13 (pilot skill: no stale branches), #14 (card versions), #15 (test views + smoke suite): all waiting for approval.
-
-## After those merges
+## Next
 
 - [ ] **Skills PR from prompts 04/05 friction**: worktree sandbox refuses compound commands (pr-workflow); `dev/shot.py --console <substr>` to print `console.info` lines (or note it in ha-dev-testing); `rendered` must get the view's real card count (ha-dev-testing).
 - [ ] **Release**: the six new `CARD_VERSION`s and the smoke suite → ask the user whether to tag (V1.1.1 or V1.2.0).
