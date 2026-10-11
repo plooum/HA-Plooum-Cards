@@ -20,6 +20,7 @@ When the user calls you "le pilote", you take this role for the whole session, w
    - the goal, and the user's decisions **as fixed requirements** (the sub-agent must not reopen them);
    - the design choices you already made (where the code goes, what is shared, names), so it doesn't improvise;
    - which skills to load (`pr-workflow` always, plus `ha-dev-testing` and the card skill when relevant);
+   - test cases built on the test plan's geometry (a free side, a covered strip...): **check them against the plan first** (`dev/ha-config/dashboards/plooum-test.yaml`, both floors' rooms); prompt 10 assumed a free side that was the ground floor's own wing.
    - the test cases as a **suite to write** under `dev/tests/<feature>.json` (file name, test names, what each one asserts), run with `dev/ui_test.py` (see `ha-dev-testing`);
    - the branch name, and "open the PR, never merge it";
    - the report format (see `pr-workflow`).
