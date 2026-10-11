@@ -41,8 +41,8 @@ The user works on two PCs; the pilot may start on either.
 | Skills: friction from prompt 08 | `feature/skills-friction-08`, [#25](https://github.com/plooum/HA-Plooum-Cards/pull/25) | merged 2026-10-11 |
 | Floorplan drawn roofs, part 2: editor roof layer (prompt 09) | `feature/floorplan-roof-editor`, [#26](https://github.com/plooum/HA-Plooum-Cards/pull/26) | merged 2026-10-11 |
 | Skills: friction from prompt 09 | `feature/skills-friction-09`, [#27](https://github.com/plooum/HA-Plooum-Cards/pull/27) | merged 2026-10-11 |
-| Drawn roofs: partial gable end (prompt 10) | `feature/floorplan-partial-gable`, [#29](https://github.com/plooum/HA-Plooum-Cards/pull/29) | reviewed (pilot ran floorplan-roofs live 6/6): **waiting for merge approval**. Deviation accepted: same-floor rooms also close the side (needed for the auto-roof match) |
-| Skills: faster sub-agent loop + prompt 10 friction (also CLAUDE.md: no rebase for `.claude/pilot/`-only moves of `main`) | `feature/skills-friction-10`, [#30](https://github.com/plooum/HA-Plooum-Cards/pull/30) | waiting for approval |
+| Drawn roofs: partial gable end (prompt 10) | `feature/floorplan-partial-gable`, [#29](https://github.com/plooum/HA-Plooum-Cards/pull/29) | merged 2026-10-11 (not released yet: V1.3.1 with the next fixes). Deviation accepted: same-floor rooms also close the side |
+| Skills: faster sub-agent loop + prompt 10 friction (also CLAUDE.md: no rebase for `.claude/pilot/`-only moves of `main`) | `feature/skills-friction-10`, [#30](https://github.com/plooum/HA-Plooum-Cards/pull/30) | merged 2026-10-11 |
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
 
@@ -80,7 +80,7 @@ The user works on two PCs; the pilot may start on either.
 
 ## Next
 
-Prompt 10 running (partial gable end). Then: roof layer checks (BACKLOG.md). Merging several PRs: rebase each on the `main` left by the previous merge, wait for its CI, and re-run `dev/tests/cards-smoke.json` on a rebased branch that follows a `src/` change.
+Nothing in progress. #29 to release (V1.3.1, floorplan `CARD_VERSION` 1.10.1) when the user wants. Next candidate: roof layer checks (BACKLOG.md). Apply #30's faster loop and record each sub-agent's time. Merging several PRs: rebase each on the `main` left by the previous merge, wait for its CI, and re-run `dev/tests/cards-smoke.json` on a rebased branch that follows a `src/` change.
 
 ## Sub-agent notes
 
@@ -94,6 +94,8 @@ Prompt 10 running (partial gable end). Then: roof layer checks (BACKLOG.md). Mer
 
 - Prompt 01 (Sonnet, ~13 min, 48 tool calls): delivered all 10 test cases and the 2 screenshots. Deviations accepted: narrow = preview hidden **or stacked below** the editor (HA 2026.10 stacks it at 420 px instead of hiding it); entering 3D preview bumps seq. Friction, put in the skills by #8: 420 px stacks the preview; stub `setPointerCapture` for synthetic pointer events; `editor_shot.py` js steps are separate evaluates (persist with `window.x`), one `openEditor` per run; `hui-dialog-edit-card` stays in the DOM after Cancel; to drop a corner in place move ≥4 px then back; pilot skill: commit the handoff from a **detached** worktree (`git worktree add --detach`, `git push origin HEAD:main`); floorplan skill: the setup view's design (setupView, setupDialogs, _setupBump).
 
+- Prompt 10 (Sonnet, ~8 min, 49 tool calls): the prompt's premise (x 8–11 free) was wrong, found through a failing suite; screenshot viewpoint trial and error.
+- Prompt 09 (Sonnet, ~10.5 + ~2.5 min, 65 + 13 tool calls). Prompt 08 (Sonnet, ~10.5 min, 71). Prompt 07 (Sonnet, ~9 + ~3.5 min, 53 + 17).
 - Prompt 06 (Sonnet, ~10.5 min, 63 tool calls): had already rendered the 30-shot grid when the scope was cut to 5. Friction in #18 (orbit dist in px, `_tick` refresh, sandbox, `~/.local/bin`). Its worktree: `.claude/worktrees/agent-a3c78baeefb7f2c02` (HA on 8124, still running).
 
 None yet. Every report must include 2 screenshots (user, 2026-10-11): the prompt names them.
