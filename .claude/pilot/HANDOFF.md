@@ -29,12 +29,14 @@ The user works on two PCs; the pilot may start on either.
 | Test view per card + `dev/tests/cards-smoke.json` (prompt 05) | `feature/card-smoke-tests`, [#15](https://github.com/plooum/HA-Plooum-Cards/pull/15) | merged 2026-10-11 (9/9 in ~4.5 s, also on main's HA) |
 | Skills: friction from prompts 04/05, skills PR right after each review (pilot) | `feature/skills-friction-04-05`, [#16](https://github.com/plooum/HA-Plooum-Cards/pull/16) | merged 2026-10-11 |
 | Release **V1.1.1** (six new `CARD_VERSION`s, smoke suite) | [release](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.1.1) | published 2026-10-11, both assets attached by build.yml |
-| Floorplan: windows / shutters on a projected facade, render experiments (prompt 06) | `feature/floorplan-projected-windows`, draft [#17](https://github.com/plooum/HA-Plooum-Cards/pull/17) | user chose: drop `faint`, keep `overlay` (default, pilot's pick), `solid`, `outline`, `hidden` as a permanent option (docs, editor, suite): same sub-agent finishing it |
+| Floorplan: windows / shutters on a projected facade, render experiments (prompt 06) | `feature/floorplan-projected-windows`, draft [#17](https://github.com/plooum/HA-Plooum-Cards/pull/17) | reviewed (suites re-run 2/2, 9/9; editor field OK): **waiting for merge approval** |
 | Skills: friction from prompt 06 | `feature/skills-friction-06`, [#18](https://github.com/plooum/HA-Plooum-Cards/pull/18) | merged 2026-10-11 |
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
 
 ## Decisions (user)
+
+- 2026-10-11: the user wants to **watch the sub-agents' tests live in the built-in browser pane** (the suites run in headless Chrome today). Pilot's proposal, pending the user's go: an in-page runner (`/plooum_dev/runner.html?suite=…`, served by `plooum_dev`) that runs each test of a suite in an iframe, so a sub-agent just navigates its pane tab to it.
 
 - 2026-10-11, **tokens**: a sub-agent that needs an answer **stops** (ends its turn with the question in its report), it never waits, polls or works around it; the pilot answers later with `SendMessage`, which resumes it with its context. Say so in every prompt; to put in the `pilot` and `pr-workflow` skills with the next skills PR.
 
