@@ -45,10 +45,13 @@ Branch / PR: feature/<name>, #<N> (CI: pass | fail: <which>)
 Done: <bullets: what changed, which functions/files>
 Deviations from the prompt: <each one, with the reason; "none" otherwise>
 Tested: <each test case: what you did → what you saw; screenshot paths>
+Screenshots: <2 PNG paths in dev/shots/, see below>
 Not tested: <and why>
 Open questions: <decisions you need from the pilot>
 Friction: <what made you lose time: a command that failed, something hard to find, a wrong assumption in the prompt or a skill, and how you got past it>
 ```
+
+**Two screenshots, always**: the two that best show the change working (the prompt may name them; otherwise the main state and the most important other one, e.g. wide and narrow layout, before and after an action). Full page or cropped to the card, in `dev/shots/`, never committed. The pilot looks at them first to check your work.
 
 The **Friction** section matters: the pilot turns it into skills so the next sub-agent doesn't lose the same time. Be concrete ("`deep()` selector with a descendant combinator doesn't cross shadow roots: walk with `.shadowRoot`"), not vague.
 

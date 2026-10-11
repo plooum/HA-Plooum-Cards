@@ -23,9 +23,11 @@ When the user calls you "le pilote", you take this role for the whole session, w
    - the test cases to run, with the expected result for each;
    - the branch name, and "open the PR, never merge it";
    - the report format (see `pr-workflow`).
+   - the **2 screenshots** the report must include, named after what they must show (`pr-workflow` requires two; say which ones help you check the work).
 2. **Launch.** Use the `Agent` tool, `subagent_type: general-purpose`, `model: sonnet`, in the background. Give it the prompt file's content (not just its path).
    - **One sub-agent at a time.** There is a single dev HA on 127.0.0.1:8123, and it serves the bundle of the main checkout. Don't use `isolation: worktree`: a sub-agent in a worktree would test the main checkout's bundle, not its own code. While a sub-agent works, it owns the main checkout (it switches branches there): don't touch it.
 3. **Review.** When the sub-agent reports:
+   - look at its 2 screenshots first;
    - read the PR's diff (`gh pr diff N`) in full, and check its CI (`gh pr checks N`);
    - check it against the prompt and CLAUDE.md, with the checklist below;
    - run the key checks yourself in the dev HA (`shot.py` or a Playwright script, see `ha-dev-testing`). Don't take "tested" on trust.
