@@ -4034,6 +4034,9 @@ class HaPlooumFloorplanCard extends LitElement {
         const shown = projectedOn(quadOf(0), seg);
         const style = shown.length ? this.config.projected_windows || CARD_DEFAULTS.projected_windows : 'solid';
         for (const side of [0.02, -0.02]) {
+          // Each side only from its side of the wall: the other one would show through it (depth precision).
+          const k = seg.o === 'h' ? 1 : 0;
+          if ((eye[k] - seg.at) * seg.normal[k] * side <= 0) continue;
           this._window3d(
             add, at(side), dir, len, top - sill, isUnavailable(it.st), coverPosition(it.st), colors,
             side > 0 ? style : 'solid',
