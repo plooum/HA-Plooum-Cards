@@ -65,4 +65,5 @@ Output: one `PASS  1.8s  <name>` / `FAIL` line per test, then for each failure t
 - Console errors: `dev/shot.py` / `dev/ui_test.py` exit code. Both report only errors, not `console.info` / `log` lines (e.g. a card's version banner): read those with the built-in browser's `read_console_messages` and its `pattern`, in your own tab. The pane's console buffer keeps old messages (websocket failures from an HA restart): don't trust it for a clean check.
 - A card that fails `setConfig` is an invisible `hui-error-card` outside edit mode: look for it in the DOM.
 - Actions: check the backing entity or counter with `dev/api.sh GET states/<entity>`.
+- `dev/shot.py -e` takes a Playwright selector, so `-e ".view3d >> nth=1"` crops to the second 3D view; `--js` runs after that element is there (set a card's config or `_orbit` in it).
 - Give screenshot paths in your report. Keep them in `dev/shots/` (gitignored), never commit them.
