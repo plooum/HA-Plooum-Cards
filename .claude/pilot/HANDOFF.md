@@ -36,6 +36,8 @@ The user works on two PCs; the pilot may start on either.
 
 ## Decisions (user)
 
+- 2026-10-11, **tokens**: a sub-agent that needs an answer **stops** (ends its turn with the question in its report), it never waits, polls or works around it; the pilot answers later with `SendMessage`, which resumes it with its context. Say so in every prompt; to put in the `pilot` and `pr-workflow` skills with the next skills PR.
+
 - 2026-10-11: `projected_windows` stays a **real option** with `overlay`, `solid`, `outline`, `hidden` (`faint` removed). Default `overlay`: the pilot's pick from "transparent / projection on top", to confirm with the user at the review.
 
 - 2026-10-11: two floorplan topics, **shutters first**, then roofs. Shutters on a projected facade: by default transparent / the projection on top; the user wants **renders of several variants before deciding** (prompt 06: `solid`, `faint`, `overlay`, `outline`, `hidden`). **Only 5 renders** (one per variant, close view, shutters at 50): the user found 30 too long; keep render requests minimal. Roofs (shapes, slope, config level): to discuss after.
