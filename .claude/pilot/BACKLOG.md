@@ -14,6 +14,8 @@ Floorplan topic to discuss with the user (requested 2026-10-11, after the shutte
 
 ## Next
 
+- [ ] **Suites restore entity states even when a test fails** (prompt 07 friction): a failing smoke test leaves e.g. `input_number.living_room_temperature` changed; a `finally`-style restore step in `ui_runner.js` / the suites. Small dev-tool PR.
+
 - [ ] **`dev/shot.py --console <substr>`**: print matching `console.info` / `log` lines (prompt 04 friction; the skill points to the pane meanwhile). Small dev-tool PR, when convenient.
 
 ## Dropped (user, 2026-10-11)
