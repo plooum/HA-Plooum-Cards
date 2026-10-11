@@ -16,17 +16,20 @@ _Last update: 2026-10-11, pilot session 1 (Opus 5.5)._
 | Floorplan `CARD_VERSION` 1.8.0 + release **V1.1.0** | [#9](https://github.com/plooum/HA-Plooum-Cards/pull/9), [release](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.1.0) | merged and published 2026-10-11, both assets attached by build.yml |
 
 The local branch `feature/dpad-keyboard` existed before this session, untouched and unpushed: not ours, leave it.
+| UI test runner `dev/ui_test.py` + floorplan setup view suite | `feature/ui-test-runner` | prompt [02](prompts/02-ui-test-runner.md) written, Sonnet sub-agent launched 2026-10-11 |
 
 ## Decisions (user)
 
 - 2026-10-11: **Setup view** for the floorplan camera projection. Wide layout: the dialog's preview (right side) becomes the setup view, re-applied after each alignment change even when the preview reloads; the user can move it freely in between ("free view"). Narrow layout: a **Setup / 3D preview** toggle at the top of the alignment zone. Outdoor: facing the pinned facade. Indoor: view **B** (above the camera, looking down to the middle of the room, camera's floor only). The alignment itself stays flexible (free pins). Re-apply only after an alignment change, not when opening the panel; wide vs narrow decided by measuring whether the preview is rendered; UI strings in English.
 - 2026-10-11: **one single PR** for the wide and narrow layouts (shared code, no duplication).
 - 2026-10-11: don't add the staircase-looking stripes on the garden camera's projected facade to TODO.md (the user said no).
+- 2026-10-11: the sub-agents' tests are too slow: optimize them (one suite per feature with assertions, run in one command; no fixed waits).
 - 2026-10-11: pilot workflow: skills in the repo (through PRs); this handoff and `.claude/pilot/prompts/` straight on `main`; the pilot iterates with sub-agents alone and asks the user only when needed (decisions, merge approvals). "Tu es le pilote" = take the pilot role fully.
 
 ## Next
 
-Nothing in progress. Ask the user for the next development. Open point: the setup view hasn't been tried in the HA Android app (HA may hide the dialog's preview there instead of stacking it; the code handles both).
+1. Review the UI test runner PR: re-run `dev/tests/floorplan-setup-view.json` yourself, check the timings (≤ 3 s per simple test, ≤ 60 s for the suite).
+2. Open point: the setup view hasn't been tried in the HA Android app.
 
 ## Sub-agent notes
 
