@@ -19,11 +19,13 @@ _Last update: 2026-10-11, pilot session 2 (Opus 5.5): #12–#15 merged._
 | One dev HA per worktree (ports 8124+), parallel sub-agents | `feature/parallel-instances`, [#11](https://github.com/plooum/HA-Plooum-Cards/pull/11) | merged 2026-10-11 |
 | `CARD_VERSION` 1.0.0 for button-badge, cover, dpad, gridicons, tabbed, temp-humidity (prompt 04) | `feature/card-versions`, [#14](https://github.com/plooum/HA-Plooum-Cards/pull/14) | merged 2026-10-11 |
 | Test view per card + `dev/tests/cards-smoke.json` (prompt 05) | `feature/card-smoke-tests`, [#15](https://github.com/plooum/HA-Plooum-Cards/pull/15) | merged 2026-10-11 (9/9 in ~4.5 s, also on main's HA) |
+| Skills: friction from prompts 04/05, skills PR right after each review (pilot) | `feature/skills-friction-04-05`, [#16](https://github.com/plooum/HA-Plooum-Cards/pull/16) | waiting for approval |
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
 
 ## Decisions (user)
 
+- 2026-10-11, **very important**: the skills PR is opened **right after each review**, never postponed or batched (written in the `pilot` skill by #16).
 - 2026-10-11: **no Android test** of the setup view needed; **no new feature** for now.
 - 2026-10-11: **never** more complex camera handling in the floorplan (fisheye or other), now or later.
 - 2026-10-11: a `CARD_VERSION` for every card (prompt 04).
@@ -39,7 +41,7 @@ _Last update: 2026-10-11, pilot session 2 (Opus 5.5): #12–#15 merged._
 
 ## Next
 
-See [BACKLOG.md](BACKLOG.md). Nothing in progress; next: the skills PR from prompts 04/05 friction, and ask the user about a release (the six new `CARD_VERSION`s are unreleased). Merging several PRs: rebase each on the `main` left by the previous merge, wait for its CI, and re-run `dev/tests/cards-smoke.json` on a rebased branch that follows a `src/` change.
+See [BACKLOG.md](BACKLOG.md). #16 waiting for approval; then ask the user about a release (the six new `CARD_VERSION`s are unreleased). Merging several PRs: rebase each on the `main` left by the previous merge, wait for its CI, and re-run `dev/tests/cards-smoke.json` on a rebased branch that follows a `src/` change.
 
 ## Sub-agent notes
 

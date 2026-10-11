@@ -12,7 +12,7 @@ Nothing: no feature requested for now (2026-10-11).
 
 ## Next
 
-- [ ] **Skills PR from prompts 04/05 friction**: worktree sandbox refuses compound commands (pr-workflow); `dev/shot.py --console <substr>` to print `console.info` lines (or note it in ha-dev-testing); `rendered` must get the view's real card count (ha-dev-testing).
+- [ ] **`dev/shot.py --console <substr>`**: print matching `console.info` / `log` lines (prompt 04 friction; the skill points to the pane meanwhile). Small dev-tool PR, when convenient.
 - [ ] **Release**: the six new `CARD_VERSION`s and the smoke suite → ask the user whether to tag (V1.1.1 or V1.2.0).
 
 ## Dropped (user, 2026-10-11)
