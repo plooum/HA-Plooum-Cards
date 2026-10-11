@@ -27,6 +27,10 @@ You were given a task by the pilot, an agent who reviews your work and loops wit
 - README.md and README.fr.md change together. Behavior or options of a card → its `docs/<card>.md`.
 - Out-of-scope issues: mention them in your report, don't fix them and don't edit TODO.md (the pilot decides).
 
+## Testing
+
+The user watches: run your suites and hand checks **in your own tab of the built-in browser pane** (`runner.html`, see `ha-dev-testing`), headless only for screenshots and a final re-run.
+
 ## Pull request
 
 ```bash

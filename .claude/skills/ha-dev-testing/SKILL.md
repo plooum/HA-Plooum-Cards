@@ -23,7 +23,9 @@ CLAUDE.md's **Testing** section is the reference (start / stop, dashboards, test
   - `dev/ui_test.py` for everything else: a whole feature's test cases as one **suite**, with assertions (see below).
 - Phone layout: `--width 420 --height 900`. HA 2026.10 then **stacks the editor dialog's preview below the editor** (rendered, ~2900 px down, out of sight), it doesn't hide it: "rendered with a non-zero size" doesn't tell a narrow dialog. Check whether the preview is *beside* the editor (no horizontal overlap) instead.
 
-## Run a suite live in the pane (when the user watches)
+## Run a suite live in the pane (always)
+
+**The user always wants to be able to watch** (2026-10-11): run every suite in your own pane tab through `runner.html` (with `pause=300` for a demo, `pause=0` otherwise), and do your hand checks (clicks, the editor, states) in that tab too. Headless (`ui_test.py`, `shot.py`) only for screenshots and the final headless re-run of a suite. No browser tool? Say so in your report.
 
 The built-in pane can't be attached to Playwright, so suites run from a page: in **your own tab** (`tabs_create`, `navigate` with its `tabId`), open `http://127.0.0.1:<your port>/plooum_dev/runner.html?suite=<name>[&only=<substring>][&pause=<ms>]` (`<name>` = `dev/tests/<name>.json`; `pause=300` waits between steps so a human can follow). It runs each test in a fresh same-origin iframe sized to the test's viewport (scaled down to fit the pane; its media queries see the real size), with a live PASS / FAIL list. Read the outcome in one call with `javascript_tool`: `while (!window.uiResult) await new Promise(r => setTimeout(r, 300)); JSON.stringify(window.uiResult)` (`{ passed, failed, errors, summary, tests: [{ name, ok, seconds, failedStep, message, got, errors }] }`), or `get_page_text`. `shot` steps are skipped there; the dev user's language is English (set by `dev/bootstrap.py`, re-run it on an older instance), so a French pane gives the same texts as headless. `ui_test.py` runs the very same `dev/ui_runner.js` headless, so both give the same verdict; `dev/runner.html`, `dev/ui_runner.js`, `dev/ui_helpers.js` and the suites are served by the `plooum_dev` integration (restart HA once after updating a checkout older than this feature). Leave your tab on the finished run.
 
@@ -46,7 +48,7 @@ Output: one `PASS  1.8s  <name>` / `FAIL` line per test, then for each failure t
 
 ## The editor dialog (what the helpers rely on, for when you need more)
 
-- Card editors only open on the storage dashboard: `/plooum-edit/<view>?edit=1`. The edit button's label is `Edit` with the `en-US` locale of the runner, `Modifier` in the user's French pane.
+- Card editors only open on the storage dashboard: `/plooum-edit/<view>?edit=1`. The edit button's label is `Edit` (the dev user's language is English, set by `dev/bootstrap.py`).
 - `/plooum-edit/floorplan` is a panel view holding **one vertical stack**: the dialog shows the stack editor with tabs 1..6. Pick a card: `stack = hui-stack-card-editor; stack._selectedCard = i; stack.requestUpdate()` (`openEditor(i)` does it). Card 3 (index 2) is "Home in 3D", card 1 (index 0) "Home" (2D).
 - The dialog's preview shows **the whole stack**: the card you edit may be off screen (`scrollIntoView()`).
 - In a page where the dialog is open, the dashboard cards behind it also exist, with the same config. `card.preview` doesn't tell them apart (true for both in edit mode): search from `hui-dialog-edit-card`'s shadow root (`previewCard`, `dashboardCards`). The dashboard renders some cards lazily: compare only the ones you snapshotted.
