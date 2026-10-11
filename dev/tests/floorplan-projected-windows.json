@@ -15,6 +15,15 @@
       ]
     },
     {
+      "name": "inner side never shows outside",
+      "steps": [
+        { "js": "S.card = await waitFor(() => T.card.all('ha-plooum-floorplan-card').find((c) => c.config.title === 'Home in 3D' && c._scene3dState), 15000, 'the 3D card'); S.cfg = JSON.parse(JSON.stringify(S.card.config)); S.orbit = S.card._orbit; S.calls = []; S.card.setConfig({ ...S.cfg, projected_windows: 'hidden' }); const proto = S.card._window3d; S.card._window3d = function (add, o, dir, len, h, un, pos, colors, style, ...r) { S.calls.push({ style, o: o.slice() }); return proto.call(this, add, o, dir, len, h, un, pos, colors, style, ...r); }; const t = S.card._scene3dState.home.target; for (const az of [0, 90, 180, 270]) { S.calls.length = 0; S.card._orbit = { az, tilt: 70, dist: 1500, target: t }; S.card._orbitAnim = null; S.card.requestUpdate(); await S.card.updateComplete; await T.fp.waitIdle(S.card, 8000); S.card._orbitAnim = null; S.card.requestUpdate(); await S.card.updateComplete; S['v' + az] = S.calls.map((c) => ({ ...c })); }" },
+        { "assert": "[0, 90, 180, 270].every((az) => S['v' + az].every((a) => S['v' + az].every((b) => { const d = Math.hypot(a.o[0] - b.o[0], a.o[1] - b.o[1], a.o[2] - b.o[2]); return d === 0 || d > 0.1; })))", "msg": "from each of 4 views, no window is drawn on both of its sides" },
+        { "assert": "[0, 90, 180, 270].some((az) => S['v' + az].some((c) => c.style === 'hidden'))", "msg": "a projected window is drawn hidden from at least one view" },
+        { "js": "delete S.card._window3d; S.card._orbit = S.orbit; S.card.setConfig(S.cfg); S.card.requestUpdate();" }
+      ]
+    },
+    {
       "name": "the editor shows the field",
       "path": "/plooum-edit/floorplan?edit=1",
       "steps": [
