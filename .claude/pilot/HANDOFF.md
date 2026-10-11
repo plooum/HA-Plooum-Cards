@@ -11,7 +11,7 @@ _Last update: 2026-10-11, pilot session 1 (Opus 5.5)._
 | Item | Branch / PR | Status |
 | :--- | :--- | :--- |
 | Pilot workflow: skills `pilot`, `pr-workflow`, `ha-dev-testing` (+ `editor_shot.py`), `floorplan-card`; CLAUDE.md Pilot mode | `feature/pilot-workflow`, [#6](https://github.com/plooum/HA-Plooum-Cards/pull/6) | merged 2026-10-11 |
-| Floorplan editor: 3D setup view following the projection's alignment | `feature/floorplan-setup-view`, [#7](https://github.com/plooum/HA-Plooum-Cards/pull/7) | sub-agent (Sonnet) delivered, CI green; review round 1 sent back (perf of `_checkLayout` in `updated()`, cached config strings in `setupTarget`, embedded card without its header, direction/fov also bump); waiting for its fixes |
+| Floorplan editor: 3D setup view following the projection's alignment | `feature/floorplan-setup-view`, [#7](https://github.com/plooum/HA-Plooum-Cards/pull/7) | review round 2 clean (commit 9c0feb4), pilot's own checks pass (wide: south facade + free view, dashboard cards untouched; narrow: embedded view B without header); **waiting for the user's merge approval** |
 
 The local branch `feature/dpad-keyboard` existed before this session, untouched and unpushed: not ours, leave it.
 
