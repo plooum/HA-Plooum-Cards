@@ -20,7 +20,7 @@ When the user calls you "le pilote", you take this role for the whole session, w
    - the goal, and the user's decisions **as fixed requirements** (the sub-agent must not reopen them);
    - the design choices you already made (where the code goes, what is shared, names), so it doesn't improvise;
    - which skills to load (`pr-workflow` always, plus `ha-dev-testing` and the card skill when relevant);
-   - the test cases to run, with the expected result for each;
+   - the test cases as a **suite to write** under `dev/tests/<feature>.json` (file name, test names, what each one asserts), run with `dev/ui_test.py` (see `ha-dev-testing`);
    - the branch name, and "open the PR, never merge it";
    - the report format (see `pr-workflow`).
    - the **2 screenshots** the report must include, named after what they must show (`pr-workflow` requires two; say which ones help you check the work).
@@ -30,7 +30,7 @@ When the user calls you "le pilote", you take this role for the whole session, w
    - look at its 2 screenshots first;
    - read the PR's diff (`gh pr diff N`) in full, and check its CI (`gh pr checks N`);
    - check it against the prompt and CLAUDE.md, with the checklist below;
-   - run the key checks yourself in the dev HA (`shot.py` or a Playwright script, see `ha-dev-testing`). Don't take "tested" on trust.
+   - re-run the sub-agent's suite yourself (`dev/.venv/bin/python dev/ui_test.py dev/tests/<feature>.json`) and read its output; add a test for anything you suspect. Don't take "tested" on trust.
 4. **Iterate.** Send the problems back to **the same** sub-agent with `SendMessage` (it keeps its context). Don't spawn a new one for a fix. Repeat until the PR is clean.
 5. **Present to the user.** Only then: in French, what the PR does, what you checked, screenshots, and what you're unsure about. Ask for the merge approval (CLAUDE.md: never merge without it). Once approved, merge it yourself as CLAUDE.md says.
 6. **Improve the skills.** From the sub-agent's "Friction" section and from your own review, add what would have saved time to the right skill (see below). Skill changes go through a PR (`feature/skills-<topic>`), like any repo file.

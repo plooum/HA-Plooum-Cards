@@ -99,6 +99,10 @@ The user wants to watch, so drive the Claude Code built-in browser (`mcp__Claude
 dev/.venv/bin/python dev/shot.py /plooum-test/multistatus -e ha-plooum-multi-status-card -o dev/shots/ms.png --js "1+1"
 ```
 
+### UI test suites
+
+[dev/ui_test.py](dev/ui_test.py) runs a feature's whole test list in one command, in one headless Chrome, with assertions: `dev/.venv/bin/python dev/ui_test.py dev/tests/<suite>.json [--only <name>]` prints PASS / FAIL per test, the failing step and the console errors, and exits 1 on any failure. Suites live in [dev/tests/](dev/tests/) (JSON: tests made of `js` / `assert` / `shot` steps); their helpers (open an editor dialog, drag, wait for a condition, floorplan specifics) are in [dev/ui_helpers.js](dev/ui_helpers.js). The `ha-dev-testing` skill documents the format.
+
 ### Test entities (all in [configuration.yaml](dev/ha-config/configuration.yaml))
 
 | Entity | Use | Controlled by |
