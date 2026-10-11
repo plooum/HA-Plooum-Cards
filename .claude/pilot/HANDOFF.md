@@ -2,7 +2,7 @@
 
 Read by the next pilot first (see the `pilot` skill). Committed straight to `main`, no PR. Keep it current.
 
-_Last update: 2026-10-11, pilot session 3 (Opus 5.5): set up a second PC (laptop), nothing in progress._
+_Last update: 2026-10-11, end of pilot session 3 (Opus 5.5, laptop): #17–#34 merged; releases V1.2.0 (`projected_windows`), V1.3.0 (drawn roofs `roofs` + editor roof layer), V1.3.1 (partial gable end), V1.3.2 (window sides). Live test runner in the pane (`runner.html`), dev user in English, faster measured sub-agent loop. Nothing in progress._
 
 `main`'s protection: the user turned off "Lock branch" on 2026-10-11 (it blocked PR merges too); the pilot pushes `.claude/pilot/` straight to `main`. The pilot stays on `main` in the main checkout (HA on 8123) and commits the handoff there; sub-agents work in their own worktrees with their own HA (see the `pilot` skill).
 
@@ -84,7 +84,9 @@ The user works on two PCs; the pilot may start on either.
 
 ## Next
 
-Nothing in progress, V1.3.2 published. Next candidate: roof layer checks (BACKLOG.md). Apply #30's faster loop and record each sub-agent's time. Merging several PRs: rebase each on the `main` left by the previous merge, wait for its CI, and re-run `dev/tests/cards-smoke.json` on a rebased branch that follows a `src/` change.
+Nothing in progress, V1.3.2 published, only `main` and the HA on 8123. Next candidates, in [BACKLOG.md](BACKLOG.md): roof layer checks (touch, narrow dialog, plan generated from areas), `.claude/worktrees/` in `.gitignore`, suites restoring states on failure, `shot.py --console`. Ask the user which.
+
+How to run the loop now (all in the skills since #30 / #33): short exact prompts with checked premises, fast path for one-function fixes, the sub-agent tests in its own pane tab (`runner.html`, `pause=0`) and doesn't wait for CI; watch it in the background and steer it when it drifts; after it reports, `python3 .claude/skills/pilot/agent_timing.py <its task output file>` and log the totals below; keep it (context, worktree, HA) until the user approved the merge; stop its HA before `gh pr merge`; rebase only if `main` moved outside `.claude/pilot/` (CLAUDE.md); skills PR right after each review; releases only on the user's go.
 
 ## Sub-agent notes
 

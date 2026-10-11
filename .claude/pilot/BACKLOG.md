@@ -4,7 +4,7 @@ What is left to do, kept by the pilot (user's request, 2026-10-11). Committed st
 
 [TODO.md](../../TODO.md) stays the repo's list of out-of-scope issues noticed while working (changed through PRs); its items are mirrored here so this file is the one complete inventory.
 
-_Last update: 2026-10-11, pilot session 3 (roofs and projected-facade shutters added)._
+_Last update: 2026-10-11, end of pilot session 3 (V1.3.2 released)._
 
 ## Waiting on the user
 
@@ -13,7 +13,6 @@ Nothing.
 ## Next
 
 - [ ] `.claude/worktrees/` shows as untracked in the main checkout (sub-agent worktrees): add it to `.gitignore` (tiny PR).
-
 
 - [ ] **Roof layer checks**: touch input, narrow edit dialog, a plan generated from areas (not tested by prompt 09).
 
