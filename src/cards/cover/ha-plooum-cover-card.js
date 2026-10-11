@@ -1,5 +1,7 @@
 // ha-plooum-cover-card.js
 
+const CARD_VERSION = '1.0.0';
+
 // ==========================================
 // 1. SAFE LOADING OF LITELEMENT
 // ==========================================
@@ -382,6 +384,15 @@ class PlooumCoverCard extends LitElement {
     this._drag = null;        // { entity, pointerId, value } while dragging
     this._ignorePointerUntil = 0; // ignore stray events right after a dialog
     this._pending = {};       // { [entity]: { value, from, timer } } command sent, state not received yet
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    console.info(
+      `%c HA-PLOOUM-COVER-CARD %c ${CARD_VERSION} `,
+      'color: white; background: #03a9f4; font-weight: 700;',
+      'color: #03a9f4; background: white; font-weight: 700;'
+    );
   }
 
   disconnectedCallback() {

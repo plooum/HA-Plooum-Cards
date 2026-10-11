@@ -1,5 +1,7 @@
 import { LitElement, html, css } from "lit";
 
+const CARD_VERSION = '1.0.0';
+
 /* ==========================================================================
    MAIN CARD : ha-plooum-temp-humidity-card
    ========================================================================== */
@@ -14,6 +16,11 @@ class HaPlooumTempHumidityCard extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    console.info(
+      `%c HA-PLOOUM-TEMP-HUMIDITY-CARD %c ${CARD_VERSION} `,
+      'color: white; background: #03a9f4; font-weight: 700;',
+      'color: #03a9f4; background: white; font-weight: 700;'
+    );
     this._resizeObserver = new ResizeObserver(() => this._fitTitle());
     this._resizeObserver.observe(this);
   }

@@ -1,5 +1,7 @@
 import { LitElement, html, css } from "lit";
 
+const CARD_VERSION = '1.0.0';
+
 /* ==========================================================================
    MAIN CARD : ha-plooum-gridicons-card
    ========================================================================== */
@@ -219,6 +221,15 @@ class HaPlooumGridIconsCard extends LitElement {
     document.addEventListener("keydown", onKey, true);
     document.body.appendChild(overlay);
     this._confirmOverlay = { close };
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    console.info(
+      `%c HA-PLOOUM-GRIDICONS-CARD %c ${CARD_VERSION} `,
+      'color: white; background: #03a9f4; font-weight: 700;',
+      'color: #03a9f4; background: white; font-weight: 700;'
+    );
   }
 
   disconnectedCallback() {

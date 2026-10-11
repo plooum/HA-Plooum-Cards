@@ -1,5 +1,7 @@
 import { LitElement, html, css } from "lit";
 
+const CARD_VERSION = '1.0.0';
+
 /* ==========================================================================
    MAIN CARD : ha-plooum-buttonbadge-card
    ========================================================================== */
@@ -33,6 +35,15 @@ class HaPlooumButtonBadgeCard extends LitElement {
       badge_tap_action_type: "toggle",
       badge_hold_action_type: "none",
     };
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    console.info(
+      `%c HA-PLOOUM-BUTTONBADGE-CARD %c ${CARD_VERSION} `,
+      'color: white; background: #03a9f4; font-weight: 700;',
+      'color: #03a9f4; background: white; font-weight: 700;'
+    );
   }
 
   setConfig(config) {
