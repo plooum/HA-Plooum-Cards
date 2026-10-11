@@ -31,11 +31,11 @@ You were given a task by the pilot, an agent who reviews your work and loops wit
 
 ```bash
 git push -u origin feature/<name>
-gh pr create --base main --title "<English title>" --body "<body>"
+gh pr create --base main --title "<English title>" --body-file <scratchpad>/pr-body.md   # write the body with Write first
 gh pr checks <N> --watch      # Build and Validate must pass
 ```
 
-Right after a push, `gh pr checks --watch` may still list the previous commit's runs: run it again until it shows the new ones (`gh pr view <N> --json headRefOid,statusCheckRollup`). Don't `sleep` to wait: the harness blocks it; `--watch` waits for you.
+In a worktree the sandbox refuses a long inline `--body "..."` as too complex: use `--body-file`. Right after a push, `gh pr checks --watch` may still list the previous commit's runs: run it again until it shows the new ones (`gh pr view <N> --json headRefOid,statusCheckRollup`). Don't `sleep` to wait: the harness blocks it; `--watch` waits for you.
 
 The body: what changed and why, how it was tested, what wasn't tested. It ends with the line from your system prompt (`🤖 Generated with [Claude Code](https://claude.com/claude-code)`).
 
