@@ -46,12 +46,14 @@ End your work with this report, and nothing else around it:
 Branch / PR: feature/<name>, #<N> (CI: pass | fail: <which>)
 Done: <bullets: what changed, which functions/files>
 Deviations from the prompt: <each one, with the reason; "none" otherwise>
-Tested: <each test case: what you did → what you saw; screenshot paths>
+Tested: <the suite's output pasted in full (PASS / FAIL lines, total time) and its path under dev/tests/; then what the suite doesn't cover and what you checked by hand>
 Screenshots: <2 PNG paths in dev/shots/, see below>
 Not tested: <and why>
 Open questions: <decisions you need from the pilot>
 Friction: <what made you lose time: a command that failed, something hard to find, a wrong assumption in the prompt or a skill, and how you got past it>
 ```
+
+**Tests are a suite**: write the prompt's test cases as `dev/tests/<feature>.json` and run `dev/ui_test.py` (see `ha-dev-testing`); the pilot re-runs it. The **Tested** section is its output, not a narrative of what you clicked. The suite is committed with the PR.
 
 **Two screenshots, always**: the two that best show the change working (the prompt may name them; otherwise the main state and the most important other one, e.g. wide and narrow layout, before and after an action). Full page or cropped to the card, in `dev/shots/`, never committed. The pilot looks at them first to check your work.
 

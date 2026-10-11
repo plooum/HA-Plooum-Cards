@@ -1,0 +1,112 @@
+// Floorplan editor: the 3D "setup view" that follows the camera projection's alignment (PR #7).
+// dev/.venv/bin/python dev/ui_test.py dev/tests/floorplan-setup-view.json
+// Stack of /plooum-edit/floorplan: card 1 (index 0) "Home" is 2D, card 3 (index 2) "Home in 3D".
+{
+  "path": "/plooum-edit/floorplan?edit=1",
+  "viewport": [1700, 1050],
+  "tests": [
+    {
+      "name": "wide: the editor opens and selects a camera with its Advanced panel (timing baseline)",
+      "steps": [
+        { "js": "await openEditor(2); await fp.selectEntity('camera.garden_camera', { advanced: true });" },
+        { "assert": "deep(window.__ed.shadowRoot, '.cv-corner').length > 0", "msg": "the camera view has corners" }
+      ]
+    },
+    {
+      "name": "wide: a corner drop puts the 3D preview in the setup view facing the south facade",
+      "steps": [
+        { "js": "S.snap = fp.snapshot(); await openEditor(2); await fp.selectEntity('camera.garden_camera', { advanced: true });" },
+        { "assert": "previewCard('Home in 3D')._orbit === null && fp.setupBadge(previewCard('Home in 3D')) === null", "msg": "opening the Advanced panel must not move the preview" },
+        { "js": "await fp.dropCorner(1); S.pc = await waitFor(() => { const c = previewCard('Home in 3D'); return fp.setupBadge(c) && c; }, 8000, 'the setup badge'); await fp.waitIdle(S.pc);" },
+        { "assert": "const o = S.pc._orbit; return Math.abs(o.az) < 0.5 && o.tilt === 72 && Math.abs(o.target[0] - 5.5) < 0.1 && Math.abs(o.target[1] - 5) < 0.1 && Math.abs(o.target[2] - 1.25) < 0.3", "msg": "orbit faces the south facade (az 0, tilt 72, target [5.5, 5, ~1.25])", "show": "S.pc._orbit" },
+        { "assert": "fp.setupBadge(S.pc) === 'Setup · Garden Camera — south facade'", "msg": "setup badge", "show": "fp.setupBadge(S.pc)" },
+        { "assert": "const r = S.pc.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight && r.width > 0", "msg": "the preview card is scrolled into view" },
+        { "js": "deep(window.__ed.shadowRoot, '.cv')[0].scrollIntoView({ block: 'center' }); S.pc.scrollIntoView({ block: 'nearest' }); await sleep(0);" },
+        { "shot": "setup-wide.png" },
+        { "assert": "fp.unchanged(S.snap)", "msg": "the dashboard cards behind the dialog are untouched", "show": "[S.snap, fp.snapshot()]" }
+      ]
+    },
+    {
+      "name": "wide: still in the setup view after the preview reloads its config",
+      "steps": [
+        { "js": "await openEditor(2); await fp.selectEntity('camera.garden_camera', { advanced: true }); await fp.dropCorner(1); S.pc = await waitFor(() => { const c = previewCard('Home in 3D'); return fp.setupBadge(c) && c; }, 8000, 'the setup badge'); S.orbit = JSON.stringify(S.pc._orbit); S.pc.setConfig(JSON.parse(JSON.stringify(S.pc.config))); await S.pc.updateComplete;" },
+        { "assert": "fp.setupBadge(previewCard('Home in 3D')) === 'Setup · Garden Camera — south facade'", "msg": "badge after setConfig", "show": "fp.setupBadge(previewCard('Home in 3D'))" },
+        { "assert": "JSON.stringify(previewCard('Home in 3D')._orbit) === S.orbit", "msg": "same orbit after setConfig", "show": "previewCard('Home in 3D')._orbit" },
+        { "js": "await fp.dropCorner(2, -8, 5); await waitFor(() => fp.setupBadge(previewCard('Home in 3D')), 8000, 'the badge after a second drop');" },
+        { "assert": "fp.setupBadge(previewCard('Home in 3D')) !== null && previewCard('Home in 3D')._orbit.tilt === 72", "msg": "second alignment change keeps the setup view" }
+      ]
+    },
+    {
+      "name": "wide: free view after a manual turn, Setup view and the next drop bring it back",
+      "steps": [
+        { "js": "S.snap = fp.snapshot(); await openEditor(2); await fp.selectEntity('camera.garden_camera', { advanced: true }); await fp.dropCorner(1); S.pc = await waitFor(() => { const c = previewCard('Home in 3D'); return fp.setupBadge(c) && c; }, 8000, 'the setup badge'); await fp.waitIdle(S.pc); S.orbit0 = JSON.stringify(S.pc._orbit); await fp.orbitDrag(S.pc, 80, 20);" },
+        { "assert": "fp.setupBadge(previewCard('Home in 3D')).startsWith('Free view')", "msg": "badge says Free view after a turn", "show": "fp.setupBadge(previewCard('Home in 3D'))" },
+        { "js": "await fp.waitIdle(previewCard('Home in 3D')); S.orbit1 = JSON.stringify(previewCard('Home in 3D')._orbit);" },
+        { "assert": "S.orbit1 !== S.orbit0", "msg": "the turn moved the view" },
+        { "js": "await sleep(300);" },
+        { "assert": "JSON.stringify(previewCard('Home in 3D')._orbit) === S.orbit1", "msg": "orbit unchanged after the easing" },
+        { "js": "const b = deep(previewCard('Home in 3D').shadowRoot, 'button').find((b) => b.textContent.trim() === 'Setup view'); b.click();" },
+        { "assert": "fp.setupBadge(previewCard('Home in 3D')).startsWith('Setup ·') && JSON.stringify(previewCard('Home in 3D')._orbit) === S.orbit0", "msg": "Setup view brings the setup viewpoint back", "show": "fp.setupBadge(previewCard('Home in 3D'))" },
+        { "js": "await fp.orbitDrag(previewCard('Home in 3D'), -60, 10); await fp.dropCorner(2, -8, 5); await waitFor(() => fp.setupBadge(previewCard('Home in 3D')).startsWith('Setup ·'), 8000, 'the setup badge after a drop');" },
+        { "assert": "fp.setupBadge(previewCard('Home in 3D')).startsWith('Setup ·')", "msg": "a drop after a free view is back in the setup view" },
+        { "assert": "fp.unchanged(S.snap)", "msg": "the dashboard cards behind the dialog are untouched" }
+      ]
+    },
+    {
+      "name": "wide: indoor camera views its room from above, ground floor only",
+      "steps": [
+        { "js": "S.snap = fp.snapshot(); await openEditor(2); await fp.selectEntity('camera.living_room_camera', { advanced: true }); await fp.dropCorner(1); S.pc = await waitFor(() => { const c = previewCard('Home in 3D'); return fp.setupBadge(c) && c; }, 8000, 'the setup badge'); await fp.waitIdle(S.pc);" },
+        { "assert": "S.pc._level3d === 0", "msg": "ground floor only (_level3d 0)", "show": "S.pc._level3d" },
+        { "assert": "S.pc._orbit.tilt === 50 && Math.abs(S.pc._orbit.target[0] - 3.5) < 0.6 && Math.abs(S.pc._orbit.target[1] - 2.5) < 0.6", "msg": "tilt 50, target near the middle of the Living Room [3.5, 2.5]", "show": "S.pc._orbit" },
+        { "assert": "fp.setupBadge(S.pc).endsWith('Living Room')", "msg": "badge names the room", "show": "fp.setupBadge(S.pc)" },
+        { "assert": "fp.unchanged(S.snap)", "msg": "the dashboard cards behind the dialog are untouched" }
+      ]
+    },
+    {
+      "name": "wide: a 2D preview switches to 3D for the setup and back when Advanced is folded",
+      "steps": [
+        { "js": "S.snap = fp.snapshot(); await openEditor(0); S.pc = previewCard('Home'); S.view0 = S.pc._view; await fp.selectEntity('camera.garden_camera', { advanced: true }); await fp.dropCorner(1); await waitFor(() => fp.setupBadge(previewCard('Home')), 8000, 'the setup badge');" },
+        { "assert": "S.view0 === '2d' && previewCard('Home')._view === '3d'", "msg": "2D preview goes 3D after a drop", "show": "[S.view0, previewCard('Home')._view]" },
+        { "js": "const ed = window.__ed; ed._cameraAdvanced = false; await ed.updateComplete; await waitFor(() => previewCard('Home')._view === '2d', 8000, 'the preview back in 2D');" },
+        { "assert": "previewCard('Home')._view === '2d' && previewCard('Home')._orbit === null", "msg": "folding Advanced restores the 2D view", "show": "[previewCard('Home')._view, previewCard('Home')._orbit]" },
+        { "assert": "fp.unchanged(S.snap)", "msg": "the dashboard cards behind the dialog are untouched" }
+      ]
+    },
+    {
+      "name": "wide: a camera without projection changes nothing",
+      "steps": [
+        { "js": "S.snap = fp.snapshot(); await openEditor(2); await fp.selectEntity('camera.driveway_camera', { advanced: true }); await fp.dragPicture(); await sleep(300);" },
+        { "assert": "previewCard('Home in 3D')._orbit === null && fp.setupBadge(previewCard('Home in 3D')) === null", "msg": "preview untouched after a picture drag", "show": "[previewCard('Home in 3D')._orbit, fp.setupBadge(previewCard('Home in 3D'))]" },
+        { "assert": "fp.unchanged(S.snap)", "msg": "the dashboard cards behind the dialog are untouched" }
+      ]
+    },
+    {
+      "name": "narrow: toggle, embedded 3D preview in the setup view, free view and Setup view",
+      "viewport": [420, 900],
+      "steps": [
+        { "js": "S.snap = fp.snapshot(); await openEditor(2); await fp.selectEntity('camera.living_room_camera', { advanced: true }); await waitFor(() => window.__ed._narrow, 8000, 'the narrow layout');" },
+        { "assert": "const t = deep(window.__ed.shadowRoot, '.cv-toggle')[0]; return !!t && deep(t, 'button').length === 2", "msg": "the Setup / 3D preview toggle is present" },
+        { "js": "await fp.dropCorner(1); deep(window.__ed.shadowRoot, '.cv-toggle button')[1].click(); S.emb = await waitFor(() => window.__ed._embedEl && fp.setupBadge(window.__ed._embedEl) && window.__ed._embedEl, 8000, 'the embedded 3D view'); await fp.waitIdle(S.emb);" },
+        { "assert": "!S.emb.shadowRoot.querySelector('.header')", "msg": "the embedded card has no header" },
+        { "assert": "fp.setupBadge(S.emb).startsWith('Setup ·') && S.emb._level3d === 0", "msg": "setup badge and ground floor only", "show": "[fp.setupBadge(S.emb), S.emb._level3d]" },
+        { "assert": "deep(window.__ed.shadowRoot, '.cv-header span')[0].textContent.trim() === 'Projection preview'", "msg": "header reads Projection preview" },
+        { "js": "deep(window.__ed.shadowRoot, '.cv-toggle')[0].scrollIntoView({ block: 'start' }); await sleep(0);" },
+        { "shot": "setup-narrow.png" },
+        { "js": "S.orbit0 = JSON.stringify(S.emb._orbit); await fp.orbitDrag(S.emb, 60, 15);" },
+        { "assert": "fp.setupBadge(window.__ed._embedEl).startsWith('Free view')", "msg": "free view in the embedded card", "show": "fp.setupBadge(window.__ed._embedEl)" },
+        { "js": "deep(window.__ed._embedEl.shadowRoot, 'button').find((b) => b.textContent.trim() === 'Setup view').click(); await sleep(50);" },
+        { "assert": "fp.setupBadge(window.__ed._embedEl).startsWith('Setup ·') && JSON.stringify(window.__ed._embedEl._orbit) === S.orbit0", "msg": "Setup view works in the embedded card", "show": "fp.setupBadge(window.__ed._embedEl)" },
+        { "assert": "fp.unchanged(S.snap)", "msg": "the dashboard cards behind the dialog are untouched" }
+      ]
+    },
+    {
+      "name": "closing the dialog leaves no setup state behind",
+      "steps": [
+        { "js": "await openEditor(2); await fp.selectEntity('camera.garden_camera', { advanced: true }); await fp.dropCorner(1); await waitFor(() => fp.setupBadge(previewCard('Home in 3D')), 8000, 'the setup badge');" },
+        { "assert": "fp.setupState().size === 1", "msg": "one dialog registered while open" },
+        { "js": "await T.cancelDialog(); await waitFor(() => fp.setupState().size === 0, 3000, 'the setup state to be released');" },
+        { "assert": "fp.setupState().size === 0", "msg": "setupDialogs empty after Cancel" }
+      ]
+    }
+  ]
+}
