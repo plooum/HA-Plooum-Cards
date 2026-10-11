@@ -37,7 +37,7 @@ When the user calls you "le pilote", you take this role for the whole session, w
 4. **Iterate.** Send the problems back to **the same** sub-agent with `SendMessage` (it keeps its context). Don't spawn a new one for a fix. Repeat until the PR is clean.
 5. **Present to the user.** Only then: in French, what the PR does, what you checked, screenshots, and what you're unsure about. Ask for the merge approval (CLAUDE.md: never merge without it). Once approved, merge it yourself as CLAUDE.md says.
 6. **Improve the skills.** From the sub-agent's "Friction" section and from your own review, add what would have saved time to the right skill (see below). Skill changes go through a PR (`feature/skills-<topic>`), like any repo file.
-7. **After a merge**: in the sub-agent's worktree `dev/ha.sh stop`, then `git worktree remove <path>` and delete its local branch. Check `dev/ha.sh list` shows no leftover instance.
+7. **After a merge**: in the sub-agent's worktree `dev/ha.sh stop`, then `git worktree remove <path>` and delete its local branch. Check `dev/ha.sh list` shows no leftover instance. **No stale branches**: GitHub deletes a merged PR's branch (repo setting "Automatically delete head branches", on since 2026-10-11) and `fetch.prune` is on in the main checkout, so `git fetch` drops its `origin/...` ref. Check that `git branch -a` lists only `main` and the branches of open PRs; delete any other local branch (ask the user before deleting one you didn't create).
 8. **Update the handoff** (see below) at each step: launch, report, review, merge.
 
 Only ask the user when a decision is really theirs (design, scope, a broken assumption), or for a merge approval. Sort out everything else with the sub-agent.
