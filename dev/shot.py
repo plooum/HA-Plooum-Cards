@@ -20,7 +20,8 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
-URL = "http://127.0.0.1:8123"
+from ha_env import ha_token, ha_url
+
 DEV = Path(__file__).parent
 # Noise from HA itself / the headless environment, not from our cards.
 IGNORED_ERRORS = ("favicon", "manifest", "service worker", "serviceworker")
@@ -35,10 +36,12 @@ def main() -> int:
     parser.add_argument("--width", type=int, default=1280)
     parser.add_argument("--height", type=int, default=900)
     parser.add_argument("--light", action="store_true", help="light color scheme (default dark)")
+    parser.add_argument("--url", help="HA base URL (default: this checkout's instance, see dev/ha_env.py)")
     parser.add_argument("--wait", type=float, default=2.0, help="extra seconds after the cards render")
     args = parser.parse_args()
 
-    token = (DEV / ".ha-token").read_text().strip()
+    URL = ha_url(args.url)
+    token = ha_token()
     hass_tokens = {
         "hassUrl": URL,
         "clientId": URL + "/",

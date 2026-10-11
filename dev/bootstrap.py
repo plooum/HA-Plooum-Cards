@@ -7,6 +7,7 @@ dashboards/plooum-test.yaml).
 Run with the dev venv: dev/.venv/bin/python dev/bootstrap.py (dev/ha.sh start does it).
 """
 
+import argparse
 import asyncio
 import time
 from pathlib import Path
@@ -14,7 +15,9 @@ from pathlib import Path
 import aiohttp
 import yaml
 
-URL = "http://127.0.0.1:8123"
+from ha_env import ha_url
+
+URL = ha_url()  # this checkout's instance (dev/.ha-port), or HA_URL / --url
 CLIENT_ID = URL + "/"
 # Test credentials of the local dev instance only (bound to 127.0.0.1).
 USERNAME = "dev"
@@ -230,4 +233,10 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
+    ap = argparse.ArgumentParser(description="Onboard and seed the dev HA of this checkout.")
+    ap.add_argument("--url", help="HA base URL (default: dev/.ha-port, or HA_URL)")
+    args = ap.parse_args()
+    if args.url:
+        URL = ha_url(args.url)
+        CLIENT_ID = URL + "/"
     asyncio.run(main())

@@ -1,6 +1,7 @@
-.venv/
+.venv
 .ha.pid
 .ha-token
+.ha-port
 ha.log*
 shots/
 __pycache__/
