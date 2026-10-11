@@ -37,6 +37,9 @@ The user watches: run your suites and hand checks **in your own tab of the built
 - One `npm run build` per change you want to see, then a page reload; no HA restart unless `configuration.yaml` changed.
 - Screenshots only if the prompt asks for them; one try per shot: check the viewpoint on a first shot before a series.
 - **Fast path** (the prompt says so: a one-function fix): no screenshots, the new test plus `cards-smoke`, a 5-line report.
+- **Don't wait for CI** after opening the PR (`gh pr checks --watch` cost ~1 min per sub-agent): report right away, the pilot checks it.
+- **No headless re-run** of a suite that passed in your pane tab: it's the same runner code. Headless only for `shot` steps.
+- **Avoid sandbox refusals** (each costs a round trip): never mention a path outside your worktree (no `/tmp/...` scratch files, no `export PATH=/home/...`): keep scratch files in your worktree's `dev/shots/` (gitignored); `npm` / `gh` not found → `~/.local/bin/npm`, `~/.local/bin/gh`. `git add <the files>` rather than `git add -A` (slow on the dev runtime state).
 
 ## Pull request
 
