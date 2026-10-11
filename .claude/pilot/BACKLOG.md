@@ -12,6 +12,8 @@ Nothing.
 
 ## Next
 
+- [ ] **Bug (user, 2026-10-11): `projected_windows: hidden` — the windows / shutters of a projected facade show again when the 3D view's angle changes** (user's screenshots: same facade, projected, windows hidden from one angle, solid striped shutters from another). Pilot's hypothesis, to check first: the **inner side** of each window (`side = -0.02` in the "Windows" loop of `_buildScene`, always `solid`) shows through the wall 2 cm in front of it (depth precision from far / grazing views); fix by drawing each side only when the eye is on that side of the wall (like the wall projections' `eye` test), plus a test that rotates the orbit. Other suspects: `projectedOn` (camera-only test, no eye), a scene rebuild path that skips it.
+
 - [ ] **Roof layer checks**: touch input, narrow edit dialog, a plan generated from areas (not tested by prompt 09).
 
 - [ ] **Suites restore entity states even when a test fails** (prompt 07 friction): a failing smoke test leaves e.g. `input_number.living_room_temperature` changed; a `finally`-style restore step in `ui_runner.js` / the suites. Small dev-tool PR.
