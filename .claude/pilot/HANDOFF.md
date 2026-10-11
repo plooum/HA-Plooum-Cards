@@ -41,6 +41,7 @@ The user works on two PCs; the pilot may start on either.
 | Skills: friction from prompt 08 | `feature/skills-friction-08`, [#25](https://github.com/plooum/HA-Plooum-Cards/pull/25) | merged 2026-10-11 |
 | Floorplan drawn roofs, part 2: editor roof layer (prompt 09) | `feature/floorplan-roof-editor`, [#26](https://github.com/plooum/HA-Plooum-Cards/pull/26) | merged 2026-10-11 |
 | Skills: friction from prompt 09 | `feature/skills-friction-09`, [#27](https://github.com/plooum/HA-Plooum-Cards/pull/27) | merged 2026-10-11 |
+| Drawn roofs: partial gable end (prompt 10) | `feature/floorplan-partial-gable` | sub-agent working (Sonnet, worktree) |
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
 
@@ -76,7 +77,7 @@ The user works on two PCs; the pilot may start on either.
 
 ## Next
 
-Nothing in progress. Known limits of the drawn roofs (in BACKLOG.md): a 3-slope zone only partly against a floor above leaves the rest of that side open; roof layer untested on touch / narrow dialog / plan generated from areas. Merging several PRs: rebase each on the `main` left by the previous merge, wait for its CI, and re-run `dev/tests/cards-smoke.json` on a rebased branch that follows a `src/` change.
+Prompt 10 running (partial gable end). Then: roof layer checks (BACKLOG.md). Merging several PRs: rebase each on the `main` left by the previous merge, wait for its CI, and re-run `dev/tests/cards-smoke.json` on a rebased branch that follows a `src/` change.
 
 ## Sub-agent notes
 
