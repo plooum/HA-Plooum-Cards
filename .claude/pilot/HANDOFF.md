@@ -36,6 +36,8 @@ The user works on two PCs; the pilot may start on either.
 
 ## Decisions (user)
 
+- 2026-10-11: **keep the sub-agent's context, worktree and HA until the user has approved the merge** (in case of changes): fixes go to the same sub-agent with `SendMessage`; cleanup only after the merge. To put in the `pilot` skill with the next skills PR.
+
 - 2026-10-11: the user wants to **watch the sub-agents' tests live in the built-in browser pane** (the suites run in headless Chrome today). Pilot's proposal, pending the user's go: an in-page runner (`/plooum_dev/runner.html?suite=…`, served by `plooum_dev`) that runs each test of a suite in an iframe, so a sub-agent just navigates its pane tab to it.
 
 - 2026-10-11, **tokens**: a sub-agent that needs an answer **stops** (ends its turn with the question in its report), it never waits, polls or works around it; the pilot answers later with `SendMessage`, which resumes it with its context. Say so in every prompt; to put in the `pilot` and `pr-workflow` skills with the next skills PR.
