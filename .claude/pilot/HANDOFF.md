@@ -2,7 +2,7 @@
 
 Read by the next pilot first (see the `pilot` skill). Committed straight to `main`, no PR. Keep it current.
 
-_Last update: 2026-10-11, pilot session 2 (Opus 5.5): #12–#15 merged._
+_Last update: 2026-10-11, pilot session 2 (Opus 5.5): #12–#16 merged, V1.1.1 released._
 
 `main`'s protection: the user turned off "Lock branch" on 2026-10-11 (it blocked PR merges too); the pilot pushes `.claude/pilot/` straight to `main`. The pilot stays on `main` in the main checkout (HA on 8123) and commits the handoff there; sub-agents work in their own worktrees with their own HA (see the `pilot` skill).
 
@@ -19,7 +19,8 @@ _Last update: 2026-10-11, pilot session 2 (Opus 5.5): #12–#15 merged._
 | One dev HA per worktree (ports 8124+), parallel sub-agents | `feature/parallel-instances`, [#11](https://github.com/plooum/HA-Plooum-Cards/pull/11) | merged 2026-10-11 |
 | `CARD_VERSION` 1.0.0 for button-badge, cover, dpad, gridicons, tabbed, temp-humidity (prompt 04) | `feature/card-versions`, [#14](https://github.com/plooum/HA-Plooum-Cards/pull/14) | merged 2026-10-11 |
 | Test view per card + `dev/tests/cards-smoke.json` (prompt 05) | `feature/card-smoke-tests`, [#15](https://github.com/plooum/HA-Plooum-Cards/pull/15) | merged 2026-10-11 (9/9 in ~4.5 s, also on main's HA) |
-| Skills: friction from prompts 04/05, skills PR right after each review (pilot) | `feature/skills-friction-04-05`, [#16](https://github.com/plooum/HA-Plooum-Cards/pull/16) | waiting for approval |
+| Skills: friction from prompts 04/05, skills PR right after each review (pilot) | `feature/skills-friction-04-05`, [#16](https://github.com/plooum/HA-Plooum-Cards/pull/16) | merged 2026-10-11 |
+| Release **V1.1.1** (six new `CARD_VERSION`s, smoke suite) | [release](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.1.1) | published 2026-10-11, both assets attached by build.yml |
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
 
@@ -41,7 +42,7 @@ _Last update: 2026-10-11, pilot session 2 (Opus 5.5): #12–#15 merged._
 
 ## Next
 
-See [BACKLOG.md](BACKLOG.md). #16 waiting for approval; then ask the user about a release (the six new `CARD_VERSION`s are unreleased). Merging several PRs: rebase each on the `main` left by the previous merge, wait for its CI, and re-run `dev/tests/cards-smoke.json` on a rebased branch that follows a `src/` change.
+Nothing in progress, no feature requested: see [BACKLOG.md](BACKLOG.md). Merging several PRs: rebase each on the `main` left by the previous merge, wait for its CI, and re-run `dev/tests/cards-smoke.json` on a rebased branch that follows a `src/` change.
 
 ## Sub-agent notes
 
