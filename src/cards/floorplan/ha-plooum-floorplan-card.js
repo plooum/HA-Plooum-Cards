@@ -2309,14 +2309,21 @@ function setupNotify(state) {
 // The preview's card: the one whose config is the editor's, else the only floorplan card there is.
 // A card that already shows the setup keeps it until another one matches (its config is updated
 // after the editor's).
+const configKeys = new WeakMap();
+function configKey(config) {
+  let k = configKeys.get(config);
+  if (!k) configKeys.set(config, (k = { full: JSON.stringify(config), floors: JSON.stringify(config.floors) }));
+  return k;
+}
+
 function setupTarget(state) {
   const cards = [...state.cards].filter((c) => !c._embedded && c.config);
   if (!cards.length) return null;
   if (state.config) {
-    const full = JSON.stringify(state.config);
-    const floors = JSON.stringify(state.config.floors);
-    let found = cards.filter((c) => JSON.stringify(c.config) === full);
-    if (!found.length) found = cards.filter((c) => JSON.stringify(c.config.floors) === floors);
+    // Cached by config object: this runs on every card update while a request exists.
+    const { full, floors } = configKey(state.config);
+    let found = cards.filter((c) => configKey(c.config).full === full);
+    if (!found.length) found = cards.filter((c) => configKey(c.config).floors === floors);
     if (found.length) return found.includes(state.holder) ? state.holder : found[0];
   }
   if (cards.includes(state.holder)) return state.holder;
@@ -2482,6 +2489,7 @@ class HaPlooumFloorplanCard extends LitElement {
     if (!this.config || this.config.roof !== config.roof) this._level3d = null;
     const refreshChanged = !this.config || this.config.refresh_interval !== config.refresh_interval;
     this.config = config;
+    configKey(config);
     if (refreshChanged && this.isConnected) this._startRefresh();
     // A setup view is computed from the config: do it again with the new one.
     this._setupSeq = 0;
@@ -2655,7 +2663,9 @@ class HaPlooumFloorplanCard extends LitElement {
 
     return html`
       <ha-card>
-        <div class="header">
+        ${this._embedded
+          ? nothing
+          : html`<div class="header">
           <div class="title">${this.config.title || ''}</div>
           <div class="floors">
             ${is3d
@@ -2677,7 +2687,7 @@ class HaPlooumFloorplanCard extends LitElement {
               <button class=${is3d ? 'active' : ''} @click=${() => this._setView('3d')} title="3D view">3D</button>
             </div>
           </div>
-        </div>
+        </div>`}
         ${empty
           ? html`<div class="empty">
               <ha-icon icon="mdi:floor-plan"></ha-icon>
@@ -5295,7 +5305,7 @@ class HaPlooumFloorplanCard extends LitElement {
         display: flex;
         align-items: center;
         gap: 6px;
-        max-width: calc(100% - 80px);
+        max-width: calc(100% - 16px);
         padding: 4px 12px;
         border-radius: 999px;
         font-size: 13px;
@@ -5540,6 +5550,8 @@ class HaPlooumFloorplanCardEditor extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     window.removeEventListener('resize', this._onResize);
+    cancelAnimationFrame(this._layoutFrame);
+    this._layoutFrame = null;
     // The dialog closes, or another card of the stack is edited: the setup view ends.
     const state = this._setupRef;
     this._setupRef = null;
@@ -5550,9 +5562,9 @@ class HaPlooumFloorplanCardEditor extends LitElement {
     setupRelease(state);
   }
 
-  updated() {
+  updated(changed) {
     this._setupUpdate();
-    this._checkLayout();
+    if (changed.has('_selection') || changed.has('_cameraAdvanced') || changed.has('_cvMode')) this._checkLayout();
     if (this._embedEl && !this._embedEl.isConnected && this._cvMode !== 'preview') this._embedEl = null;
     const el = this._embedEl;
     if (el) {
@@ -5604,7 +5616,18 @@ class HaPlooumFloorplanCardEditor extends LitElement {
 
   // The dialog shows the preview's card beside the editor, or not (HA hides it or stacks it below in
   // a narrow dialog): measured, as the window's width doesn't tell.
+  // Layout reads are costly: coalesced in one frame, and only asked for when the layout can change
+  // (resize, a card appearing or going, the selection or the Advanced panel changing).
   _checkLayout() {
+    if (this._layoutFrame) return;
+    this._layoutFrame = requestAnimationFrame(() => {
+      this._layoutFrame = null;
+      this._measureLayout();
+    });
+  }
+
+  _measureLayout() {
+    if (this._camDrag || !this.isConnected) return;
     const state = setupState(this, false);
     let visible = false;
     if (state) {
@@ -6937,8 +6960,8 @@ class HaPlooumFloorplanCardEditor extends LitElement {
     this._editFloor((floor) => {
       floor[listKey][sel.index] = value;
     }, `${this._currentFloorIndex()}:${listKey}:${sel.index}`);
-    // Tilt, height and the projection toggle move the projection: the setup view follows.
-    if (listKey === 'entities' && ['tilt', 'height', 'projection'].some((k) => (previous[k] ?? null) !== (value[k] ?? null))) this._setupBump();
+    // Direction, field of view, tilt, height and the projection toggle move the projection: the setup view follows.
+    if (listKey === 'entities' && ['tilt', 'height', 'projection', 'direction', 'fov'].some((k) => (previous[k] ?? null) !== (value[k] ?? null))) this._setupBump();
   }
 
   // Values a camera's form shows when they are not set.
