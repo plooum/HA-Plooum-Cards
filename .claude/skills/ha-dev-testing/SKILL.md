@@ -9,14 +9,15 @@ CLAUDE.md's **Testing** section is the reference (start / stop, dashboards, test
 
 ## Before anything
 
-- `dev/ha.sh status`; `dev/ha.sh start` if it isn't running (~10 s, longer the first time).
+- `dev/ha.sh status`; `dev/ha.sh start` if it isn't running (~7 s, also the first time in a worktree).
 - `npm run build` after every change under `src/`, then reload the page. No HA restart needed (only after `configuration.yaml` changes).
-- **The dev HA serves the bundle of the main checkout** (`/home/doudou/git/HA-Plooum-Cards/ha-plooum-cards.js`). Work and build there. From a git worktree, your build isn't the one served.
-- Only one agent tests at a time: the dev HA and the main checkout are shared.
+- **Each checkout has its own HA, which serves that checkout's bundle.** The main checkout is on 8123. In a git worktree (what a sub-agent launched with `isolation: "worktree"` has), run `dev/ha.sh start` **in the worktree**: it picks the first free port from 8124 (`dev/.ha-port`), onboards a fresh instance (own token, `/plooum-edit`, areas), and links the main checkout's `.venv` and `node_modules` so `npm run build` and `dev/.venv/bin/python dev/ui_test.py ...` work unchanged. Never test against another checkout's port (you'd test its code).
+- `dev/ha.sh status` prints your URL; `dev/ha.sh list` lists every running instance (port, pid, checkout). `dev/shot.py`, `dev/ui_test.py`, `dev/api.sh`, `dev/bootstrap.py` pick your instance on their own (`--url` / `HA_URL` override). **Run them from your own checkout.** Several instances at once slow each other down (a suite took 28 s alone, 60 s with three at the same time): fine, don't lower timeouts.
+- **When you're done, `dev/ha.sh stop` in your worktree** (the pilot removes the worktree after the merge; a running instance left behind keeps ~270 MB).
 
 ## Which browser
 
-- The built-in browser pane (`mcp__Claude_Browser__*`) is for the user to watch. It's often only ~800 px wide: too small for the card editor dialog, and a custom `resize_window` gets reset when the pane's width changes.
+- The built-in browser pane (`mcp__Claude_Browser__*`) is for the user to watch. With several agents, **each uses its own tab**: `tabs_create` (note the `tabId`), `navigate` to **your** instance's URL (`dev/ha.sh status`), and pass `tabId` on every call. Never act on, navigate or close a tab you didn't create; close yours when done. Login is automatic on any port (`trusted_networks`). A sub-agent that has no `mcp__Claude_Browser__*` tool can't open one: it tests headless and gives the pilot its URL, and only the pilot opens a tab per instance. The pane is often only ~800 px wide: too small for the card editor dialog, and a custom `resize_window` gets reset when the pane's width changes.
 - For scripted checks and screenshots, use headless Chrome:
   - `dev/shot.py` for a page or a card (exit code 1 on console errors);
   - `dev/ui_test.py` for everything else: a whole feature's test cases as one **suite**, with assertions (see below).

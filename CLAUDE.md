@@ -76,7 +76,9 @@ dev/ha.sh status | stop | restart | logs [n]
 dev/ha.sh reset     # wipes runtime state only (git clean -X on dev/ha-config); next start re-onboards
 ```
 
-HA listens on http://127.0.0.1:8123 only. Check whether it is already running (`dev/ha.sh status`) before starting it. The dev user's test credentials are in [dev/bootstrap.py](dev/bootstrap.py); a long-lived token is written to `dev/.ha-token`.
+HA listens on 127.0.0.1 only. Check whether it is already running (`dev/ha.sh status`) before starting it.
+
+**One instance per checkout.** The main checkout's HA is on **8123**. A git worktree has its own: `dev/ha.sh start` run in the worktree takes the first free port from 8124 (kept in the gitignored `dev/.ha-port`; `HA_PORT=<n>` forces one), onboards in ~7 s, and serves **that worktree's** bundle (`npm run build` there). The venv and `node_modules` are the main checkout's, linked in by `dev/ha.sh start` / `dev/ha.sh setup` (so the main checkout needs `npm install` and one `dev/ha.sh start`/`install` first). `dev/shot.py`, `dev/ui_test.py`, `dev/api.sh` and `dev/bootstrap.py` follow the checkout they live in (its `dev/.ha-port` and `dev/.ha-token`; `--url` / `HA_URL` override). `dev/ha.sh list` shows every running instance (port, pid, checkout); `dev/ha.sh stop` stops only this checkout's. Stop it before removing the worktree. Each instance uses ~270 MB. The dev user's test credentials are in [dev/bootstrap.py](dev/bootstrap.py); a long-lived token is written to `dev/.ha-token`.
 
 ### Edit → test loop
 
@@ -91,7 +93,7 @@ HA listens on http://127.0.0.1:8123 only. Check whether it is already running (`
 
 ### Browser: use the built-in browser pane
 
-The user wants to watch, so drive the Claude Code built-in browser (`mcp__Claude_Browser__*`): `preview_start` with `url: http://127.0.0.1:8123/plooum-test/all`. Login is automatic (`trusted_networks` provider with bypass for 127.0.0.1). Use `read_console_messages` (onlyErrors) to catch card errors, and `javascript_tool` to inspect shadow DOM or simulate input. The pane's console buffer is not cleared between page loads: it keeps older messages, such as websocket failures logged while HA was restarting. For a clean error check, run `dev/shot.py`.
+The user wants to watch, so drive the Claude Code built-in browser (`mcp__Claude_Browser__*`): `preview_start` with `url: http://127.0.0.1:8123/plooum-test/all` (the port of the checkout's instance, `dev/ha.sh status`; with several instances, one browser tab each: `tabs_create`, then `navigate` with its `tabId`, and only ever act on your own tab). Login is automatic (`trusted_networks` provider with bypass for 127.0.0.1). Use `read_console_messages` (onlyErrors) to catch card errors, and `javascript_tool` to inspect shadow DOM or simulate input. The pane's console buffer is not cleared between page loads: it keeps older messages, such as websocket failures logged while HA was restarting. For a clean error check, run `dev/shot.py`.
 
 [dev/shot.py](dev/shot.py) is the headless fallback (system Chrome via Playwright) for when the pane isn't available or for scripted checks. It takes a screenshot, can crop to an element, evaluates JS, and exits with code 1 if the page logged errors:
 

@@ -31,7 +31,8 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
-URL = "http://127.0.0.1:8123"
+from ha_env import ha_token, ha_url
+
 DEV = Path(__file__).parent
 # Noise from HA itself / the headless environment, not from our cards (same list as shot.py).
 IGNORED_ERRORS = ("favicon", "manifest", "service worker", "serviceworker")
@@ -77,13 +78,15 @@ def main() -> int:
     ap.add_argument("--only", help="run the tests whose name contains this")
     ap.add_argument("--out", default=str(DEV / "shots"))
     ap.add_argument("--verbose", action="store_true")
+    ap.add_argument("--url", help="HA base URL (default: this checkout's instance, see dev/ha_env.py)")
     args = ap.parse_args()
 
     suite = json.loads(strip_comments(Path(args.suite).read_text()))
     tests = [t for t in suite["tests"] if not args.only or args.only.lower() in t["name"].lower()]
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    token = (DEV / ".ha-token").read_text().strip()
+    URL = ha_url(args.url)
+    token = ha_token()
     hass_tokens = {
         "hassUrl": URL, "clientId": URL + "/", "access_token": token, "token_type": "Bearer",
         "expires_in": 315360000, "expires": int(time.time() * 1000) + 315360000 * 1000, "refresh_token": "",
