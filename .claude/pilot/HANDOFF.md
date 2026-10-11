@@ -4,12 +4,14 @@ Read by the next pilot first (see the `pilot` skill). Committed straight to `mai
 
 _Last update: 2026-10-11, pilot session 1 (Opus 5.5)._
 
+`main`'s protection: the user turned off "Lock branch" on 2026-10-11 (it blocked PR merges too); the pilot can push `.claude/pilot/` straight to `main`. While a sub-agent owns the main checkout, commit from a detached worktree: `git worktree add --detach ../HA-Plooum-Cards-pilot origin/main`, commit there, `git push origin HEAD:main`.
+
 ## State
 
 | Item | Branch / PR | Status |
 | :--- | :--- | :--- |
-| Pilot workflow: skills `pilot`, `pr-workflow`, `ha-dev-testing` (+ `editor_shot.py`), `floorplan-card`; CLAUDE.md Pilot mode | `feature/pilot-workflow`, [#6](https://github.com/plooum/HA-Plooum-Cards/pull/6) | waiting for the user's merge approval |
-| Floorplan editor: 3D setup view following the projection's alignment | `feature/floorplan-setup-view` (not created yet) | prompt written: [prompts/01-floorplan-setup-view.md](prompts/01-floorplan-setup-view.md); to launch once #6 is merged (the sub-agent needs the skills on `main`) |
+| Pilot workflow: skills `pilot`, `pr-workflow`, `ha-dev-testing` (+ `editor_shot.py`), `floorplan-card`; CLAUDE.md Pilot mode | `feature/pilot-workflow`, [#6](https://github.com/plooum/HA-Plooum-Cards/pull/6) | merged 2026-10-11 |
+| Floorplan editor: 3D setup view following the projection's alignment | `feature/floorplan-setup-view` | sub-agent (Sonnet) launched 2026-10-11 on [prompts/01-floorplan-setup-view.md](prompts/01-floorplan-setup-view.md), working in the main checkout |
 
 The local branch `feature/dpad-keyboard` existed before this session, untouched and unpushed: not ours, leave it.
 
@@ -22,10 +24,8 @@ The local branch `feature/dpad-keyboard` existed before this session, untouched 
 
 ## Next
 
-1. Get #6 merged (user approval), then `git pull` on `main`.
-2. Launch the sub-agent with prompt 01 (Sonnet, background, main checkout, no worktree).
-3. Review its PR (diff, CI, own checks in the dev HA, wide and narrow), loop until clean, present it to the user.
-4. After it: put the sub-agent's friction into the skills (PR `feature/skills-...`).
+1. Review its PR (diff, CI, own checks in the dev HA, wide and narrow), loop until clean, present it to the user.
+2. After it: put the sub-agent's friction into the skills (PR `feature/skills-...`).
 
 ## Sub-agent notes
 
