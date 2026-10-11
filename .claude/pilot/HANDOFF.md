@@ -29,18 +29,19 @@ The user works on two PCs; the pilot may start on either.
 | Test view per card + `dev/tests/cards-smoke.json` (prompt 05) | `feature/card-smoke-tests`, [#15](https://github.com/plooum/HA-Plooum-Cards/pull/15) | merged 2026-10-11 (9/9 in ~4.5 s, also on main's HA) |
 | Skills: friction from prompts 04/05, skills PR right after each review (pilot) | `feature/skills-friction-04-05`, [#16](https://github.com/plooum/HA-Plooum-Cards/pull/16) | merged 2026-10-11 |
 | Release **V1.1.1** (six new `CARD_VERSION`s, smoke suite) | [release](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.1.1) | published 2026-10-11, both assets attached by build.yml |
-| Floorplan: windows / shutters on a projected facade, render experiments (prompt 06) | `feature/floorplan-projected-windows`, draft [#17](https://github.com/plooum/HA-Plooum-Cards/pull/17) | reviewed (suites re-run 2/2, 9/9; editor field OK): **waiting for merge approval** |
+| Floorplan: windows / shutters on a projected facade, render experiments (prompt 06) | `feature/floorplan-projected-windows`, draft [#17](https://github.com/plooum/HA-Plooum-Cards/pull/17) | merged 2026-10-11 (not released yet: floorplan `CARD_VERSION` bump + release to do) |
+| Skills: stop for answers, keep sub-agents, HA stopped before merge | `feature/skills-friction-06b`, [#19](https://github.com/plooum/HA-Plooum-Cards/pull/19) | waiting for approval |
 | Skills: friction from prompt 06 | `feature/skills-friction-06`, [#18](https://github.com/plooum/HA-Plooum-Cards/pull/18) | merged 2026-10-11 |
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
 
 ## Decisions (user)
 
-- 2026-10-11: **keep the sub-agent's context, worktree and HA until the user has approved the merge** (in case of changes): fixes go to the same sub-agent with `SendMessage`; cleanup only after the merge. To put in the `pilot` skill with the next skills PR.
+- 2026-10-11: **keep the sub-agent's context, worktree and HA until the user has validated its returns** (every round trip, and the merge approval) (in case of changes): fixes go to the same sub-agent with `SendMessage`; cleanup only after the merge. In the `pilot` skill by #19.
 
 - 2026-10-11: the user wants to **watch the sub-agents' tests live in the built-in browser pane** (the suites run in headless Chrome today). Pilot's proposal, pending the user's go: an in-page runner (`/plooum_dev/runner.html?suite=…`, served by `plooum_dev`) that runs each test of a suite in an iframe, so a sub-agent just navigates its pane tab to it.
 
-- 2026-10-11, **tokens**: a sub-agent that needs an answer **stops** (ends its turn with the question in its report), it never waits, polls or works around it; the pilot answers later with `SendMessage`, which resumes it with its context. Say so in every prompt; to put in the `pilot` and `pr-workflow` skills with the next skills PR.
+- 2026-10-11, **tokens**: a sub-agent that needs an answer **stops** (ends its turn with the question in its report), it never waits, polls or works around it; the pilot answers later with `SendMessage`, which resumes it with its context. Say so in every prompt; in the skills by #19.
 
 - 2026-10-11: `projected_windows` stays a **real option** with `overlay`, `solid`, `outline`, `hidden` (`faint` removed). Default `overlay`: the pilot's pick from "transparent / projection on top", to confirm with the user at the review.
 
@@ -62,7 +63,7 @@ The user works on two PCs; the pilot may start on either.
 
 ## Next
 
-Prompt 06 running: review its draft PR and grids, show the user the renders, get the variant choice, then have the same sub-agent finish the PR with only that behavior (docs, tests). Then the roofs discussion (BACKLOG.md). Merging several PRs: rebase each on the `main` left by the previous merge, wait for its CI, and re-run `dev/tests/cards-smoke.json` on a rebased branch that follows a `src/` change.
+Waiting for the user: go for the live test runner in the pane (proposal in Decisions), #19 approval. Then: floorplan `CARD_VERSION` bump + release for #17, the roofs discussion (BACKLOG.md). Merging several PRs: rebase each on the `main` left by the previous merge, wait for its CI, and re-run `dev/tests/cards-smoke.json` on a rebased branch that follows a `src/` change.
 
 ## Sub-agent notes
 
