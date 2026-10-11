@@ -17,7 +17,7 @@ _Last update: 2026-10-11, pilot session 2 (Opus 5.5)._
 
 | UI test runner `dev/ui_test.py` + floorplan setup view suite | `feature/ui-test-runner`, [#10](https://github.com/plooum/HA-Plooum-Cards/pull/10) | merged 2026-10-11 (suite 9/9 PASS in 27.8 s) |
 | One dev HA per worktree (ports 8124+), parallel sub-agents | `feature/parallel-instances`, [#11](https://github.com/plooum/HA-Plooum-Cards/pull/11) | merged 2026-10-11 |
-| `CARD_VERSION` 1.0.0 for button-badge, cover, dpad, gridicons, tabbed, temp-humidity (prompt 04) | `feature/card-versions` | sub-agent working (worktree) |
+| `CARD_VERSION` 1.0.0 for button-badge, cover, dpad, gridicons, tabbed, temp-humidity (prompt 04) | `feature/card-versions`, [#14](https://github.com/plooum/HA-Plooum-Cards/pull/14) | reviewed, waiting for approval |
 | Test view per card + `dev/tests/cards-smoke.json` (prompt 05) | `feature/card-smoke-tests` | sub-agent working (worktree) |
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | waiting for approval |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | waiting for approval |
@@ -42,6 +42,8 @@ _Last update: 2026-10-11, pilot session 2 (Opus 5.5)._
 See [BACKLOG.md](BACKLOG.md): the complete inventory (user decisions pending, work ready to launch, housekeeping). Nothing in progress. Sub-agents run in parallel (`isolation: "worktree"`, own HA 8124+, 3–4 at a time, disjoint files).
 
 ## Sub-agent notes
+
+- Prompt 04 (Sonnet, ~2 min, 18 tool calls): no review round. Friction to put in skills (with prompt 05's): `dev/shot.py` doesn't print `console.info` (wanted: `--console <substr>`); in a worktree the sandbox refuses compound commands (brace expansion, `git` with `&&` / `;` / heredoc): plain separate commands, scripts written with Write; `git checkout -b x origin/main` tracks origin/main until `git push -u`. The banner logs on every `connectedCallback` (several times per page): existing pattern, accepted.
 
 - Prompt 03 (Sonnet, ~7 min, 34 tool calls): no review round needed. Sub-agents **do** have the built-in browser tools (it opened, used and closed its own tab on 8124). Friction already in its skills/code: `set -e` + `&&` chains as last loop statement abort silently (use `if`); a `nohup` inside `flock 9` must close fd 9 (`9>&-`); `.gitignore` entries with a trailing `/` don't match symlinks.
 
