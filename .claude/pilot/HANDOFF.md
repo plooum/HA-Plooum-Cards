@@ -17,7 +17,7 @@ _Last update: 2026-10-11, pilot session 1 (Opus 5.5)._
 
 The local branch `feature/dpad-keyboard` existed before this session, untouched and unpushed: not ours, leave it.
 | UI test runner `dev/ui_test.py` + floorplan setup view suite | `feature/ui-test-runner`, [#10](https://github.com/plooum/HA-Plooum-Cards/pull/10) | merged 2026-10-11 (suite 9/9 PASS in 27.8 s) |
-| One dev HA per worktree (ports 8124+), parallel sub-agents | `feature/parallel-instances` | prompt [03](prompts/03-parallel-instances.md) written, Sonnet sub-agent launched 2026-10-11 (main checkout) |
+| One dev HA per worktree (ports 8124+), parallel sub-agents | `feature/parallel-instances`, [#11](https://github.com/plooum/HA-Plooum-Cards/pull/11) | delivered in one round, CI green; pilot re-tested: fresh worktree → own HA on 8124 in 7 s, suite 9/9 on 8123 and 8124 at the same time (47 s wall), stop + worktree removal clean; **waiting for the user's merge approval** |
 
 ## Decisions (user)
 
@@ -30,10 +30,12 @@ The local branch `feature/dpad-keyboard` existed before this session, untouched 
 
 ## Next
 
-1. Review the parallel instances PR: re-run its test cases (two worktrees + main in parallel, `dev/ha.sh list`, cleanup), check the pilot skill's new parallel loop.
+1. Get #11 merged (user approval). Then the pilot stays on `main` in the main checkout and launches sub-agents with `isolation: "worktree"`, each with its own HA (8124+); remove the `../HA-Plooum-Cards-pilot` worktree (no longer needed).
 2. Open point: the setup view hasn't been tried in the HA Android app.
 
 ## Sub-agent notes
+
+- Prompt 03 (Sonnet, ~7 min, 34 tool calls): no review round needed. Sub-agents **do** have the built-in browser tools (it opened, used and closed its own tab on 8124). Friction already in its skills/code: `set -e` + `&&` chains as last loop statement abort silently (use `if`); a `nohup` inside `flock 9` must close fd 9 (`9>&-`); `.gitignore` entries with a trailing `/` don't match symlinks.
 
 - Prompt 02 (Sonnet, ~13 min, 31 tool calls): no review round needed. Its friction is already in the skills it rewrote (`wait_for_function` doesn't await promises: readiness check must be sync; no `about:blank` between tests; the dashboard builds stack cards lazily: snapshot by title).
 
