@@ -31,6 +31,8 @@ One file, [src/cards/floorplan/ha-plooum-floorplan-card.js](../../../src/cards/f
 - 3D view state: `_view` ('2d' / '3d'), `_level3d` (shown floors, null = all + roof), `_focus`. `_scene3dState` holds `vp` (`{ w, h, p }`: viewport and perspective distance), `home`, `screens`, `cameras`.
 - `facadeCorners(plan.indoor, wallHeight, pose, aspect, hidden)` returns the 4 corners of the facade an outdoor camera sees best: the one the editor offers for pinning. An indoor camera uses its own room: `plan.indoor[roomAt(plan.indoor, x, y)]`.
 
+- Inspecting the 3D scene from a test: `card._plans3d(card._floors(), 99)` gives the stacked floors `s` (`s.all`, `s.shown`, `s.H`); build on such methods rather than reaching for module-level functions, which tests can't call.
+
 ## Editor pitfalls
 
 - During a corner or picture drag, the new camera settings only live in `this._camDrag.settings` (applied to the rendered floor by `_applyDrag`). **`config-changed` is only dispatched on pointer up** (`_cvUp`): the HA preview card updates on drop, not during the drag.
