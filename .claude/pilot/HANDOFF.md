@@ -29,9 +29,9 @@ The user works on two PCs; the pilot may start on either.
 | Test view per card + `dev/tests/cards-smoke.json` (prompt 05) | `feature/card-smoke-tests`, [#15](https://github.com/plooum/HA-Plooum-Cards/pull/15) | merged 2026-10-11 (9/9 in ~4.5 s, also on main's HA) |
 | Skills: friction from prompts 04/05, skills PR right after each review (pilot) | `feature/skills-friction-04-05`, [#16](https://github.com/plooum/HA-Plooum-Cards/pull/16) | merged 2026-10-11 |
 | Release **V1.1.1** (six new `CARD_VERSION`s, smoke suite) | [release](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.1.1) | published 2026-10-11, both assets attached by build.yml |
-| Floorplan: windows / shutters on a projected facade, render experiments (prompt 06) | `feature/floorplan-projected-windows`, draft [#17](https://github.com/plooum/HA-Plooum-Cards/pull/17) | merged 2026-10-11 (not released yet: floorplan `CARD_VERSION` bump + release to do) |
+| Floorplan: windows / shutters on a projected facade, render experiments (prompt 06) | `feature/floorplan-projected-windows`, draft [#17](https://github.com/plooum/HA-Plooum-Cards/pull/17) | merged 2026-10-11, released in V1.2.0 |
 | Skills: stop for answers, keep sub-agents, HA stopped before merge | `feature/skills-friction-06b`, [#19](https://github.com/plooum/HA-Plooum-Cards/pull/19) | merged 2026-10-11 |
-| Floorplan `CARD_VERSION` 1.9.0 + release **V1.2.0** (for #17) | `feature/floorplan-version-1.9.0`, [#20](https://github.com/plooum/HA-Plooum-Cards/pull/20) | approved by the user ("fais tout ça"), CI then merge + release |
+| Floorplan `CARD_VERSION` 1.9.0 + release **V1.2.0** (for #17) | `feature/floorplan-version-1.9.0`, [#20](https://github.com/plooum/HA-Plooum-Cards/pull/20) | merged 2026-10-11, [release V1.2.0](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.2.0) published, both assets attached by build.yml |
 | Live test runner in the pane (prompt 07) | `feature/live-test-runner` | sub-agent working (Sonnet, worktree) |
 | Skills: friction from prompt 06 | `feature/skills-friction-06`, [#18](https://github.com/plooum/HA-Plooum-Cards/pull/18) | merged 2026-10-11 |
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
@@ -65,7 +65,7 @@ The user works on two PCs; the pilot may start on either.
 
 ## Next
 
-Prompt 07 running; #20 + V1.2.0 release. Then the roofs discussion (BACKLOG.md). Merging several PRs: rebase each on the `main` left by the previous merge, wait for its CI, and re-run `dev/tests/cards-smoke.json` on a rebased branch that follows a `src/` change.
+Prompt 07 running: review it (keep the sub-agent until the merge is approved). Then the roofs discussion (BACKLOG.md). Merging several PRs: rebase each on the `main` left by the previous merge, wait for its CI, and re-run `dev/tests/cards-smoke.json` on a rebased branch that follows a `src/` change.
 
 ## Sub-agent notes
 
