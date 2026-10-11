@@ -4,7 +4,7 @@ Read by the next pilot first (see the `pilot` skill). Committed straight to `mai
 
 _Last update: 2026-10-11, pilot session 1 (Opus 5.5)._
 
-`main`'s protection: the user turned off "Lock branch" on 2026-10-11 (it blocked PR merges too); the pilot can push `.claude/pilot/` straight to `main`. While a sub-agent owns the main checkout, commit from a detached worktree: `git worktree add --detach ../HA-Plooum-Cards-pilot origin/main`, commit there, `git push origin HEAD:main`.
+`main`'s protection: the user turned off "Lock branch" on 2026-10-11 (it blocked PR merges too); the pilot pushes `.claude/pilot/` straight to `main`. The pilot stays on `main` in the main checkout (HA on 8123) and commits the handoff there; sub-agents work in their own worktrees with their own HA (see the `pilot` skill).
 
 ## State
 
@@ -17,7 +17,7 @@ _Last update: 2026-10-11, pilot session 1 (Opus 5.5)._
 
 The local branch `feature/dpad-keyboard` existed before this session, untouched and unpushed: not ours, leave it.
 | UI test runner `dev/ui_test.py` + floorplan setup view suite | `feature/ui-test-runner`, [#10](https://github.com/plooum/HA-Plooum-Cards/pull/10) | merged 2026-10-11 (suite 9/9 PASS in 27.8 s) |
-| One dev HA per worktree (ports 8124+), parallel sub-agents | `feature/parallel-instances`, [#11](https://github.com/plooum/HA-Plooum-Cards/pull/11) | delivered in one round, CI green; pilot re-tested: fresh worktree → own HA on 8124 in 7 s, suite 9/9 on 8123 and 8124 at the same time (47 s wall), stop + worktree removal clean; **waiting for the user's merge approval** |
+| One dev HA per worktree (ports 8124+), parallel sub-agents | `feature/parallel-instances`, [#11](https://github.com/plooum/HA-Plooum-Cards/pull/11) | merged 2026-10-11 |
 
 ## Decisions (user)
 
@@ -30,8 +30,7 @@ The local branch `feature/dpad-keyboard` existed before this session, untouched 
 
 ## Next
 
-1. Get #11 merged (user approval). Then the pilot stays on `main` in the main checkout and launches sub-agents with `isolation: "worktree"`, each with its own HA (8124+); remove the `../HA-Plooum-Cards-pilot` worktree (no longer needed).
-2. Open point: the setup view hasn't been tried in the HA Android app.
+Nothing in progress: ask the user for the next development. Sub-agents now run in parallel (`isolation: "worktree"`, own HA 8124+, 3–4 at a time, disjoint files). Open point: the setup view hasn't been tried in the HA Android app.
 
 ## Sub-agent notes
 
