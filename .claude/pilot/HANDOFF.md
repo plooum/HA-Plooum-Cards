@@ -32,13 +32,16 @@ The user works on two PCs; the pilot may start on either.
 | Floorplan: windows / shutters on a projected facade, render experiments (prompt 06) | `feature/floorplan-projected-windows`, draft [#17](https://github.com/plooum/HA-Plooum-Cards/pull/17) | merged 2026-10-11, released in V1.2.0 |
 | Skills: stop for answers, keep sub-agents, HA stopped before merge | `feature/skills-friction-06b`, [#19](https://github.com/plooum/HA-Plooum-Cards/pull/19) | merged 2026-10-11 |
 | Floorplan `CARD_VERSION` 1.9.0 + release **V1.2.0** (for #17) | `feature/floorplan-version-1.9.0`, [#20](https://github.com/plooum/HA-Plooum-Cards/pull/20) | merged 2026-10-11, [release V1.2.0](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.2.0) published, both assets attached by build.yml |
-| Live test runner in the pane (prompt 07) | `feature/live-test-runner`, [#21](https://github.com/plooum/HA-Plooum-Cards/pull/21) | reviewed (round 2: dev user in English; pilot ran smoke live in the pane 9/9): **waiting for merge approval** |
+| Live test runner in the pane (prompt 07) | `feature/live-test-runner`, [#21](https://github.com/plooum/HA-Plooum-Cards/pull/21) | merged 2026-10-11 (main HA restarted + bootstrap: English, runner served) |
+| Skills: always watch the sub-agents | `feature/skills-always-watch`, [#23](https://github.com/plooum/HA-Plooum-Cards/pull/23) | waiting for approval |
 | Skills: `--body-file` (prompt 07) | `feature/skills-friction-07`, [#22](https://github.com/plooum/HA-Plooum-Cards/pull/22) | merged 2026-10-11 |
 | Skills: friction from prompt 06 | `feature/skills-friction-06`, [#18](https://github.com/plooum/HA-Plooum-Cards/pull/18) | merged 2026-10-11 |
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
 
 ## Decisions (user)
+
+- 2026-10-11, **always**: the user wants to **always be able to watch the sub-agents**: suites and hand checks in the sub-agent's own pane tab (`runner.html`), headless only for screenshots. Say so in every prompt (skills by #23).
 
 - 2026-10-11: **keep the sub-agent's context, worktree and HA until the user has validated its returns** (every round trip, and the merge approval) (in case of changes): fixes go to the same sub-agent with `SendMessage`; cleanup only after the merge. In the `pilot` skill by #19.
 
@@ -66,7 +69,7 @@ The user works on two PCs; the pilot may start on either.
 
 ## Next
 
-Prompt 07 running: review it (keep the sub-agent until the merge is approved). Then the roofs discussion (BACKLOG.md). Merging several PRs: rebase each on the `main` left by the previous merge, wait for its CI, and re-run `dev/tests/cards-smoke.json` on a rebased branch that follows a `src/` change.
+#23 approval. Then the roofs discussion (BACKLOG.md). Merging several PRs: rebase each on the `main` left by the previous merge, wait for its CI, and re-run `dev/tests/cards-smoke.json` on a rebased branch that follows a `src/` change.
 
 ## Sub-agent notes
 
