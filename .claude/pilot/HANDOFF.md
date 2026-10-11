@@ -35,7 +35,7 @@ The user works on two PCs; the pilot may start on either.
 
 ## Decisions (user)
 
-- 2026-10-11: two floorplan topics, **shutters first**, then roofs. Shutters on a projected facade: by default transparent / the projection on top; the user wants **renders of several variants before deciding** (prompt 06: `solid`, `faint`, `overlay`, `outline`, `hidden`). Roofs (shapes, slope, config level): to discuss after.
+- 2026-10-11: two floorplan topics, **shutters first**, then roofs. Shutters on a projected facade: by default transparent / the projection on top; the user wants **renders of several variants before deciding** (prompt 06: `solid`, `faint`, `overlay`, `outline`, `hidden`). **Only 5 renders** (one per variant, close view, shutters at 50): the user found 30 too long; keep render requests minimal. Roofs (shapes, slope, config level): to discuss after.
 
 - 2026-10-11, **very important**: the skills PR is opened **right after each review**, never postponed or batched (written in the `pilot` skill by #16).
 - 2026-10-11: **no Android test** of the setup view needed; **no new feature** for now.
