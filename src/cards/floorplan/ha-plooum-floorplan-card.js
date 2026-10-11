@@ -628,6 +628,7 @@ function roomClimate(hass, room) {
 
 const isNum = (v) => v !== undefined && v !== null && v !== '' && Number.isFinite(parseFloat(v));
 const toRad = (deg) => (deg * Math.PI) / 180;
+const toDeg = (rad) => (rad * 180) / Math.PI;
 // Plan direction (clockwise from the top of the plan) of a vector, rounded to 5°.
 const directionOf = (dx, dy) => ((Math.round(((Math.atan2(dx, -dy) * 180) / Math.PI) / 5) * 5) % 360 + 360) % 360;
 
@@ -2182,6 +2183,153 @@ function placeAreaEntities(hass, ids, room, exterior) {
   return out;
 }
 
+// --- Setup view -----------------------------------------------------------------
+// While a projecting camera is lined up in the editor, the 3D preview shows its projection from a
+// point of view made for checking it (see setupView()). The editor and the cards are separate
+// elements, both somewhere under the same `hui-dialog-edit-card`, and HA rebuilds the preview's card
+// after each change: the state lives here, per dialog, and cards read it as they appear.
+
+const SETUP_TILT_OUTDOOR = 72; // 18° above the horizontal, facing a facade
+const SETUP_TILT_INDOOR = 50; // looking down into the room
+
+// What hides a floor's outdoor cameras' sight (see planOccluders()), for floor `fi` of `floors`.
+function floorOccluders(floors, fi, plan, wallHeight) {
+  const above = floors.slice(fi + 1).map((f, i) => ({
+    rooms: (f.rooms || []).map(normalizeRoom).filter((r) => !r.outdoor),
+    z0: (i + 1) * (wallHeight + SLAB),
+  }));
+  return planOccluders(plan.rooms, above, wallHeight);
+}
+
+// The setup view of a camera (`req`: { camera, floor, aspect }) for a 3D viewport `vp`: the `orbit`
+// to show, the `level` (floors shown, null = the card's default) and the badge's `label`. null when
+// the camera isn't on the plan.
+//  - outdoor camera: facing the facade the editor offers for pinning, a little above it;
+//  - indoor camera: from above the camera, looking at the middle of its room, its floor only;
+//  - otherwise: behind the camera, facing what it films.
+function setupView(hass, floors, req, vp, wallHeight) {
+  const floor = floors[req.floor];
+  if (!floor) return null;
+  const plan = resolveFloor(hass, floor);
+  const item = plan.items.find((it) => it.id === req.camera && it.camera);
+  if (!item) return null;
+  const cam = item.camera;
+  const z0 = req.floor * (wallHeight + SLAB);
+  const name = friendlyName(hass, item.id);
+  const fit = (w, h) => Math.max((w * U3 * vp.p) / (0.85 * vp.w), (h * U3 * vp.p) / (0.75 * vp.h));
+  const view = (orbit, level, what) => ({ orbit, level, name, label: `${name} — ${what}` });
+  const C = [item.x, item.y, cameraHeight(cam, wallHeight)];
+  if (cam.indoor) {
+    const room = plan.indoor[roomAt(plan.indoor, item.x, item.y)];
+    if (room) {
+      const b = room.bbox || { x: room.x, y: room.y, w: room.w, h: room.h };
+      const cx = b.x + b.w / 2;
+      const cy = b.y + b.h / 2;
+      const far = Math.hypot(item.x - cx, item.y - cy) > 0.3;
+      const az = far ? toDeg(Math.atan2(item.x - cx, item.y - cy)) : -cam.direction;
+      return view(
+        { az, tilt: SETUP_TILT_INDOOR, dist: fit(Math.hypot(b.w, b.h) * 0.9, wallHeight * 2), target: [cx, cy, z0 + wallHeight * 0.3] },
+        req.floor,
+        room.name || 'room'
+      );
+    }
+  } else {
+    const pose = cameraPose(cam, C);
+    const hidden = (() => {
+      const occ = floorOccluders(floors, req.floor, plan, wallHeight);
+      return (P) => sightBlocked(occ, C, P);
+    })();
+    const corners = facadeCorners(plan.indoor, wallHeight, pose, req.aspect || 16 / 9, hidden);
+    if (corners.length) {
+      const [A, B] = [corners[0].P, corners[1].P];
+      const len = Math.hypot(B[0] - A[0], B[1] - A[1]);
+      let nx = -(B[1] - A[1]) / len;
+      let ny = (B[0] - A[0]) / len;
+      if ((C[0] - A[0]) * nx + (C[1] - A[1]) * ny < 0) {
+        nx = -nx;
+        ny = -ny;
+      }
+      const side = Math.abs(ny) >= Math.abs(nx) ? (ny > 0 ? 'south' : 'north') : nx > 0 ? 'east' : 'west';
+      return view(
+        { az: toDeg(Math.atan2(nx, ny)), tilt: SETUP_TILT_OUTDOOR, dist: fit(len * 1.1, wallHeight * 1.4), target: [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2, z0 + wallHeight / 2] },
+        null,
+        `${side} facade`
+      );
+    }
+  }
+  const reach = Math.min(cam.hit !== null && cam.hit !== undefined ? cam.hit : 8, 8);
+  return view(
+    {
+      az: -cam.direction,
+      tilt: clamp(90 - cam.tilt - 8, 35, 82),
+      dist: fit(reach * 1.3, wallHeight * 2),
+      target: [item.x + (cam.dx * reach) / 2, item.y + (cam.dy * reach) / 2, z0 + 0.5],
+    },
+    cam.indoor ? req.floor : null,
+    'behind the camera'
+  );
+}
+
+// Setup state of each editor dialog (`hui-dialog-edit-card` element):
+//  - editor, config: the floorplan editor and the config it is editing;
+//  - request: { camera, floor, aspect, seq } while the setup view is wanted (seq bumps at each
+//    alignment change: a card applies a request whose seq it hasn't applied yet);
+//  - cards: the floorplan cards under the dialog, the preview's among them;
+//  - free: kind of target ('preview', 'embedded') -> seq at which the user moved its view;
+//  - snap: kind -> view kept for a card rebuilt while free;
+//  - label: the badge's text;
+//  - before, holder: the view the preview's card had before the setup, and the card showing the setup.
+const setupDialogs = new Map();
+
+function dialogOf(el) {
+  for (let n = el; n; n = n.parentNode || n.host) if (n.localName === 'hui-dialog-edit-card') return n;
+  return null;
+}
+
+function setupState(el, create = true) {
+  const dialog = dialogOf(el);
+  if (!dialog) return null;
+  if (!setupDialogs.has(dialog) && create) {
+    setupDialogs.set(dialog, { editor: null, config: null, request: null, seq: 0, cards: new Set(), free: {}, snap: {}, label: '', before: null, holder: null });
+  }
+  return setupDialogs.get(dialog) || null;
+}
+
+// Forgets a dialog nothing uses any more.
+function setupRelease(state) {
+  if (state.editor || state.cards.size) return;
+  for (const [dialog, s] of setupDialogs) if (s === state) setupDialogs.delete(dialog);
+}
+
+function setupNotify(state) {
+  for (const card of [...state.cards]) card._syncSetup();
+  if (state.editor) state.editor._checkLayout();
+}
+
+// The preview's card: the one whose config is the editor's, else the only floorplan card there is.
+// A card that already shows the setup keeps it until another one matches (its config is updated
+// after the editor's).
+const configKeys = new WeakMap();
+function configKey(config) {
+  let k = configKeys.get(config);
+  if (!k) configKeys.set(config, (k = { full: JSON.stringify(config), floors: JSON.stringify(config.floors) }));
+  return k;
+}
+
+function setupTarget(state) {
+  const cards = [...state.cards].filter((c) => !c._embedded && c.config);
+  if (!cards.length) return null;
+  if (state.config) {
+    // Cached by config object: this runs on every card update while a request exists.
+    const { full, floors } = configKey(state.config);
+    let found = cards.filter((c) => configKey(c.config).full === full);
+    if (!found.length) found = cards.filter((c) => configKey(c.config).floors === floors);
+    if (found.length) return found.includes(state.holder) ? state.holder : found[0];
+  }
+  if (cards.includes(state.holder)) return state.holder;
+  return cards.length === 1 ? cards[0] : null;
+}
+
 // -------------------------------------------------------------------------
 // Card
 // -------------------------------------------------------------------------
@@ -2213,6 +2361,7 @@ class HaPlooumFloorplanCard extends LitElement {
     this._resizeObserver = new ResizeObserver((entries) => {
       const width = entries[0].contentRect.width;
       if (Math.abs(width - this._width) > 1) this._width = width;
+      if (this._setupState) this._setupState.editor?._checkLayout();
     });
     this._floorIndex = 0;
     this._selectedRoom = null;
@@ -2233,6 +2382,9 @@ class HaPlooumFloorplanCard extends LitElement {
     this._camHover = null; // camera previewed in 2D while the mouse is on its marker
     this._camPinned = null; // camera previewed in 2D after a tap on its marker
     this._panelCameras = false; // the room panel shows camera pictures
+    this._embedded = false; // the editor's own 3D preview of the setup view (see setupView())
+    this._setupOn = false; // this card shows the setup view of the editor's camera
+    this._setupSeq = 0; // last setup request applied
     this._wheelListener = { handleEvent: (ev) => this._wheel3d(ev), passive: false };
     this._onKeyDown = (ev) => {
       // Keys meant for dialogs (the more-info of a camera) or fields: leave the view as it is then.
@@ -2261,6 +2413,12 @@ class HaPlooumFloorplanCard extends LitElement {
     window.addEventListener('keydown', this._onKeyDown);
     this._resizeObserver.observe(this);
     this._startRefresh();
+    // Under the editor dialog (its preview, or the editor's own 3D preview): follows the setup view.
+    this._setupState = setupState(this);
+    if (this._setupState) {
+      this._setupState.cards.add(this);
+      setupNotify(this._setupState);
+    }
   }
 
   updated(changed) {
@@ -2270,6 +2428,11 @@ class HaPlooumFloorplanCard extends LitElement {
       const chip = bar && bar.querySelector('.camchip.active');
       if (chip) bar.scrollTo({ left: chip.offsetLeft - (bar.clientWidth - chip.offsetWidth) / 2, behavior: 'smooth' });
     }
+    const state = this._setupState;
+    if (state && this._setupOn && state.request && state.free[this._embedded ? 'embedded' : 'preview'] === state.request.seq) {
+      state.snap[this._embedded ? 'embedded' : 'preview'] = { view: this._view, level: this._level3d, orbit: this._orbit };
+    }
+    this._syncSetup();
     if (this._view === '3d') {
       this._draw3d();
       this._probeIcons();
@@ -2291,6 +2454,17 @@ class HaPlooumFloorplanCard extends LitElement {
     clearTimeout(this._iconTimer);
     cancelAnimationFrame(this._easeFrame);
     this._easeFrame = null;
+    const state = this._setupState;
+    if (state) {
+      // A rebuilt card takes over, with the view kept in `state.before`.
+      state.cards.delete(this);
+      if (state.holder === this) state.holder = null;
+      this._setupState = null;
+      this._setupOn = false;
+      this._setupSeq = 0;
+      if (state.editor) state.editor._checkLayout();
+      setupRelease(state);
+    }
   }
 
   setConfig(config) {
@@ -2315,7 +2489,100 @@ class HaPlooumFloorplanCard extends LitElement {
     if (!this.config || this.config.roof !== config.roof) this._level3d = null;
     const refreshChanged = !this.config || this.config.refresh_interval !== config.refresh_interval;
     this.config = config;
+    configKey(config);
     if (refreshChanged && this.isConnected) this._startRefresh();
+    // A setup view is computed from the config: do it again with the new one.
+    this._setupSeq = 0;
+    if (this._setupState) setupNotify(this._setupState);
+  }
+
+  // --- Setup view ----------------------------------------------------------
+
+  // Puts this card in the setup view when the editor asks for it and it is the card to do it (the
+  // preview's, or the editor's own 3D preview), and back to what it was when the editor stops.
+  _syncSetup() {
+    const state = this._setupState;
+    if (!state || !this.config || !this.hass) return;
+    const req = state.request;
+    const mine = req && (this._embedded || setupTarget(state) === this);
+    if (!mine) {
+      if (this._setupOn) this._endSetup(state);
+      return;
+    }
+    if (!req.seq || !this._width) return; // nothing aligned yet, or not laid out yet
+    const kind = this._embedded ? 'embedded' : 'preview';
+    if (!this._setupOn) {
+      this._setupOn = true;
+      if (!this._embedded) {
+        if (!state.before) state.before = { view: this._view, level: this._level3d, orbit: this._orbit };
+        state.holder = this;
+      }
+    }
+    if (this._setupSeq >= req.seq) return;
+    this._setupSeq = req.seq;
+    if (state.free[kind] === req.seq) {
+      // Free view, in a card rebuilt: back where the user left it.
+      const snap = state.snap[kind];
+      if (snap) Object.assign(this, { _view: snap.view, _level3d: snap.level, _orbit: snap.orbit });
+      return;
+    }
+    const v = setupView(this.hass, this._floors(), req, this._viewport3d(), this._wallHeight());
+    if (!v) return;
+    state.label = v.label;
+    this._view = '3d';
+    this._level3d = v.level;
+    this._orbit = v.orbit;
+    this._focus = null;
+    this._selectedRoom = null;
+    this._closePreviews();
+    delete state.snap[kind];
+    this.requestUpdate();
+    if (!this._embedded) this.updateComplete.then(() => this._scrollToSetup());
+  }
+
+  _scrollToSetup() {
+    const state = this._setupState;
+    if (state && state.editor && state.editor._narrow) return; // out of sight anyway: don't pull the dialog away from the editor
+    const box = this.getBoundingClientRect();
+    if (box.width > 0 && box.height > 0) this.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }
+
+  _endSetup(state) {
+    this._setupOn = false;
+    this._setupSeq = 0;
+    if (this._embedded || state.holder !== this) return;
+    const before = state.before;
+    state.before = null;
+    state.holder = null;
+    if (before) Object.assign(this, { _view: before.view, _level3d: before.level, _orbit: before.orbit, _focus: null });
+  }
+
+  // The user moved the 3D view: it is a normal card from now on, until the next alignment change.
+  _userMoved() {
+    const state = this._setupState;
+    if (!this._setupOn || !state || !state.request) return;
+    const kind = this._embedded ? 'embedded' : 'preview';
+    if (state.free[kind] === state.request.seq) return;
+    state.free[kind] = state.request.seq;
+    this.requestUpdate();
+  }
+
+  _backToSetup() {
+    const state = this._setupState;
+    if (!state) return;
+    delete state.free[this._embedded ? 'embedded' : 'preview'];
+    this._setupSeq = 0;
+    this._syncSetup();
+  }
+
+  _renderSetupBadge() {
+    const state = this._setupState;
+    if (!this._setupOn || !state || !state.request || !state.label) return nothing;
+    const free = state.free[this._embedded ? 'embedded' : 'preview'] === state.request.seq;
+    return free
+      ? html`<div class="setup-badge free"><span>Free view</span>
+          <button @click=${(ev) => { ev.stopPropagation(); this._backToSetup(); }} @pointerdown=${(ev) => ev.stopPropagation()}>Setup view</button></div>`
+      : html`<div class="setup-badge"><ha-icon icon="mdi:crosshairs-gps"></ha-icon><span>Setup · ${state.label}</span></div>`;
   }
 
   // Camera snapshots are reloaded periodically, only while some are shown: in 3D, or in 2D in a
@@ -2338,6 +2605,11 @@ class HaPlooumFloorplanCard extends LitElement {
   _snapshotsShown() {
     if (this._view === '3d') return true;
     return !!(this._camHover || this._camPinned || this._panelCameras);
+  }
+
+  // The setup state of the editor dialogs still open (empty once they are closed).
+  static get setupDialogs() {
+    return setupDialogs;
   }
 
   static getStubConfig() {
@@ -2391,7 +2663,9 @@ class HaPlooumFloorplanCard extends LitElement {
 
     return html`
       <ha-card>
-        <div class="header">
+        ${this._embedded
+          ? nothing
+          : html`<div class="header">
           <div class="title">${this.config.title || ''}</div>
           <div class="floors">
             ${is3d
@@ -2413,7 +2687,7 @@ class HaPlooumFloorplanCard extends LitElement {
               <button class=${is3d ? 'active' : ''} @click=${() => this._setView('3d')} title="3D view">3D</button>
             </div>
           </div>
-        </div>
+        </div>`}
         ${empty
           ? html`<div class="empty">
               <ha-icon icon="mdi:floor-plan"></ha-icon>
@@ -3080,6 +3354,7 @@ class HaPlooumFloorplanCard extends LitElement {
   _setLevel(level) {
     this._level3d = level;
     this._focus = null;
+    this._userMoved();
   }
 
   // Size of the 3D viewport and its perspective distance (px).
@@ -3163,6 +3438,7 @@ class HaPlooumFloorplanCard extends LitElement {
         ${focused ? this._renderFocusScreen(focused, orbit, vp) : nothing}
         ${boards.length ? this._renderBillboards(boards) : nothing}
         ${this._renderCameraBar()}
+        ${this._renderSetupBadge()}
         <div class="tools">
           <button class="tool" title="Zoom in" @click=${() => this._zoom3d(1 / 1.3)}><ha-icon icon="mdi:plus"></ha-icon></button>
           <button class="tool" title="Zoom out" @click=${() => this._zoom3d(1.3)}><ha-icon icon="mdi:minus"></ha-icon></button>
@@ -4034,6 +4310,7 @@ class HaPlooumFloorplanCard extends LitElement {
     }
     this._dragging3d = true;
     this._orbit = next;
+    this._userMoved();
   }
 
   _up3d(ev) {
@@ -4058,11 +4335,13 @@ class HaPlooumFloorplanCard extends LitElement {
     clearTimeout(this._wheelTimer);
     this._wheelTimer = setTimeout(() => (this._dragging3d = false), 200);
     this._orbit = { ...o, dist: this._clampDist(o.dist * Math.exp(ev.deltaY * 0.0015)) };
+    this._userMoved();
   }
 
   _zoom3d(k) {
     const o = this._currentOrbit();
     this._orbit = { ...o, dist: this._clampDist(o.dist * k) };
+    this._userMoved();
   }
 
   _clampDist(dist) {
@@ -4088,6 +4367,7 @@ class HaPlooumFloorplanCard extends LitElement {
   _resetView() {
     this._orbit = null;
     this._focus = null;
+    this._userMoved();
   }
 
   // First tap: fly behind the camera, facing its screen. Second tap: its more-info dialog (live view).
@@ -4099,6 +4379,7 @@ class HaPlooumFloorplanCard extends LitElement {
     const state = this._scene3dState;
     const sc = state.screens.find((x) => x.id === id);
     if (!sc) return;
+    this._userMoved();
     const { vp } = state;
     const current = this._currentOrbit();
     let az = -sc.cam.direction;
@@ -5016,6 +5297,45 @@ class HaPlooumFloorplanCard extends LitElement {
       .f.screen.missing .screen-msg {
         color: var(--warning-color, #ffa600);
       }
+      .setup-badge {
+        position: absolute;
+        top: 8px;
+        left: 8px;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        max-width: calc(100% - 16px);
+        padding: 4px 12px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-primary-color, #fff);
+        background: var(--primary-color);
+        pointer-events: none;
+        --mdc-icon-size: 16px;
+      }
+      .setup-badge span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .setup-badge.free {
+        padding: 4px 4px 4px 12px;
+        color: #fff;
+        background: rgba(20, 22, 26, 0.72);
+        pointer-events: auto;
+      }
+      .setup-badge button {
+        border: 0;
+        border-radius: 999px;
+        padding: 3px 10px;
+        font: inherit;
+        font-size: 12px;
+        color: var(--text-primary-color, #fff);
+        background: var(--primary-color);
+        cursor: pointer;
+      }
       .tools {
         position: absolute;
         right: 8px;
@@ -5191,6 +5511,8 @@ class HaPlooumFloorplanCardEditor extends LitElement {
       _capture: { state: true },
       _cameraAdvanced: { state: true },
       _paletteOpen: { state: true },
+      _narrow: { state: true },
+      _cvMode: { state: true },
     };
   }
 
@@ -5210,10 +5532,139 @@ class HaPlooumFloorplanCardEditor extends LitElement {
     this._filter = 'suggested';
     this._history = []; // previous `floors` values, for undo (the HA card editor has none)
     this._extentCache = null;
+    this._narrow = false; // the dialog doesn't show the preview's card (a narrow screen): see _checkLayout()
+    this._cvMode = 'setup'; // 'setup' (the camera view) | 'preview' (a 3D view of the setup view), narrow layout only
+    this._embedEl = null; // the card of the 3D preview
+    this._onResize = () => this._checkLayout();
   }
 
   setConfig(config) {
     this._config = config;
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    window.addEventListener('resize', this._onResize);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    window.removeEventListener('resize', this._onResize);
+    cancelAnimationFrame(this._layoutFrame);
+    this._layoutFrame = null;
+    // The dialog closes, or another card of the stack is edited: the setup view ends.
+    const state = this._setupRef;
+    this._setupRef = null;
+    this._embedEl = null;
+    if (!state || state.editor !== this) return;
+    Object.assign(state, { editor: null, config: null, request: null, free: {}, snap: {} });
+    setupNotify(state);
+    setupRelease(state);
+  }
+
+  updated(changed) {
+    this._setupUpdate();
+    if (changed.has('_selection') || changed.has('_cameraAdvanced') || changed.has('_cvMode')) this._checkLayout();
+    if (this._embedEl && !this._embedEl.isConnected && this._cvMode !== 'preview') this._embedEl = null;
+    const el = this._embedEl;
+    if (el) {
+      if (el.config !== this._config) el.setConfig(this._config);
+      el.hass = this.hass;
+    }
+  }
+
+  // --- Setup view (see setupView()) ----------------------------------------
+
+  // The camera being lined up for its projection: selected, projecting, its advanced panel open.
+  _setupWanted() {
+    const sel = this._selection;
+    if (!this._config || !this.hass || !this._cameraAdvanced || !sel || sel.kind !== 'entity') return null;
+    const fi = this._currentFloorIndex();
+    const ent = ((this._floors()[fi] || {}).entities || [])[sel.index];
+    if (!ent || domainOf(ent.entity) !== 'camera' || !ent.projection) return null;
+    return { camera: ent.entity, floor: fi };
+  }
+
+  // Keeps the dialog's setup request in line with what is selected. Returns the dialog's state.
+  _setupUpdate() {
+    const state = setupState(this);
+    if (!state) return null;
+    this._setupRef = state;
+    state.editor = this;
+    state.config = this._config;
+    const want = this._setupWanted();
+    const cur = state.request;
+    if (cur && !(want && cur.camera === want.camera && cur.floor === want.floor)) {
+      state.request = null;
+      state.free = {};
+      state.snap = {};
+      setupNotify(state);
+    }
+    // No `seq` yet: the view only changes with the first alignment change.
+    if (want && !state.request) state.request = { ...want, aspect: this._aspects[want.camera], seq: 0 };
+    return state;
+  }
+
+  // An alignment change: the setup view is applied again.
+  _setupBump() {
+    const state = this._setupUpdate();
+    if (!state || !state.request) return;
+    state.request.seq++;
+    state.request.aspect = this._aspects[state.request.camera];
+    setupNotify(state);
+  }
+
+  // The dialog shows the preview's card beside the editor, or not (HA hides it or stacks it below in
+  // a narrow dialog): measured, as the window's width doesn't tell.
+  // Layout reads are costly: coalesced in one frame, and only asked for when the layout can change
+  // (resize, a card appearing or going, the selection or the Advanced panel changing).
+  _checkLayout() {
+    if (this._layoutFrame) return;
+    this._layoutFrame = requestAnimationFrame(() => {
+      this._layoutFrame = null;
+      this._measureLayout();
+    });
+  }
+
+  _measureLayout() {
+    if (this._camDrag || !this.isConnected) return;
+    const state = setupState(this, false);
+    let visible = false;
+    if (state) {
+      const target = setupTarget(state);
+      const cards = target ? [target] : [...state.cards].filter((c) => !c._embedded);
+      // Rendered, and beside the editor: a dialog that stacks the preview under the editor (narrow
+      // screen) puts it out of sight, as good as hidden.
+      const mine = (this.renderRoot.firstElementChild || this).getBoundingClientRect();
+      visible = cards.some((c) => {
+        const box = c.isConnected ? c.getBoundingClientRect() : null;
+        return box && box.width > 0 && box.height > 0 && (box.left >= mine.right - 4 || box.right <= mine.left + 4);
+      });
+    }
+    if (this._narrow === visible) this._narrow = !visible;
+  }
+
+  _setCvMode(mode) {
+    this._cvMode = mode;
+    this._embedEl = null;
+    if (mode === 'preview') this._setupBump();
+  }
+
+  // The 3D view of the setup view that replaces the camera view when the preview isn't shown.
+  _embeddedCard() {
+    if (!this._embedEl) {
+      const el = document.createElement('ha-plooum-floorplan-card');
+      el._embedded = true;
+      el.setConfig(this._config);
+      el.hass = this.hass;
+      this._embedEl = el;
+      const state = this._setupRef;
+      if (state) {
+        delete state.free.embedded;
+        delete state.snap.embedded;
+      }
+    }
+    return this._embedEl;
   }
 
   // --- Config access -------------------------------------------------------
@@ -5759,6 +6210,20 @@ class HaPlooumFloorplanCardEditor extends LitElement {
     const snapUrl = pic ? `${pic}${pic.includes('?') ? '&' : '?'}t=${this._snapTick}` : null;
     const canUpload = !!(this.hass.config && this.hass.config.components && this.hass.config.components.includes('image_upload'));
     const capture = this._capture && this._capture.id === item.id ? this._capture : null;
+    // Narrow layout (no preview beside the editor): a switch between the camera view and a 3D view.
+    const switchable = this._narrow && !!this._setupWanted();
+    const preview = switchable && this._cvMode === 'preview';
+    if (!preview) this._embedEl = null;
+    const toggle = switchable
+      ? html`<div class="cv-toggle" role="group" aria-label="Camera alignment zone">
+          <button class=${preview ? '' : 'active'} @click=${() => this._setCvMode('setup')}>Setup</button>
+          <button class=${preview ? 'active' : ''} @click=${() => this._setCvMode('preview')}>3D preview</button>
+        </div>`
+      : nothing;
+    if (preview) {
+      return html`<div class="cv-section">${toggle}<div class="cv-header"><span>Projection preview</span></div>
+        <div class="cv-embed">${this._embeddedCard()}</div></div>`;
+    }
     const header = html`<div class="cv-header">
       <span>${refUrl ? 'Camera view (reference picture)' : 'Camera view'}</span>
       ${(pic || refUrl) && pins.length
@@ -5790,7 +6255,7 @@ class HaPlooumFloorplanCardEditor extends LitElement {
           </div>`
         : nothing}
     `;
-    if (!pic && !refUrl) return html`<div class="cv-section">${header}<div class="muted">No picture: the camera is unavailable.</div></div>`;
+    if (!pic && !refUrl) return html`<div class="cv-section">${toggle}${header}<div class="muted">No picture: the camera is unavailable.</div></div>`;
 
     // An indoor camera only sees its room: the lines of the others would show through its walls.
     // An outdoor one sees the outer walls facing it, and nothing the house hides from it.
@@ -5834,6 +6299,7 @@ class HaPlooumFloorplanCardEditor extends LitElement {
         : 'Drag the corners of the facade the camera sees best (floor or top of the wall) onto the same corners in the picture: each one is pinned there. These 4 corners are enough. With nothing pinned, drag the picture to turn the camera.';
 
     return html`<div class="cv-section">
+      ${toggle}
       ${header}
       <div class="cv-wrap">
         <div class="cv ${pins.length ? 'pinned' : ''}" style="aspect-ratio: ${aspect};" @pointerdown=${(ev) => this._cvDown(ev, item, aspect)}
@@ -5911,11 +6377,7 @@ class HaPlooumFloorplanCardEditor extends LitElement {
     const key = [floors, this._currentFloorIndex(), wallHeight, JSON.stringify(plan.rooms.map((r) => [r.x, r.y, r.w, r.h, r.outdoor]))];
     if (!this._occKey || this._occKey.some((v, i) => v !== key[i])) {
       this._occKey = key;
-      const above = floors.slice(this._currentFloorIndex() + 1).map((f, i) => ({
-        rooms: (f.rooms || []).map(normalizeRoom).filter((r) => !r.outdoor),
-        z0: (i + 1) * (wallHeight + SLAB),
-      }));
-      this._occ = planOccluders(plan.rooms, above, wallHeight);
+      this._occ = floorOccluders(floors, this._currentFloorIndex(), plan, wallHeight);
     }
     const occ = this._occ;
     return (P) => sightBlocked(occ, C, P);
@@ -5961,6 +6423,7 @@ class HaPlooumFloorplanCardEditor extends LitElement {
       if (id) e.reference_picture = id;
       else delete e.reference_picture;
     });
+    this._setupBump();
   }
 
   _learnAspect(id, img) {
@@ -6041,6 +6504,7 @@ class HaPlooumFloorplanCardEditor extends LitElement {
       if (num(e.x_scale, 1) === 1) delete e.x_scale;
       if (e.pins && !e.pins.length) delete e.pins;
     });
+    this._setupBump();
   }
 
   // Settings of a camera being dragged (`c`, see _cvDown()) for these pins: the camera's model
@@ -6069,6 +6533,7 @@ class HaPlooumFloorplanCardEditor extends LitElement {
     this._editFloor((floor) => {
       delete floor.entities[item.index].pins;
     });
+    this._setupBump();
   }
 
   // Cached: the editor re-renders on every pointer move while dragging.
@@ -6491,9 +6956,12 @@ class HaPlooumFloorplanCardEditor extends LitElement {
       if (!keep) delete value.light;
     }
     if (listKey === 'rooms' && !value.outdoor) delete value.outdoor;
+    const previous = this._floors()[this._currentFloorIndex()][listKey][sel.index] || {};
     this._editFloor((floor) => {
       floor[listKey][sel.index] = value;
     }, `${this._currentFloorIndex()}:${listKey}:${sel.index}`);
+    // Direction, field of view, tilt, height and the projection toggle move the projection: the setup view follows.
+    if (listKey === 'entities' && ['tilt', 'height', 'projection', 'direction', 'fov'].some((k) => (previous[k] ?? null) !== (value[k] ?? null))) this._setupBump();
   }
 
   // Values a camera's form shows when they are not set.
@@ -6821,6 +7289,33 @@ class HaPlooumFloorplanCardEditor extends LitElement {
         gap: 8px;
         border-top: 1px solid var(--divider-color);
         padding-top: 8px;
+      }
+      .cv-toggle {
+        display: flex;
+        padding: 2px;
+        border-radius: 8px;
+        background: var(--secondary-background-color);
+      }
+      .cv-toggle button {
+        flex: 1;
+        border: 0;
+        border-radius: 6px;
+        padding: 6px 8px;
+        font: inherit;
+        font-size: 13px;
+        color: var(--primary-text-color);
+        background: transparent;
+        cursor: pointer;
+      }
+      .cv-toggle button.active {
+        color: var(--text-primary-color, #fff);
+        background: var(--primary-color);
+      }
+      .cv-embed {
+        border-radius: 8px;
+        overflow: hidden;
+        --ha-card-border-width: 0;
+        --ha-card-box-shadow: none;
       }
       .cv-header {
         display: flex;
