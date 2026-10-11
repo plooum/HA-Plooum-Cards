@@ -11,7 +11,7 @@ _Last update: 2026-10-11, pilot session 1 (Opus 5.5)._
 | Item | Branch / PR | Status |
 | :--- | :--- | :--- |
 | Pilot workflow: skills `pilot`, `pr-workflow`, `ha-dev-testing` (+ `editor_shot.py`), `floorplan-card`; CLAUDE.md Pilot mode | `feature/pilot-workflow`, [#6](https://github.com/plooum/HA-Plooum-Cards/pull/6) | merged 2026-10-11 |
-| Floorplan editor: 3D setup view following the projection's alignment | `feature/floorplan-setup-view` | sub-agent (Sonnet) launched 2026-10-11 on [prompts/01-floorplan-setup-view.md](prompts/01-floorplan-setup-view.md), working in the main checkout |
+| Floorplan editor: 3D setup view following the projection's alignment | `feature/floorplan-setup-view`, [#7](https://github.com/plooum/HA-Plooum-Cards/pull/7) | sub-agent (Sonnet) delivered, CI green; review round 1 sent back (perf of `_checkLayout` in `updated()`, cached config strings in `setupTarget`, embedded card without its header, direction/fov also bump); waiting for its fixes |
 
 The local branch `feature/dpad-keyboard` existed before this session, untouched and unpushed: not ours, leave it.
 
@@ -28,5 +28,7 @@ The local branch `feature/dpad-keyboard` existed before this session, untouched 
 2. After it: put the sub-agent's friction into the skills (PR `feature/skills-...`).
 
 ## Sub-agent notes
+
+- Prompt 01 (Sonnet, ~13 min, 48 tool calls): delivered all 10 test cases and the 2 screenshots. Deviations accepted: narrow = preview hidden **or stacked below** the editor (HA 2026.10 stacks it at 420 px instead of hiding it); entering 3D preview bumps seq. Friction to put in the skills after #7 (one skills PR): 420 px stacks the preview; stub `setPointerCapture` for synthetic pointer events; `editor_shot.py` js steps are separate evaluates (persist with `window.x`), one `openEditor` per run; `hui-dialog-edit-card` stays in the DOM after Cancel; to drop a corner in place move ≥4 px then back; pilot skill: commit the handoff from a **detached** worktree (`git worktree add --detach`, `git push origin HEAD:main`); floorplan skill: the setup view's design (setupView, setupDialogs, _setupBump).
 
 None yet. Every report must include 2 screenshots (user, 2026-10-11): the prompt names them.
