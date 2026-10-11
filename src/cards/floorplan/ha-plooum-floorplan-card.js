@@ -65,7 +65,7 @@ const PALETTE_FILTERS = [
 ];
 
 // Card options shown in the editor with their default value, and left out of the config when unchanged.
-const CARD_DEFAULTS = { view: '2d', camera_view: 'snapshot', camera_previews: 'hover', projection_picture: 'frozen', projected_windows: 'faint', screen_mode: 'world', roof: true };
+const CARD_DEFAULTS = { view: '2d', camera_view: 'snapshot', camera_previews: 'hover', projection_picture: 'frozen', projected_windows: 'overlay', screen_mode: 'world', roof: true };
 // Where camera screens are shown in 3D: in the scene in front of their camera, floating flat on the
 // view next to it, or nowhere (the camera bar still flies to them).
 const SCREEN_MODES = ['world', 'billboard', 'none'];
@@ -94,8 +94,7 @@ const THUMB_PX = 96; // thumbnail width in 2D (px, before the plan's zoom)
 const THUMB_SIDES = { top: [0, -1], bottom: [0, 1], left: [-1, 0], right: [1, 0] };
 const BLACK_LEVEL = 20; // a snapshot whose brightest pixel is darker than this (0-255) is considered black
 const PROJECTION_PICTURES = ['frozen', 'live', 'snapshot']; // `projection_picture` values
-const PROJECTED_WINDOWS = ['solid', 'faint', 'overlay', 'outline', 'hidden']; // `projected_windows` values (temporary: render experiments)
-const FAINT_WINDOW = 0.3; // opacity of a window drawn `faint` over a projection
+const PROJECTED_WINDOWS = ['overlay', 'solid', 'outline', 'hidden']; // `projected_windows` values
 const OVERLAY_PICTURE = 0.7; // opacity of the picture cast over a window drawn `overlay`
 const LIVE_PROJECTION_INTERVAL = 300; // s between two snapshots checked for `projection_picture: live`
 const MATCH_W = 64; // px: pictures are compared at this size (`projection_picture: live`)
@@ -3846,7 +3845,7 @@ class HaPlooumFloorplanCard extends LitElement {
         // Outer side (+0.02 along the normal), then inner side. On a projected facade, the picture
         // already shows the real window: the outer side follows `projected_windows`.
         const shown = projectedOn(quadOf(0), seg);
-        const style = shown.length ? this.config.projected_windows || 'faint' : 'solid';
+        const style = shown.length ? this.config.projected_windows || CARD_DEFAULTS.projected_windows : 'solid';
         for (const side of [0.02, -0.02]) {
           this._window3d(
             add, at(side), dir, len, top - sill, isUnavailable(it.st), coverPosition(it.st), colors,
@@ -3875,7 +3874,7 @@ class HaPlooumFloorplanCard extends LitElement {
 
   // A window of `len` x `height` on a wall, its top-left corner at `o` and its length along `dir`:
   // a frame, the glass, and the shutter coming down as the cover closes. `style` (see
-  // `projected_windows`): `solid` as is, `faint` translucent, `overlay` with the projected picture
+  // `projected_windows`): `solid` as is, `overlay` with the projected picture
   // cast over it (`project(mesh, alpha)`), `outline` only its outline and the shutter's bottom
   // edge, `hidden` nothing.
   _window3d(add, o, dir, len, height, unavailable, position, colors, style = 'solid', project = null) {
@@ -3896,8 +3895,8 @@ class HaPlooumFloorplanCard extends LitElement {
       if (closed > 0) mesh.poly(quad(add3(o, down(0.04 + (height - 0.08) * closed - w / 2)), mul3(dir, len), down(w)), line);
       return;
     }
-    const alpha = (unavailable ? 0.5 : 1) * (style === 'faint' ? FAINT_WINDOW : 1);
-    const frame = add(new Mesh(MODE.flat, { transparent: style === 'faint' }).poly(quad(o, mul3(dir, len), [0, 0, -height]), [...colors.frame.slice(0, 3), alpha]));
+    const alpha = unavailable ? 0.5 : 1;
+    const frame = add(new Mesh().poly(quad(o, mul3(dir, len), [0, 0, -height]), [...colors.frame.slice(0, 3), alpha]));
     const b = 0.04; // frame width
     const io = add3(add3(o, mul3(dir, b)), [0, 0, -b]);
     const iu = mul3(dir, len - 2 * b);
@@ -5848,6 +5847,21 @@ class HaPlooumFloorplanCardEditor extends LitElement {
                   { value: 'frozen', label: 'Reference picture' },
                   { value: 'live', label: 'Recent snapshot, while it matches the reference' },
                   { value: 'snapshot', label: 'Latest snapshot' },
+                ],
+              },
+            },
+          },
+          {
+            name: 'projected_windows',
+            label: 'Windows on a projected facade (3D)',
+            selector: {
+              select: {
+                mode: 'dropdown',
+                options: [
+                  { value: 'overlay', label: 'Picture over the window' },
+                  { value: 'solid', label: 'Window over the picture' },
+                  { value: 'outline', label: 'Outline only' },
+                  { value: 'hidden', label: 'Hidden (picture only)' },
                 ],
               },
             },

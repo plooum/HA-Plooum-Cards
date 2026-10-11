@@ -1,0 +1,26 @@
+// Floorplan card: the `projected_windows` option (how a window shows on a facade an outdoor camera projects onto).
+// dev/.venv/bin/python dev/ui_test.py dev/tests/floorplan-projected-windows.json
+{
+  "path": "/plooum-test/floorplan",
+  "viewport": [1700, 1050],
+  "tests": [
+    {
+      "name": "default is overlay and each value renders; an invalid one throws",
+      "steps": [
+        { "js": "S.card = await waitFor(() => T.card.all('ha-plooum-floorplan-card').find((c) => c.config.title === 'Home in 3D' && c._scene3dState), 15000, 'the 3D card'); S.cfg = JSON.parse(JSON.stringify(S.card.config));" },
+        { "assert": "S.card.config.projected_windows === undefined && customElements.get('ha-plooum-floorplan-card').prototype.constructor && S.card._buildScene.toString().includes('CARD_DEFAULTS.projected_windows')", "msg": "unset in the config, the default is applied by the scene" },
+        { "js": "for (const v of ['overlay', 'solid', 'outline', 'hidden']) { S.card.setConfig({ ...S.cfg, projected_windows: v }); S.card.requestUpdate(); await S.card.updateComplete; await T.fp.waitIdle(S.card, 8000); if (S.card.shadowRoot.querySelector('.error')) throw new Error('error with ' + v); }" },
+        { "assert": "(() => { try { S.card.setConfig({ ...S.cfg, projected_windows: 'faint' }); return false; } catch (e) { return /projected_windows must be one of/.test(e.message); } })()", "msg": "an invalid value throws in setConfig" },
+        { "js": "S.card.setConfig(S.cfg); S.card.requestUpdate();" }
+      ]
+    },
+    {
+      "name": "the editor shows the field",
+      "path": "/plooum-edit/floorplan?edit=1",
+      "steps": [
+        { "js": "S.ed = await T.openEditor(2);" },
+        { "assert": "(() => { const ed = T.deep(document, 'ha-plooum-floorplan-card-editor')[0]; return !!ed && T.deep(ed.shadowRoot, 'ha-form').some((f) => JSON.stringify(f.schema).includes('projected_windows')); })()", "msg": "a form of the editor has a projected_windows field" }
+      ]
+    }
+  ]
+}
