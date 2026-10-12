@@ -21,7 +21,7 @@ When the user calls you "le pilote", you take this role for the whole session, w
    - the design choices you already made (where the code goes, what is shared, names), so it doesn't improvise;
    - which skills to load (`pr-workflow` always, plus `ha-dev-testing` and the card skill when relevant);
    - test cases built on the test plan's geometry (a free side, a covered strip...): **check them against the plan first** (`dev/ha-config/dashboards/plooum-test.yaml`, both floors' rooms); prompt 10 assumed a free side that was the ground floor's own wing.
-   - the test cases as a **suite to write** under `dev/tests/<feature>.json` (file name, test names, what each one asserts), run with `dev/ui_test.py` (see `ha-dev-testing`);
+   - the test cases as a **suite to write** under `dev/tests/<feature>.json` (file name, test names, what each one asserts), run with `dev/ui_test.py` (see `ha-dev-testing`). **The strict minimum** (user, 2026-10-12): one check per requirement, no extra cases; a dev-tool change often needs no suite at all, just one command or one hand check. The sub-agent's tests are only as good as this list: define it carefully, since you won't re-run them;
    - the branch name, and "open the PR, never merge it";
    - the report format (see `pr-workflow`).
    - that it **stops** when it needs an answer: the question goes in its report's Open questions and it ends its turn; it never waits, polls or works around it (user, 2026-10-11: saves tokens). You answer later with `SendMessage`, which resumes it with its context.
@@ -38,7 +38,8 @@ When the user calls you "le pilote", you take this role for the whole session, w
    - look at its screenshots first, if any;
    - read the PR's diff (`gh pr diff N`) in full, and check its CI (`gh pr checks N`);
    - check it against the prompt and CLAUDE.md, with the checklist below;
-   - re-run the sub-agent's new suite **once**, live in your pane tab (`runner.html`, `pause=0`) so the user sees it; add a test for anything you suspect. Don't take "tested" on trust, but don't re-run what CI or the sub-agent's final run already covers either.
+   - **don't re-run its tests** (user, 2026-10-12): trust the run it pasted in its report. Check that it ran the tests the prompt defined and that they passed; if a requirement isn't covered, ask the sub-agent for that one check.
+   - **show the user the result** at the review: the screenshots, or the card / the runner's finished page in your pane tab.
 4. **Iterate.** Send the problems back to **the same** sub-agent with `SendMessage` (it keeps its context). Don't spawn a new one for a fix. Repeat until the PR is clean. **Keep the sub-agent** (its context, worktree and HA) until the user has validated its work: through every round trip, and until the merge is approved, in case of changes (user, 2026-10-11).
 5. **Present to the user.** Only then: in French, what the PR does, what you checked, screenshots, and what you're unsure about. Ask for the merge approval (CLAUDE.md: never merge without it). Once approved, merge it yourself as CLAUDE.md says.
 6. **Improve the skills, right away.** As soon as a review is done (the user insists: never wait, never batch it for later, never ask first), open the skills PR yourself: from the sub-agent's "Friction" section and from your own review, add what would have saved time to the right skill (see below). Skill changes go through a PR (`feature/skills-<topic>`), like any repo file; present it to the user together with the reviewed PR. A friction that needs a code change (a dev tool flag, a helper) goes in BACKLOG.md instead.
