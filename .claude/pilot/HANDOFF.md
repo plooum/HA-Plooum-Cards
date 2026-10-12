@@ -55,6 +55,7 @@ The user works on two PCs; the pilot may start on either.
 | Pilot skill: keep the agent board current | `feature/skills-pilot-board`, [#41](https://github.com/plooum/HA-Plooum-Cards/pull/41) | merged 2026-10-12
 | Agent board part 3: live browser view, headless screencast, agents leave the pane (prompt 16) | `feature/board-browser-view`, [#43](https://github.com/plooum/HA-Plooum-Cards/pull/43) | merged 2026-10-12
 | Pilot skill: sub-agents leave the pane | `feature/skills-pilot-no-pane`, [#44](https://github.com/plooum/HA-Plooum-Cards/pull/44) | merged 2026-10-12
+| Agent board: `archive` route fix (pilot, 2 lines) | `feature/board-archive-route`, [#45](https://github.com/plooum/HA-Plooum-Cards/pull/45) | waiting for approval |
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
 
@@ -100,7 +101,7 @@ The user works on two PCs; the pilot may start on either.
 
 ## Next
 
-Agent board done (#39, #42, #43; skills #41, #44), running from main on 8120 (start it if down: pilot skill). **First thing in the next session**: check live that the hook (#42, `.claude/settings.json`) posts a sub-agent's commands / edits to its timeline (hooks load at session start; unverified whether the hook's `cwd` is the sub-agent's worktree), and that its suites show in the Browser panel. Then BACKLOG.md (roof layer checks).
+Agent board done (#39, #42, #43; skills #41, #44), running from main on 8120 (start it if down: pilot skill). Hook verified live 2026-10-12 (it took effect mid-session: prompt 16 got 29 actions; Bash shows the command when the agent gave no description). Browser panel verified with a pilot demo run (agent `demo-browser-view`, port 8123). Was: check live that the hook (#42, `.claude/settings.json`) posts a sub-agent's commands / edits to its timeline (hooks load at session start; unverified whether the hook's `cwd` is the sub-agent's worktree), and that its suites show in the Browser panel. Then BACKLOG.md (roof layer checks).
 
 How to run the loop now (all in the skills since #30 / #33): short exact prompts with checked premises, fast path for one-function fixes, the sub-agent tests in its own pane tab (`runner.html`, `pause=0`) and doesn't wait for CI; watch it in the background and steer it when it drifts; after it reports, `python3 .claude/skills/pilot/agent_timing.py <its task output file>` and log the totals below; keep it (context, worktree, HA) until the user approved the merge; stop its HA before `gh pr merge`; rebase only if `main` moved outside `.claude/pilot/` (CLAUDE.md); skills PR right after each review; releases only on the user's go.
 
