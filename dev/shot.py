@@ -23,13 +23,18 @@ from urllib.parse import urlparse
 
 from playwright.sync_api import sync_playwright
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools" / "agent-board"))
-import board_stream
-from board import project_of
+import os
+sys.path.insert(0, os.path.expanduser(os.environ.get("AGENT_BOARD_HOME", "~/.local/opt/agent-board")))
+try:  # the agent board (plooum/agent-board) is optional
+    import board_stream
+    from board import project_of
+except ImportError:
+    board_stream = None
+    project_of = None
 from ha_env import ha_token, ha_url
 
 DEV = Path(__file__).parent
-PROJECT = project_of(DEV)  # the agent board groups by project
+PROJECT = project_of(DEV) if project_of else None  # the agent board groups by project
 # Noise from HA itself / the headless environment, not from our cards.
 IGNORED_ERRORS = ("favicon", "manifest", "service worker", "serviceworker")
 
@@ -46,7 +51,7 @@ def main() -> int:
     parser.add_argument("--light", action="store_true", help="light color scheme (default dark)")
     parser.add_argument("--url", help="HA base URL (default: this checkout's instance, see dev/ha_env.py)")
     parser.add_argument("--ready", help="JS predicate to wait for instead of HA being connected (e.g. \"() => window.uiResult\" on the runner page)")
-    parser.add_argument("--board", default="http://127.0.0.1:8120", help="agent board URL the live frames are streamed to (tools/agent-board); empty disables")
+    parser.add_argument("--board", default="http://127.0.0.1:8120", help="agent board URL the live frames are streamed to (plooum/agent-board); empty disables")
     parser.add_argument("--wait", type=float, default=2.0, help="extra seconds after the cards render")
     args = parser.parse_args()
 
@@ -74,7 +79,7 @@ def main() -> int:
         )
         context.add_init_script(f"localStorage.setItem('hassTokens', {json.dumps(json.dumps(hass_tokens))});")
         page = context.new_page()
-        args.board and board_stream.start(page, args.board, urlparse(URL).port, PROJECT)
+        args.board and board_stream and board_stream.start(page, args.board, urlparse(URL).port, PROJECT)
         page.on("pageerror", lambda exc: errors.append(f"pageerror: {exc.name}: {exc.message}\n{exc.stack or ''}"))
         matched: list[str] = []
 

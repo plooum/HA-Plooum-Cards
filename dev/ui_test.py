@@ -36,13 +36,18 @@ from urllib.parse import quote, urlparse
 
 from playwright.sync_api import sync_playwright
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools" / "agent-board"))
-import board_stream
-from board import project_of
+import os
+sys.path.insert(0, os.path.expanduser(os.environ.get("AGENT_BOARD_HOME", "~/.local/opt/agent-board")))
+try:  # the agent board (plooum/agent-board) is optional
+    import board_stream
+    from board import project_of
+except ImportError:
+    board_stream = None
+    project_of = None
 from ha_env import ha_token, ha_url
 
 DEV = Path(__file__).parent
-PROJECT = project_of(DEV)  # the agent board groups by project
+PROJECT = project_of(DEV) if project_of else None  # the agent board groups by project
 
 def strip_comments(text: str) -> str:
     return "\n".join(line for line in text.splitlines() if not re.match(r"\s*//", line))
@@ -60,7 +65,7 @@ def main() -> int:
     ap.add_argument("--out", default=str(DEV / "shots"))
     ap.add_argument("--verbose", action="store_true")
     ap.add_argument("--url", help="HA base URL (default: this checkout's instance, see dev/ha_env.py)")
-    ap.add_argument("--board", default="http://127.0.0.1:8120", help="agent board URL the run is reported to and streamed to (tools/agent-board); empty disables both")
+    ap.add_argument("--board", default="http://127.0.0.1:8120", help="agent board URL the run is reported to and streamed to (plooum/agent-board); empty disables both")
     args = ap.parse_args()
 
     suite = json.loads(strip_comments(Path(args.suite).read_text()))
@@ -98,7 +103,7 @@ def main() -> int:
         ctx = browser.new_context(viewport={"width": 1700, "height": 1050}, color_scheme="dark", locale="en-US")
         ctx.add_init_script(f"localStorage.setItem('hassTokens', {json.dumps(json.dumps(hass_tokens))});")
         page = ctx.new_page()
-        board and board_stream.start(page, board, urlparse(URL).port, PROJECT)  # read-only live view on the agent board
+        board and board_stream and board_stream.start(page, board, urlparse(URL).port, PROJECT)  # read-only live view on the agent board
 
         # Groups of consecutive tests (same_page, same viewport) share one runner page: index=3,4,5.
         groups = []
@@ -131,7 +136,7 @@ def main() -> int:
                     print(f"    screenshot: {path}")
                 page.evaluate("() => { window.uiShot = null; window.uiShotResolve(); }")
             for (index, test), res in zip(group["items"], page.evaluate("() => window.uiResult")["tests"]):
-                board and board_stream.shot(page, board, urlparse(URL).port, run_id, test["name"], PROJECT)
+                board and board_stream and board_stream.shot(page, board, urlparse(URL).port, run_id, test["name"], PROJECT)
                 for pr in res["prints"]:
                     print(f"    [{test['name']}] {pr}")
                 errs = res["errors"]
