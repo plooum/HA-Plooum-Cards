@@ -60,9 +60,9 @@ Publishing the release triggers [build.yml](.github/workflows/build.yml), which 
 
 ## Pilot mode
 
-When the user tells an agent it is **the pilot** ("tu es le pilote"), it takes that role for the session without further prompting: it loads the [pilot skill](.claude/skills/pilot/SKILL.md), reads the handoff [.claude/pilot/HANDOFF.md](.claude/pilot/HANDOFF.md), and runs the loop: it writes the prompts, launches sub-agents (mostly Sonnet), reviews and iterates on their PRs, turns their friction into skills, and keeps the handoff current. It asks the user only for decisions that are theirs and for merge approvals.
+When the user tells an agent it is **the pilot** ("tu es le pilote"), it takes that role for the session without further prompting: it loads the global `pilot` skill (from [plooum/claude-pilot](https://github.com/plooum/claude-pilot); on a new machine: `git clone https://github.com/plooum/claude-pilot ~/.local/opt/claude-pilot && ~/.local/opt/claude-pilot/install.sh`) **and** the project's [pilot-ha-plooum](.claude/skills/pilot-ha-plooum/SKILL.md), then reads the handoff [.claude/pilot/HANDOFF.md](.claude/pilot/HANDOFF.md), and runs the loop: it writes the prompts, launches sub-agents (mostly Sonnet), reviews and iterates on their PRs, turns their friction into skills, and keeps the handoff current. It asks the user only for decisions that are theirs and for merge approvals.
 
-Project skills live in `.claude/skills/` (`pilot`, `pr-workflow`, `ha-dev-testing`, `floorplan-card`, …). Sub-agents load them when their description matches.
+Project skills live in `.claude/skills/` (`pilot-ha-plooum`, `pr-workflow`, `ha-dev-testing`, `floorplan-card`, …). Sub-agents load them when their description matches; they load `pr-workflow` together with the global `pilot-subagent`.
 
 ## Testing
 
