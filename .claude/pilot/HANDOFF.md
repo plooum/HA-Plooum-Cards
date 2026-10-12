@@ -51,8 +51,9 @@ The user works on two PCs; the pilot may start on either.
 | Skills: trust the sub-agents' tests, tests at the strict minimum (pilot) | `feature/skills-trust-tests`, [#37](https://github.com/plooum/HA-Plooum-Cards/pull/37) | merged 2026-10-12
 | Agent board part 1: server, page, test results (prompt 14) | `feature/agent-board`, [#39](https://github.com/plooum/HA-Plooum-Cards/pull/39) | merged 2026-10-12; board running from main on 8120 (default data dir)
 | Skills: prompt 14 friction (pkill, Monitor) | `feature/skills-friction-14`, [#40](https://github.com/plooum/HA-Plooum-Cards/pull/40) | merged 2026-10-12
-| Agent board part 2: Claude Code hook, commands + file edits (prompt 15) | `feature/board-hook`, [#42](https://github.com/plooum/HA-Plooum-Cards/pull/42) | reviewed, no round, waiting for approval (live check only possible in a new Claude Code session: hooks load at session start) |
-| Pilot skill: keep the agent board current | `feature/skills-pilot-board`, [#41](https://github.com/plooum/HA-Plooum-Cards/pull/41) | waiting for approval |
+| Agent board part 2: Claude Code hook, commands + file edits (prompt 15) | `feature/board-hook`, [#42](https://github.com/plooum/HA-Plooum-Cards/pull/42) | merged 2026-10-12 (`.claude/settings.json` hook; live check at the first sub-agent of a new session)
+| Pilot skill: keep the agent board current | `feature/skills-pilot-board`, [#41](https://github.com/plooum/HA-Plooum-Cards/pull/41) | merged 2026-10-12
+| Agent board part 3: live browser view, headless screencast, agents leave the pane (prompt 16) | `feature/board-browser-view` | sub-agent working; then pilot skill: no pane in prompts |
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
 
