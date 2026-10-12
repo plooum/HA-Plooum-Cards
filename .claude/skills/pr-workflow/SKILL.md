@@ -29,7 +29,7 @@ You were given a task by the pilot, an agent who reviews your work and loops wit
 
 ## Testing
 
-The user watches: run your suites and hand checks **in your own tab of the built-in browser pane** (`runner.html`, see `ha-dev-testing`), headless only for screenshots and a final re-run.
+The user watches: run your suites and hand checks **in your own tab of the built-in browser pane** (`runner.html`, see `ha-dev-testing`), headless only for screenshots. Run exactly the tests the prompt lists, nothing more (user, 2026-10-12: tests at the strict minimum).
 
 **Be fast** (the user finds the loop long):
 - Read only the sections the prompt names (grep, then read around); don't read a 7,000-line file or a whole skill you don't need.
@@ -69,7 +69,7 @@ Open questions: <decisions you need from the pilot> (when you need one to go on,
 Friction: <what made you lose time: a command that failed, something hard to find, a wrong assumption in the prompt or a skill, and how you got past it>
 ```
 
-**Tests are a suite**: write the prompt's test cases as `dev/tests/<feature>.json` and run `dev/ui_test.py` (see `ha-dev-testing`); the pilot re-runs it. The **Tested** section is its output, not a narrative of what you clicked. The suite is committed with the PR.
+**Tests are a suite**: write the prompt's test cases as `dev/tests/<feature>.json` and run `dev/ui_test.py` (see `ha-dev-testing`); the pilot doesn't re-run it and trusts your output, so paste it in full. The **Tested** section is its output, not a narrative of what you clicked. The suite is committed with the PR.
 
 **Screenshots when the prompt asks for them** (a visual change): those it names, otherwise the main state and the most important other one (e.g. wide and narrow layout, before and after an action). Full page or cropped to the card, in `dev/shots/`, never committed. The pilot looks at them first to check your work.
 
