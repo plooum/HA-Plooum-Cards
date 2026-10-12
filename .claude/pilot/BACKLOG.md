@@ -14,8 +14,7 @@ Nothing.
 
 Candidates proposed to the user on 2026-10-12, none chosen yet:
 
-- [ ] **Board: eye check** of what prompt 18 didn't test (light theme, narrow layout, SSE reconnection after a board restart); a small PR if something is off.
-- [ ] **Move the agent board out of the repo** (own repo / tool), when the user asks: since #53 it is generic (projects); what's left is its own repo, the hook in `~/.claude/settings.json`, and a global skill. Not tested by #53: light theme, Tests tab filter in the page, the global hook.
+- [ ] **Agent board leftovers** (in plooum/agent-board): eye check of the light theme, the Tests tab project filter in the page, SSE reconnection after a restart.
 - [ ] **New card features**: on hold since 2026-10-11 ("no new feature for now"); wait for the user's ideas.
 
 ## Dropped (user, 2026-10-11)

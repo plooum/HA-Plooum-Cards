@@ -2,7 +2,7 @@
 
 Read by the next pilot first (see the `pilot` skill). Committed straight to `main`, no PR. Keep it current.
 
-_Last update: 2026-10-12, pilot session 5 (Opus 5.5, laptop): agent board extracted to plooum/agent-board (public, history kept); prompts 21 (this repo uses it) and 22 (its install docs + skill) running._
+_Last update: 2026-10-12, pilot session 5 (Opus 5.5, laptop): #51–#54 merged, agent board extracted to plooum/agent-board (agent-board#1 merged) and installed globally on the laptop. Nothing in progress._
 
 `main`'s protection: the user turned off "Lock branch" on 2026-10-11 (it blocked PR merges too); the pilot pushes `.claude/pilot/` straight to `main`. The pilot stays on `main` in the main checkout (HA on 8123) and commits the handoff there; sub-agents work in their own worktrees with their own HA (see the `pilot` skill).
 
@@ -12,7 +12,7 @@ The user works on two PCs; the pilot may start on either.
 
 - **Desktop**: 31 GB RAM, 8 cores: 3–4 sub-agents in parallel.
 - **Laptop** (`doudou-laptop`, Linux Mint 22.3, set up 2026-10-11): **7 GB RAM**, 8 cores: **1–2 sub-agents at most** in parallel. Tools are user-level in `~/.local` (no sudo): Node 24 LTS (`~/.local/opt/node`), `gh` (`~/.local/opt/gh_*`), `uv`; all in `~/.local/bin` (on PATH via `.profile` / `.bashrc`). `gh` logged in as `plooum` (HTTPS, `gh auth setup-git`); git identity `Plooum <letailleur.edouard@gmail.com>` global. No clipboard tool: `gh auth login --web` can't copy its code, the user opens github.com/login/device by hand.
-- New PC checklist: `node`/`npm`, `uv`, `gh` + `gh auth login`, git identity, `git config fetch.prune true`, `npm install`, `npm run build`, `dev/ha.sh start` (~70 s first time: venv + HA + Playwright), then `dev/tests/cards-smoke.json` (9/9).
+- New PC checklist: agent board (clone in `~/.local/opt/agent-board`, global hook, skill symlink), `node`/`npm`, `uv`, `gh` + `gh auth login`, git identity, `git config fetch.prune true`, `npm install`, `npm run build`, `dev/ha.sh start` (~70 s first time: venv + HA + Playwright), then `dev/tests/cards-smoke.json` (9/9).
 
 ## State
 
@@ -67,8 +67,8 @@ The user works on two PCs; the pilot may start on either.
 | Skills: measure before setting a speed target (prompt 19) | `feature/skills-friction-19`, [#52](https://github.com/plooum/HA-Plooum-Cards/pull/52) | merged 2026-10-12 |
 | Agent board: projects, generic across repos, still in this repo (prompt 20) | `feature/board-projects`, [#53](https://github.com/plooum/HA-Plooum-Cards/pull/53) | merged 2026-10-12; board restarted, older agents archived with `--all-projects` |
 | Agent board extracted: [plooum/agent-board](https://github.com/plooum/agent-board) (public, GPL-3.0, `git subtree split`, squash-only, auto-delete branches), installed in `~/.local/opt/agent-board`, dev clone `~/git/agent-board`; the board now runs from the install (pilot) | — | done 2026-10-12 |
-| Use the board from its repo, remove `tools/agent-board` (prompt 21) | `feature/board-external`, [#54](https://github.com/plooum/HA-Plooum-Cards/pull/54) | reviewed, waiting for the user |
-| agent-board: install docs + global skill (prompt 22, not in a worktree: `~/git/agent-board`) | `feature/install-docs`, [plooum/agent-board#1](https://github.com/plooum/agent-board/pull/1) | reviewed (one round: `kill` must exclude `bash`), waiting for the user |
+| Use the board from its repo, remove `tools/agent-board` (prompt 21) | `feature/board-external`, [#54](https://github.com/plooum/HA-Plooum-Cards/pull/54) | merged 2026-10-12 |
+| agent-board: install docs + global skill (prompt 22, not in a worktree: `~/git/agent-board`) | `feature/install-docs`, [plooum/agent-board#1](https://github.com/plooum/agent-board/pull/1) | merged 2026-10-12. Laptop: install pulled, board restarted from it, `~/.claude/settings.json` created with the global hook, `~/.claude/skills/agent-board` symlinked |
 
 ## Decisions (user)
 
@@ -116,11 +116,11 @@ The user works on two PCs; the pilot may start on either.
 
 ## Next
 
-Prompts 21 and 22 running. After both merges: `git -C ~/.local/opt/agent-board pull`, restart the board, add the hook to `~/.claude/settings.json` (none existed on the laptop), symlink the skill; the desktop needs the same install (clone + hook + symlink). Laptop session: the main HA's `/plooum-edit` was stale again (false failure in floorplan-roof-editor), `dev/ha.sh reset` fixed it.
+Nothing in progress, no open PR. **Desktop not set up yet** for the board: `git clone https://github.com/plooum/agent-board ~/.local/opt/agent-board`, the hook in `~/.claude/settings.json` (README; merge if the file exists), `ln -s ~/.local/opt/agent-board/skill ~/.claude/skills/agent-board`. The global hook is not yet seen working on a sub-agent (first launch will show it; a new Claude Code session may be needed). Ask the user what's next (BACKLOG.md).
 
 How to run the loop now (all in the skills since #37 / #41 / #44): short exact prompts with checked premises and **the strict minimum of tests** (one check per requirement; a dev-tool change often needs no suite); the pilot **never re-runs** a sub-agent's tests, it reads the diff and the pasted run; sub-agents **never use the built-in pane**: `dev/ui_test.py` / `dev/shot.py` stream their headless Chrome to the **agent board**; fast path for one-function fixes; no CI wait in the sub-agent. Board duties at launch / review / merge: `board.py archive --except agent-<id>`, `board.py agent agent-<id> --title ... --status working|review|done` (pilot skill). Show the user the result at review (screenshots, the board). Keep the sub-agent (context, worktree, HA) until the merge; stop its HA before `gh pr merge`; rebase only if `main` moved outside `.claude/pilot/`; skills PR right after each review; releases only on the user's go.
 
-Agent board (`tools/agent-board/`, generic, to be moved out of the repo one day): runs from the main checkout on **8120**, data in `~/.local/share/agent-board/` (30 days). Start: `(setsid nohup python3 tools/agent-board/board.py serve > /dev/null 2>&1 &)`. Stop / restart (after a `board.py` / `index.html` merge): `kill $(ps -eo pid,args | awk '/agent-board\/board.py serve/ && !/awk/ && !/bash/ {print $1}')` in a command **of its own** (`pkill -f` / `pgrep -f` match the calling shell when its command line contains the pattern, exit 144). The hook (`.claude/settings.json`) took effect mid-session; a Bash action shows the raw command when the agent gave no description.
+Agent board (**plooum/agent-board**, installed in `~/.local/opt/agent-board`, dev clone `~/git/agent-board`; work on it = a sub-agent in that clone, no worktree, PRs there): runs from the install on **8120**, data in `~/.local/share/agent-board/` (30 days). Start: `(setsid nohup python3 ~/.local/opt/agent-board/board.py serve > /dev/null 2>&1 &)`. Stop / restart (after a `board.py` / `index.html` merge): `kill $(ps -eo pid,args | awk '/agent-board\/board.py serve/ && !/awk/ && !/bash/ {print $1}')` in a command **of its own** (`pkill -f` / `pgrep -f` match the calling shell when its command line contains the pattern, exit 144). The hook (`.claude/settings.json`) took effect mid-session; a Bash action shows the raw command when the agent gave no description.
 
 ## Sub-agent notes
 
