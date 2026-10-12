@@ -79,7 +79,7 @@
     });
   };
 
-  // Test results go to the agent board (tools/agent-board), fire and forget: a board that is down
+  // Test results go to the agent board (plooum/agent-board), fire and forget: a board that is down
   // must neither slow nor fail a suite. The agent is resolved by the board from this HA's port.
   const board = q.has('board') ? q.get('board') : 'http://127.0.0.1:8120';  // board= (empty) disables reporting
   // Headless (dev/ui_test.py) loads one page per test (index=) under a shared run= id, and posts the run's start and end itself.
