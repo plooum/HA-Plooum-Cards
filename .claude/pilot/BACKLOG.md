@@ -12,13 +12,9 @@ Nothing.
 
 ## Next
 
-- [ ] `.claude/worktrees/` shows as untracked in the main checkout (sub-agent worktrees): add it to `.gitignore` (tiny PR).
+- [ ] **Improve the test tool** with the user (2026-10-12: explain it first).
 
 - [ ] **Roof layer checks**: touch input, narrow edit dialog, a plan generated from areas (not tested by prompt 09).
-
-- [ ] **Suites restore entity states even when a test fails** (prompt 07 friction): a failing smoke test leaves e.g. `input_number.living_room_temperature` changed; a `finally`-style restore step in `ui_runner.js` / the suites. Small dev-tool PR.
-
-- [ ] **`dev/shot.py --console <substr>`**: print matching `console.info` / `log` lines (prompt 04 friction; the skill points to the pane meanwhile). Small dev-tool PR, when convenient.
 
 ## Dropped (user, 2026-10-11)
 
