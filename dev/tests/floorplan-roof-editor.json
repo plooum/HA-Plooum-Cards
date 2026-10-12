@@ -62,6 +62,36 @@
       ]
     },
     {
+      "name": "roof layer: touch draw",
+      "steps": [
+        { "js": "await openEditor(2); S.ed = window.__ed; S.last = null; S.ed.addEventListener('config-changed', (e) => (S.last = e.detail.config)); deep(S.ed.shadowRoot, '.chip.roof')[0].click(); await S.ed.updateComplete; S.n = S.ed._autoRoofZones().length;" },
+        { "js": "S.cv = () => deep(S.ed.shadowRoot, '.canvas')[0]; S.at = (x, y) => { const r = S.cv().getBoundingClientRect(); const e = S.ed._ext; return { x: r.x + ((x - e.x) / e.w) * r.width, y: r.y + ((y - e.y) / e.h) * r.height }; }; await pointerDrag(S.cv(), S.at(11.5, 6), S.at(13, 7.5), { pointerType: 'touch' }); await S.ed.updateComplete;" },
+        { "assert": "S.last && S.last.roofs.length === S.n + 1", "msg": "a zone is added by touch", "show": "JSON.stringify(S.last)" },
+        { "assert": "(() => { const z = S.last.roofs[S.n]; return z.x === 11.5 && z.y === 6 && z.w === 1.5 && z.h === 1.5 && z.slopes === 4; })()", "msg": "at the dragged rectangle, 4 slopes", "show": "JSON.stringify(S.last.roofs[S.n])" }
+      ]
+    },
+    {
+      "name": "roof layer: narrow dialog",
+      "viewport": [420, 900],
+      "steps": [
+        { "js": "await openEditor(2); S.ed = window.__ed; deep(S.ed.shadowRoot, '.chip.roof')[0].click(); await S.ed.updateComplete; await sleep(200); S.cv = deep(S.ed.shadowRoot, '.canvas')[0]; S.r = S.cv.getBoundingClientRect();" },
+        { "assert": "S.r.width > 100 && S.r.height > 50 && S.r.left >= 0 && S.r.right <= innerWidth", "msg": "the canvas is visible and inside the viewport", "show": "JSON.stringify(S.r)" },
+        { "assert": "S.ed.scrollWidth <= S.ed.clientWidth + 1 && S.r.right <= S.ed.getBoundingClientRect().right + 1", "msg": "no horizontal overflow of the editor", "show": "S.ed.scrollWidth + ' > ' + S.ed.clientWidth" },
+        { "assert": "S.ed._autoRoofZones().length > 0 && deep(S.ed.shadowRoot, '.e-roof').length === S.ed._autoRoofZones().length", "msg": "the pre-filled zones are drawn", "show": "deep(S.ed.shadowRoot, '.e-roof').length" },
+        { "js": "S.ed._selection = { kind: 'roof', index: 0 }; await S.ed.updateComplete;" },
+        { "assert": "S.ed.shadowRoot.textContent.includes('Delete zone')", "msg": "selecting a zone shows its panel" }
+      ]
+    },
+    {
+      "name": "roof layer: plan generated from areas",
+      "steps": [
+        { "js": "S.card = deep(document, 'ha-plooum-floorplan-card').find((c) => c.config && c.config.title === 'Generated from areas'); await card.editorRenders(S.card); const ed = await customElements.get(S.card.localName).getConfigElement(); ed.hass = hass(); ed.setConfig(S.card.config); S.card.parentNode.append(ed); S.ed = ed; await ed.updateComplete; deep(ed.shadowRoot, '.chip.roof')[0].click(); await ed.updateComplete; await sleep(200);" },
+        { "assert": "S.ed._autoRoofZones().length > 0 && deep(S.ed.shadowRoot, '.e-roof').length === S.ed._autoRoofZones().length", "msg": "pre-filled zones are drawn", "show": "S.ed._autoRoofZones().length + ' / ' + deep(S.ed.shadowRoot, '.e-roof').length" },
+        { "assert": "deep(S.ed.shadowRoot, '.e-guide').length > 0", "msg": "guides are drawn", "show": "deep(S.ed.shadowRoot, '.e-guide').length" },
+        { "js": "S.ed.remove();" }
+      ]
+    },
+    {
       "name": "automatic roof button",
       "steps": [
         { "js": "await openEditor(2); S.ed = window.__ed; S.last = null; S.ed.addEventListener('config-changed', (e) => (S.last = e.detail.config)); deep(S.ed.shadowRoot, '.chip.roof')[0].click(); await S.ed.updateComplete; S.ed._selection = { kind: 'roof', index: 0 }; await S.ed.updateComplete; deep(S.ed.shadowRoot, '.selection ha-form')[0].dispatchEvent(new CustomEvent('value-changed', { detail: { value: { slopes: '0', direction: 'south', pitch: 35 } }, bubbles: true, composed: true })); await S.ed.updateComplete;" },

@@ -7783,6 +7783,7 @@ class HaPlooumFloorplanCardEditor extends LitElement {
       .canvas {
         position: relative;
         width: 100%;
+        box-sizing: border-box;
         border-radius: 8px;
         border: 1px solid var(--divider-color);
         background: var(--secondary-background-color, rgba(127, 127, 127, 0.05));
