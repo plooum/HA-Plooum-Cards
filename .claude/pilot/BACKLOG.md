@@ -15,7 +15,6 @@ Nothing.
 Candidates proposed to the user on 2026-10-12, none chosen yet:
 
 - [ ] **Board: eye check** of what prompt 18 didn't test (light theme, narrow layout, SSE reconnection after a board restart); a small PR if something is off.
-- [ ] **Speed up `floorplan-roof-editor`** (~35 s, the slowest suite: every test reopens the editor dialog).
 - [ ] **Move the agent board out of the repo** (own repo / tool), when the user asks.
 - [ ] **New card features**: on hold since 2026-10-11 ("no new feature for now"); wait for the user's ideas.
 
