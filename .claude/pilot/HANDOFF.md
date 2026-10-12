@@ -65,7 +65,7 @@ The user works on two PCs; the pilot may start on either.
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
 | Faster floorplan-roof-editor suite: opt-in `same_page` reuse (prompt 19) | `feature/faster-roof-editor-suite`, [#51](https://github.com/plooum/HA-Plooum-Cards/pull/51) | merged 2026-10-12: 43.5 → 32.5 s (~25%), target ≤ 20 s not reached (page load was 1–2 s/test, not the main cost) |
 | Skills: measure before setting a speed target (prompt 19) | `feature/skills-friction-19`, [#52](https://github.com/plooum/HA-Plooum-Cards/pull/52) | merged 2026-10-12 |
-| Agent board: projects, generic across repos, still in this repo (prompt 20) | `feature/board-projects` | sub-agent working |
+| Agent board: projects, generic across repos, still in this repo (prompt 20) | `feature/board-projects`, [#53](https://github.com/plooum/HA-Plooum-Cards/pull/53) | reviewed (one round: redundant `--project` in `ha.sh` dropped), waiting for the user. After the merge: restart the board, `archive --all-projects` once (older agents have no project) |
 
 ## Decisions (user)
 
@@ -118,6 +118,8 @@ How to run the loop now (all in the skills since #37 / #41 / #44): short exact p
 Agent board (`tools/agent-board/`, generic, to be moved out of the repo one day): runs from the main checkout on **8120**, data in `~/.local/share/agent-board/` (30 days). Start: `(setsid nohup python3 tools/agent-board/board.py serve > /dev/null 2>&1 &)`. Stop / restart (after a `board.py` / `index.html` merge): `kill $(ps -eo pid,args | awk '/agent-board\/board.py serve/ && !/awk/ && !/bash/ {print $1}')` in a command **of its own** (`pkill -f` / `pgrep -f` match the calling shell when its command line contains the pattern, exit 144). The hook (`.claude/settings.json`) took effect mid-session; a Bash action shows the raw command when the agent gave no description.
 
 ## Sub-agent notes
+
+- Prompt 20 (Sonnet, 2.8 min + 1 short round, 30 + 5 calls, model 0.9 / tools 1.1 min): 3 sandbox refusals (heredoc python, `kill` chained with `git`), already in `pr-workflow`; no skills PR needed.
 
 - Prompt 19 (Sonnet, 4.3 min, 15 calls, model 0.9 / tools 3.0 min, 179 s in suites): measured the split as asked but didn't stop when page load wasn't dominant (went on, reasonably); flagged its own "~2x" title as wrong.
 
