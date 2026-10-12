@@ -17,6 +17,8 @@ You were given a task by the pilot, an agent who reviews your work and loops wit
 - Don't bump `CARD_VERSION`: that's a separate PR.
 - Commit messages: English, imperative subject, end with the attribution line from your system prompt (`Co-Authored-By: ...`).
 - Run git steps as separate commands rather than one long `&&` chain. In a worktree the sandbox refuses "too complex" commands outright: brace expansion, and `git` mixed with `&&`, `;`, a heredoc or `python3 -`. Run plain separate commands, and write multi-line scripts or file edits with the Write / Edit tools. The refusal also hits a `python3` call on a path containing `git` when chained, and `git` / `gh` / `sed` with shell variables.
+- Stopping a background process: `pkill -f "<pattern>"` also matches (and kills) the shell running it, since its command line contains the pattern (exit 144). Use `pgrep -f "<pattern>"`, then `kill <pid>`.
+- To wait on a background process, load the `Monitor` tool first (`ToolSearch` `select:Monitor`) rather than polling in a foreground loop.
 - `node`, `npm`, `gh` or `uv` not found: on the laptop they live in `~/.local/bin` (`export PATH=~/.local/bin:$PATH`, or the full path).
 
 ## Code conventions (from CLAUDE.md)
