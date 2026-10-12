@@ -45,10 +45,16 @@ The user works on two PCs; the pilot may start on either.
 | Skills: faster sub-agent loop + prompt 10 friction (also CLAUDE.md: no rebase for `.claude/pilot/`-only moves of `main`) | `feature/skills-friction-10`, [#30](https://github.com/plooum/HA-Plooum-Cards/pull/30) | merged 2026-10-11 |
 | Bug: projected windows reappear when the view turns (prompt 11, fast path) | `feature/floorplan-window-sides`, [#32](https://github.com/plooum/HA-Plooum-Cards/pull/32) | merged 2026-10-11, released in [V1.3.2](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.3.2) (floorplan 1.10.2, [#34](https://github.com/plooum/HA-Plooum-Cards/pull/34)) |
 | Skills: measure each sub-agent (`agent_timing.py`) and cut what takes time | `feature/skills-agent-timing`, [#33](https://github.com/plooum/HA-Plooum-Cards/pull/33) | merged 2026-10-11 |
+| `.claude/worktrees/` in `.gitignore` (pilot, backlog item) | `feature/gitignore-worktrees`, [#35](https://github.com/plooum/HA-Plooum-Cards/pull/35) | waiting for approval |
+| `dev/shot.py --console` (prompt 13, fast path) | `feature/shot-console`, [#36](https://github.com/plooum/HA-Plooum-Cards/pull/36) | reviewed, waiting for approval (sub-agent kept: worktree + HA) |
+| Suites: `finally` steps restore states (prompt 12, fast path) | `feature/suite-finally` | sub-agent working |
+| Skills: trust the sub-agents' tests, tests at the strict minimum (pilot) | `feature/skills-trust-tests`, [#37](https://github.com/plooum/HA-Plooum-Cards/pull/37) | waiting for approval |
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
 
 ## Decisions (user)
+
+- 2026-10-12: **optimize everything; the pilot doesn't re-run the sub-agents' tests**: trust them, but define their tests carefully in the prompt; tests always at the **strict minimum**. At the review, **show the user the result** (pane / screenshots). The dev HA on 8123 may stay running. After backlog items 1, 3, 4: **explain the test tool to the user** (#37).
 
 - 2026-10-11: **measure what takes time and keep improving**; watch each running sub-agent and steer it when it drifts (#33).
 
