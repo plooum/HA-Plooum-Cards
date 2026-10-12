@@ -132,6 +132,11 @@
     await T.waitFor(() => !T.editor(), 8000, 'the dialog to close');
   };
 
+  // Closes the editor dialog if one is open (for a `finally` step before a same_page reuse).
+  T.closeDialogIfOpen = async () => {
+    if (T.editor()) await T.cancelDialog();
+  };
+
   // --- any card (smoke tests) ---------------------------------------------------
 
   T.card = {};

@@ -7,6 +7,7 @@
   "tests": [
     {
       "name": "auto zones match the automatic roof",
+      "finally": [{ "js": "await closeDialogIfOpen();" }],
       "steps": [
         { "js": "S.faces = (card) => card._roofFaces(card._plans3d(card._floors(), 99)).all.map((f) => f.map((x) => x.pts));" },
         { "js": "S.check = async (idx, title) => { await openEditor(idx); const ed = window.__ed; const zones = ed._autoRoofZones(); const card = previewCard(title); const cfg = JSON.parse(JSON.stringify(card.config)); delete cfg.roofs; card.setConfig(cfg); const auto = S.faces(card); card.setConfig({ ...cfg, roofs: zones }); const drawn = S.faces(card); card.setConfig(cfg); await cancelDialog(); const same = JSON.stringify(auto.map((f) => f.length)) === JSON.stringify(drawn.map((f) => f.length)) && auto.every((f, i) => f.every((pts, j) => pts.every((P, k) => P.every((v, m) => Math.abs(v - drawn[i][j][k][m]) < 1e-6)))); return { zones: zones.length, same, counts: auto.map((f) => f.length) }; };" },
@@ -18,6 +19,8 @@
     },
     {
       "name": "roof layer shows guides and pre-filled zones",
+      "same_page": true,
+      "finally": [{ "js": "await closeDialogIfOpen();" }],
       "steps": [
         { "js": "await openEditor(2); S.ed = window.__ed; S.chip = () => deep(S.ed.shadowRoot, '.chip.roof')[0]; S.chip().click(); await S.ed.updateComplete;" },
         { "assert": "S.chip().classList.contains('active') && S.ed._roofLayer === true", "msg": "the Roof chip selects the layer" },
@@ -33,6 +36,8 @@
     },
     {
       "name": "first change writes the roofs",
+      "same_page": true,
+      "finally": [{ "js": "await closeDialogIfOpen();" }],
       "steps": [
         { "js": "await openEditor(2); S.ed = window.__ed; S.last = null; S.ed.addEventListener('config-changed', (e) => (S.last = e.detail.config)); deep(S.ed.shadowRoot, '.chip.roof')[0].click(); await S.ed.updateComplete; S.auto = S.ed._autoRoofZones(); S.ed._selection = { kind: 'roof', index: 0 }; await S.ed.updateComplete;" },
         { "assert": "deep(S.ed.shadowRoot, '.selection ha-form').length === 1 && S.ed.shadowRoot.textContent.includes('Delete zone')", "msg": "the zone's panel is shown" },
@@ -47,6 +52,8 @@
     },
     {
       "name": "draw, move, delete a zone",
+      "same_page": true,
+      "finally": [{ "js": "await closeDialogIfOpen();" }],
       "steps": [
         { "js": "await openEditor(2); S.ed = window.__ed; S.last = null; S.ed.addEventListener('config-changed', (e) => (S.last = e.detail.config)); deep(S.ed.shadowRoot, '.chip.roof')[0].click(); await S.ed.updateComplete; S.n = S.ed._autoRoofZones().length;" },
         { "js": "S.cv = () => deep(S.ed.shadowRoot, '.canvas')[0]; S.at = (x, y) => { const r = S.cv().getBoundingClientRect(); const e = S.ed._ext; return { x: r.x + ((x - e.x) / e.w) * r.width, y: r.y + ((y - e.y) / e.h) * r.height }; }; await pointerDrag(S.cv(), S.at(11.5, 6), S.at(13, 7.5)); await S.ed.updateComplete;" },
@@ -63,6 +70,8 @@
     },
     {
       "name": "roof layer: touch draw",
+      "same_page": true,
+      "finally": [{ "js": "await closeDialogIfOpen();" }],
       "steps": [
         { "js": "await openEditor(2); S.ed = window.__ed; S.last = null; S.ed.addEventListener('config-changed', (e) => (S.last = e.detail.config)); deep(S.ed.shadowRoot, '.chip.roof')[0].click(); await S.ed.updateComplete; S.n = S.ed._autoRoofZones().length;" },
         { "js": "S.cv = () => deep(S.ed.shadowRoot, '.canvas')[0]; S.at = (x, y) => { const r = S.cv().getBoundingClientRect(); const e = S.ed._ext; return { x: r.x + ((x - e.x) / e.w) * r.width, y: r.y + ((y - e.y) / e.h) * r.height }; }; await pointerDrag(S.cv(), S.at(11.5, 6), S.at(13, 7.5), { pointerType: 'touch' }); await S.ed.updateComplete;" },
@@ -93,6 +102,8 @@
     },
     {
       "name": "automatic roof button",
+      "same_page": true,
+      "finally": [{ "js": "await closeDialogIfOpen();" }],
       "steps": [
         { "js": "await openEditor(2); S.ed = window.__ed; S.last = null; S.ed.addEventListener('config-changed', (e) => (S.last = e.detail.config)); deep(S.ed.shadowRoot, '.chip.roof')[0].click(); await S.ed.updateComplete; S.ed._selection = { kind: 'roof', index: 0 }; await S.ed.updateComplete; deep(S.ed.shadowRoot, '.selection ha-form')[0].dispatchEvent(new CustomEvent('value-changed', { detail: { value: { slopes: '0', direction: 'south', pitch: 35 } }, bubbles: true, composed: true })); await S.ed.updateComplete;" },
         { "assert": "Array.isArray(S.last.roofs)", "msg": "roofs is set after a change" },

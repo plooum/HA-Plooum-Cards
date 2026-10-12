@@ -54,16 +54,17 @@
   };
 
   // Loads `path` in the iframe; resolves with its window once the new document has loaded.
-  const loadFrame = (path, errors) => {
+  const errorSink = { list: [] };  // the current test's errors (a reused frame keeps its hook)
+  const loadFrame = (path) => {
     const frame = $('frame');
     const patch = () => {
       const w = frame.contentWindow;
       if (!w || w.__uiPatched || w.location.href === 'about:blank') return;
       w.__uiPatched = true;
       const orig = w.console.error.bind(w.console);
-      w.console.error = (...a) => { errors.push('console.error: ' + a.map((x) => (x && x.message) || String(x)).join(' ')); orig(...a); };
-      w.addEventListener('error', (e) => errors.push('pageerror: ' + (e.message || e.type)));
-      w.addEventListener('unhandledrejection', (e) => errors.push('pageerror: ' + String((e.reason && e.reason.message) || e.reason)));
+      w.console.error = (...a) => { errorSink.list.push('console.error: ' + a.map((x) => (x && x.message) || String(x)).join(' ')); orig(...a); };
+      w.addEventListener('error', (e) => errorSink.list.push('pageerror: ' + (e.message || e.type)));
+      w.addEventListener('unhandledrejection', (e) => errorSink.list.push('pageerror: ' + String((e.reason && e.reason.message) || e.reason)));
     };
     const timer = setInterval(patch, 5);
     return new Promise((resolve) => {
@@ -101,7 +102,7 @@
     const text = await (await fetch(`tests/${encodeURIComponent(name)}.json`, { cache: 'no-store' })).text();
     const suite = JSON.parse(text.split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n'));
     let tests = suite.tests;
-    if (q.get('index') !== null) tests = [tests[Number(q.get('index'))]];
+    if (q.get('index') !== null) tests = q.get('index').split(',').map((i) => tests[Number(i)]);  // index=3 or index=3,4,5 (a same_page group)
     else if (q.get('only')) tests = tests.filter((t) => t.name.toLowerCase().includes(q.get('only').toLowerCase()));
 
     const rows = tests.map((t) => {
@@ -117,6 +118,7 @@
     const results = [];
     let failed = 0;
     let errorCount = 0;
+    let prev = null;  // the previous test's page, for same_page reuse
     const setSummary = () => { $('summary').textContent = `${results.length}/${tests.length} done, ${failed} failed`; };
     setSummary();
 
@@ -135,9 +137,17 @@
       const scale = fit(vw, vh);
       const stepLabel = (t) => { row.querySelector('.step').textContent = t; };
       let win = null;
+      errorSink.list = errors;
+      const path = test.path || suite.path;
+      // same_page: run in the previous test's page (no reload) if it ran here, passed, and has the same path and viewport.
+      const reuse = !!(test.same_page && prev && prev.ok && prev.path === path && prev.vw === vw && prev.vh === vh);
+      const tl = performance.now();
       try {
-        win = await loadFrame(location.origin + (test.path || suite.path), errors);
-        win.eval(helpers);
+        if (reuse) win = prev.win;
+        else {
+          win = await loadFrame(location.origin + path);
+          win.eval(helpers);
+        }
         const t1 = performance.now();
         for (;;) {
           if (!win.T) win.eval(helpers); // the page replaced its document
@@ -150,6 +160,7 @@
       } catch (e) {
         failure = ['page load', 'page not ready: ' + e.message, null];
       }
+      if (q.get('verbose') === '1') prints.push(`page ${reuse ? 'reused' : 'load + ready'}: ${Math.round(performance.now() - tl)} ms`);
       // Runs one step; returns null, or the failure [label, message, got].
       const runStep = async (step, label) => {
         try {
@@ -197,6 +208,7 @@
       errorCount += errs.length;
       const bad = !!failure || errs.length > 0;
       if (bad) failed++;
+      prev = { win, path, vw, vh, ok: !bad };
       const seconds = (performance.now() - t0) / 1000;
       results.push({
         name: test.name, ok: !bad, seconds: Math.round(seconds * 10) / 10,
