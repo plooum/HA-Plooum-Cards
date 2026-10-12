@@ -47,7 +47,7 @@ The user works on two PCs; the pilot may start on either.
 | Skills: measure each sub-agent (`agent_timing.py`) and cut what takes time | `feature/skills-agent-timing`, [#33](https://github.com/plooum/HA-Plooum-Cards/pull/33) | merged 2026-10-11 |
 | `.claude/worktrees/` in `.gitignore` (pilot, backlog item) | `feature/gitignore-worktrees`, [#35](https://github.com/plooum/HA-Plooum-Cards/pull/35) | waiting for approval |
 | `dev/shot.py --console` (prompt 13, fast path) | `feature/shot-console`, [#36](https://github.com/plooum/HA-Plooum-Cards/pull/36) | reviewed, waiting for approval (sub-agent kept: worktree + HA) |
-| Suites: `finally` steps restore states (prompt 12, fast path) | `feature/suite-finally` | sub-agent working |
+| Suites: `finally` steps restore states (prompt 12, fast path) | `feature/suite-finally`, [#38](https://github.com/plooum/HA-Plooum-Cards/pull/38) | reviewed (1 round: indent, explicit restores), waiting for approval (sub-agent kept: worktree + HA 8125) |
 | Skills: trust the sub-agents' tests, tests at the strict minimum (pilot) | `feature/skills-trust-tests`, [#37](https://github.com/plooum/HA-Plooum-Cards/pull/37) | waiting for approval |
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
@@ -106,6 +106,7 @@ How to run the loop now (all in the skills since #30 / #33): short exact prompts
 
 - Prompt 01 (Sonnet, ~13 min, 48 tool calls): delivered all 10 test cases and the 2 screenshots. Deviations accepted: narrow = preview hidden **or stacked below** the editor (HA 2026.10 stacks it at 420 px instead of hiding it); entering 3D preview bumps seq. Friction, put in the skills by #8: 420 px stacks the preview; stub `setPointerCapture` for synthetic pointer events; `editor_shot.py` js steps are separate evaluates (persist with `window.x`), one `openEditor` per run; `hui-dialog-edit-card` stays in the DOM after Cancel; to drop a corner in place move ≥4 px then back; pilot skill: commit the handoff from a **detached** worktree (`git worktree add --detach`, `git push origin HEAD:main`); floorplan skill: the setup view's design (setupView, setupDialogs, _setupBump).
 
+- Prompt 12 (Sonnet, fast path): 1.6 + 0.8 min, 19 + 9 calls, 1 review round. Prompt 13 (Sonnet, fast path): 0.7 min, 11 calls, no round. Friction already in the skills.
 - Prompt 11 (Sonnet, fast path, one steer): **4.7 min**, 25 calls, model 1.0 min, tools 4.0 (headless suites 143 s before the steer, HA start 25 s), 3 refusals (`export PATH`, a /tmp path).
 - Prompt 10 (Sonnet, ~8 min, 49 tool calls): the prompt's premise (x 8–11 free) was wrong, found through a failing suite; screenshot viewpoint trial and error.
 - Prompt 09 (Sonnet, ~10.5 + ~2.5 min, 65 + 13 tool calls). Prompt 08 (Sonnet, ~10.5 min, 71). Prompt 07 (Sonnet, ~9 + ~3.5 min, 53 + 17).
