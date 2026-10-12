@@ -106,9 +106,11 @@ The user works on two PCs; the pilot may start on either.
 
 ## Next
 
-Nothing in progress, backlog empty, V1.3.3 published. The agent board runs from main on 8120 (start it if down). Ask the user what's next.
+Nothing in progress, no open PR, backlog has only candidates (BACKLOG.md), V1.3.3 published. Ask the user what's next.
 
-How to run the loop now (all in the skills since #30 / #33): short exact prompts with checked premises, fast path for one-function fixes, the sub-agent tests in its own pane tab (`runner.html`, `pause=0`) and doesn't wait for CI; watch it in the background and steer it when it drifts; after it reports, `python3 .claude/skills/pilot/agent_timing.py <its task output file>` and log the totals below; keep it (context, worktree, HA) until the user approved the merge; stop its HA before `gh pr merge`; rebase only if `main` moved outside `.claude/pilot/` (CLAUDE.md); skills PR right after each review; releases only on the user's go.
+How to run the loop now (all in the skills since #37 / #41 / #44): short exact prompts with checked premises and **the strict minimum of tests** (one check per requirement; a dev-tool change often needs no suite); the pilot **never re-runs** a sub-agent's tests, it reads the diff and the pasted run; sub-agents **never use the built-in pane**: `dev/ui_test.py` / `dev/shot.py` stream their headless Chrome to the **agent board**; fast path for one-function fixes; no CI wait in the sub-agent. Board duties at launch / review / merge: `board.py archive --except agent-<id>`, `board.py agent agent-<id> --title ... --status working|review|done` (pilot skill). Show the user the result at review (screenshots, the board). Keep the sub-agent (context, worktree, HA) until the merge; stop its HA before `gh pr merge`; rebase only if `main` moved outside `.claude/pilot/`; skills PR right after each review; releases only on the user's go.
+
+Agent board (`tools/agent-board/`, generic, to be moved out of the repo one day): runs from the main checkout on **8120**, data in `~/.local/share/agent-board/` (30 days). Start: `(setsid nohup python3 tools/agent-board/board.py serve > /dev/null 2>&1 &)`. Stop / restart (after a `board.py` / `index.html` merge): `kill $(ps -eo pid,args | awk '/agent-board\/board.py serve/ && !/awk/ && !/bash/ {print $1}')` in a command **of its own** (`pkill -f` / `pgrep -f` match the calling shell when its command line contains the pattern, exit 144). The hook (`.claude/settings.json`) took effect mid-session; a Bash action shows the raw command when the agent gave no description.
 
 ## Sub-agent notes
 
