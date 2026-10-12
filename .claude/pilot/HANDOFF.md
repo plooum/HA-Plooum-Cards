@@ -53,8 +53,8 @@ The user works on two PCs; the pilot may start on either.
 | Skills: prompt 14 friction (pkill, Monitor) | `feature/skills-friction-14`, [#40](https://github.com/plooum/HA-Plooum-Cards/pull/40) | merged 2026-10-12
 | Agent board part 2: Claude Code hook, commands + file edits (prompt 15) | `feature/board-hook`, [#42](https://github.com/plooum/HA-Plooum-Cards/pull/42) | merged 2026-10-12 (`.claude/settings.json` hook; live check at the first sub-agent of a new session)
 | Pilot skill: keep the agent board current | `feature/skills-pilot-board`, [#41](https://github.com/plooum/HA-Plooum-Cards/pull/41) | merged 2026-10-12
-| Agent board part 3: live browser view, headless screencast, agents leave the pane (prompt 16) | `feature/board-browser-view`, [#43](https://github.com/plooum/HA-Plooum-Cards/pull/43) | reviewed (1 round: per-test screenshot cost ~3 s → last screencast frame, lighter screencast; ~+0.4 s on cards-smoke), waiting for approval |
-| Pilot skill: sub-agents leave the pane | `feature/skills-pilot-no-pane`, [#44](https://github.com/plooum/HA-Plooum-Cards/pull/44) | waiting for approval |
+| Agent board part 3: live browser view, headless screencast, agents leave the pane (prompt 16) | `feature/board-browser-view`, [#43](https://github.com/plooum/HA-Plooum-Cards/pull/43) | merged 2026-10-12
+| Pilot skill: sub-agents leave the pane | `feature/skills-pilot-no-pane`, [#44](https://github.com/plooum/HA-Plooum-Cards/pull/44) | merged 2026-10-12
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
 
@@ -100,7 +100,7 @@ The user works on two PCs; the pilot may start on either.
 
 ## Next
 
-Backlog items 1, 3, 4 merged 2026-10-12 (#35, #36, #38, + skills #37). Now: **explain the test tool to the user and improve it with them** (user, 2026-10-12). Then the roof layer checks (BACKLOG.md).
+Agent board done (#39, #42, #43; skills #41, #44), running from main on 8120 (start it if down: pilot skill). **First thing in the next session**: check live that the hook (#42, `.claude/settings.json`) posts a sub-agent's commands / edits to its timeline (hooks load at session start; unverified whether the hook's `cwd` is the sub-agent's worktree), and that its suites show in the Browser panel. Then BACKLOG.md (roof layer checks).
 
 How to run the loop now (all in the skills since #30 / #33): short exact prompts with checked premises, fast path for one-function fixes, the sub-agent tests in its own pane tab (`runner.html`, `pause=0`) and doesn't wait for CI; watch it in the background and steer it when it drifts; after it reports, `python3 .claude/skills/pilot/agent_timing.py <its task output file>` and log the totals below; keep it (context, worktree, HA) until the user approved the merge; stop its HA before `gh pr merge`; rebase only if `main` moved outside `.claude/pilot/` (CLAUDE.md); skills PR right after each review; releases only on the user's go.
 
