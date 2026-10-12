@@ -2,7 +2,7 @@
 
 Read by the next pilot first (see the `pilot` skill). Committed straight to `main`, no PR. Keep it current.
 
-_Last update: 2026-10-12, pilot session 5 (Opus 5.5, laptop): #51 (same_page suite reuse) and #52 merged. Nothing in progress._
+_Last update: 2026-10-12, pilot session 5 (Opus 5.5, laptop): #51 #52 merged; prompt 20 (board projects) launched._
 
 `main`'s protection: the user turned off "Lock branch" on 2026-10-11 (it blocked PR merges too); the pilot pushes `.claude/pilot/` straight to `main`. The pilot stays on `main` in the main checkout (HA on 8123) and commits the handoff there; sub-agents work in their own worktrees with their own HA (see the `pilot` skill).
 
@@ -65,8 +65,11 @@ The user works on two PCs; the pilot may start on either.
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
 | Faster floorplan-roof-editor suite: opt-in `same_page` reuse (prompt 19) | `feature/faster-roof-editor-suite`, [#51](https://github.com/plooum/HA-Plooum-Cards/pull/51) | merged 2026-10-12: 43.5 → 32.5 s (~25%), target ≤ 20 s not reached (page load was 1–2 s/test, not the main cost) |
 | Skills: measure before setting a speed target (prompt 19) | `feature/skills-friction-19`, [#52](https://github.com/plooum/HA-Plooum-Cards/pull/52) | merged 2026-10-12 |
+| Agent board: projects, generic across repos, still in this repo (prompt 20) | `feature/board-projects` | sub-agent working |
 
 ## Decisions (user)
+
+- 2026-10-12: **make the agent board generic for all the user's projects, but keep it in this repo and working for it** for now (prompt 20: project = main checkout path, scoped archive / port, project filter, `board_stream.py` into the tool). Extraction to its own repo later.
 
 - 2026-10-12, **agent board, browser view**: a read-only live view of each sub-agent's browser in the board. The built-in pane can't be mirrored, so **sub-agents no longer use the pane**: suites and hand checks run in headless Chrome (`ui_test.py` / a small command for hand checks) that streams a screencast to the board; live frames not stored, one screenshot per finished test kept (30 days). **Supersedes** the 2026-10-11 "watch the sub-agents in the pane" decisions. Part 3, after part 2 (hook); stays generic (the board receives frames for an agent).
 
@@ -108,7 +111,7 @@ The user works on two PCs; the pilot may start on either.
 
 ## Next
 
-Nothing in progress, no open PR; no release needed (#51/#52 are dev tools only). Ask the user what's next (BACKLOG.md). Laptop session: the main HA's `/plooum-edit` was stale again (false failure in floorplan-roof-editor), `dev/ha.sh reset` fixed it.
+Prompt 20 running. Laptop session: the main HA's `/plooum-edit` was stale again (false failure in floorplan-roof-editor), `dev/ha.sh reset` fixed it.
 
 How to run the loop now (all in the skills since #37 / #41 / #44): short exact prompts with checked premises and **the strict minimum of tests** (one check per requirement; a dev-tool change often needs no suite); the pilot **never re-runs** a sub-agent's tests, it reads the diff and the pasted run; sub-agents **never use the built-in pane**: `dev/ui_test.py` / `dev/shot.py` stream their headless Chrome to the **agent board**; fast path for one-function fixes; no CI wait in the sub-agent. Board duties at launch / review / merge: `board.py archive --except agent-<id>`, `board.py agent agent-<id> --title ... --status working|review|done` (pilot skill). Show the user the result at review (screenshots, the board). Keep the sub-agent (context, worktree, HA) until the merge; stop its HA before `gh pr merge`; rebase only if `main` moved outside `.claude/pilot/`; skills PR right after each review; releases only on the user's go.
 
