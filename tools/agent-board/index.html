@@ -47,7 +47,16 @@
   .box { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; margin-bottom: 8px; }
   .test { display: flex; gap: 8px; padding: 2px 0; align-items: baseline; }
   .test .r { width: 3.4em; font-weight: 700; flex: none; }
-  .test .s { margin-left: auto; color: var(--dim); font-variant-numeric: tabular-nums; }
+  .test .s { margin-left: auto; width: 4em; flex: none; text-align: right; color: var(--dim); font-variant-numeric: tabular-nums; }
+  .test .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #detail, #tests { min-width: 0; overflow-x: hidden; }
+  .meta span { overflow-wrap: anywhere; }
+  summary { overflow-wrap: anywhere; }
+  @media (max-width: 900px) {
+    #m-agents { flex-direction: column; }
+    #agents { width: auto; max-height: 34vh; border-right: 0; border-bottom: 1px solid var(--line); }
+    #detail, #tests { padding: 12px; }
+  }
   .PASS { color: var(--ok); } .FAIL { color: var(--bad); } .RUN { color: var(--run); }
   .msg { color: var(--bad); font-size: 12px; white-space: pre-wrap; word-break: break-word; margin: 0 0 4px 3.9em; }
   .ev { display: flex; gap: 10px; padding: 3px 0; border-bottom: 1px solid var(--line); }
@@ -113,7 +122,7 @@
   function runTests(r) {
     return r.tests.map((t) => {
       const res = t.ok === null ? 'RUN' : t.ok ? 'PASS' : 'FAIL';
-      return `<div class="test"><span class="r ${res}">${res}</span><span>${esc(t.name)}</span><span class="s">${t.seconds != null ? t.seconds + 's' : ''}</span></div>` +
+      return `<div class="test"><span class="r ${res}">${res}</span><span class="n" title="${esc(t.name)}">${esc(t.name)}</span><span class="s">${t.seconds != null ? t.seconds + 's' : ''}</span></div>` +
         (t.message ? `<div class="msg">${esc(t.message)}</div>` : '');
     }).join('') || '<div class="empty">No test yet.</div>';
   }
