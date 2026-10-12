@@ -36,6 +36,7 @@ from urllib.parse import urlparse
 
 from playwright.sync_api import sync_playwright
 
+import board_stream
 from ha_env import ha_token, ha_url
 
 DEV = Path(__file__).parent
@@ -92,6 +93,7 @@ def main() -> int:
         ctx = browser.new_context(viewport={"width": 1700, "height": 1050}, color_scheme="dark", locale="en-US")
         ctx.add_init_script(f"localStorage.setItem('hassTokens', {json.dumps(json.dumps(hass_tokens))});")
         page = ctx.new_page()
+        board_stream.start(page, board, urlparse(URL).port)  # read-only live view on the agent board
 
         for index, test in enumerate(suite["tests"]):
             if test not in tests:
@@ -112,6 +114,7 @@ def main() -> int:
                     print(f"    screenshot: {path}")
                 page.evaluate("() => { window.uiShot = null; window.uiShotResolve(); }")
             res = page.evaluate("() => window.uiResult")["tests"][0]
+            board_stream.shot(page, board, urlparse(URL).port, run_id, test["name"])
             for pr in res["prints"]:
                 print(f"    [{test['name']}] {pr}")
             errs = res["errors"]
@@ -125,6 +128,7 @@ def main() -> int:
                     print(f"      got: {short(res['got'])}")
             for e in errs:
                 print(f"      console: {e[:400]}")
+        time.sleep(0.3)  # let the last shot posts leave
         browser.close()
 
     n = len(tests)

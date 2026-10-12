@@ -31,16 +31,15 @@ You were given a task by the pilot, an agent who reviews your work and loops wit
 
 ## Testing
 
-The user watches: run your suites and hand checks **in your own tab of the built-in browser pane** (`runner.html`, see `ha-dev-testing`), headless only for screenshots. Run exactly the tests the prompt lists, nothing more (user, 2026-10-12: tests at the strict minimum).
+**Never use the built-in browser pane** (user, 2026-10-12): run your suites with `dev/ui_test.py` and your hand checks with `dev/shot.py --js ...`, both headless. They stream to the agent board (http://127.0.0.1:8120), where the user watches (see `ha-dev-testing`). Run exactly the tests the prompt lists, nothing more (user, 2026-10-12: tests at the strict minimum).
 
 **Be fast** (the user finds the loop long):
 - Read only the sections the prompt names (grep, then read around); don't read a 7,000-line file or a whole skill you don't need.
-- While you work, run only the test you're on (`&only=<name>` in the pane, `--only` headless); run the full suites the prompt lists **once**, at the end, with `pause=0`.
+- While you work, run only the test you're on (`--only`); run the full suites the prompt lists **once**, at the end.
 - One `npm run build` per change you want to see, then a page reload; no HA restart unless `configuration.yaml` changed.
 - Screenshots only if the prompt asks for them; one try per shot: check the viewpoint on a first shot before a series.
 - **Fast path** (the prompt says so: a one-function fix): no screenshots, the new test plus `cards-smoke`, a 5-line report.
 - **Don't wait for CI** after opening the PR (`gh pr checks --watch` cost ~1 min per sub-agent): report right away, the pilot checks it.
-- **No headless re-run** of a suite that passed in your pane tab: it's the same runner code. Headless only for `shot` steps.
 - **Avoid sandbox refusals** (each costs a round trip): never mention a path outside your worktree (no `/tmp/...` scratch files, no `export PATH=/home/...`): keep scratch files in your worktree's `dev/shots/` (gitignored); `npm` / `gh` not found → `~/.local/bin/npm`, `~/.local/bin/gh`. `git add <the files>` rather than `git add -A` (slow on the dev runtime state).
 
 ## Pull request
