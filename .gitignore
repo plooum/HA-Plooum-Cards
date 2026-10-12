@@ -5,3 +5,4 @@ dist/
 .claude/settings.local.json
 ha-plooum-cards.js
 ha-plooum-cards.js.map
+.claude/worktrees/
