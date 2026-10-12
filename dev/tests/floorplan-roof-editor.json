@@ -85,7 +85,7 @@
     {
       "name": "roof layer: plan generated from areas",
       "steps": [
-        { "js": "S.card = deep(document, 'ha-plooum-floorplan-card').find((c) => c.config && c.config.title === 'Generated from areas'); await card.editorRenders(S.card); const ed = await customElements.get(S.card.localName).getConfigElement(); ed.hass = hass(); ed.setConfig(S.card.config); S.card.parentNode.append(ed); S.ed = ed; await ed.updateComplete; deep(ed.shadowRoot, '.chip.roof')[0].click(); await ed.updateComplete; await sleep(200);" },
+        { "js": "S.card = await waitFor(() => deep(document, 'ha-plooum-floorplan-card').find((c) => c.config && c.config.title === 'Generated from areas'), 8000, 'the generated card'); const ed = await customElements.get(S.card.localName).getConfigElement(); ed.hass = hass(); ed.setConfig(S.card.config); S.card.parentNode.append(ed); S.ed = ed; await ed.updateComplete; deep(ed.shadowRoot, '.chip.roof')[0].click(); await ed.updateComplete; await sleep(200);" },
         { "assert": "S.ed._autoRoofZones().length > 0 && deep(S.ed.shadowRoot, '.e-roof').length === S.ed._autoRoofZones().length", "msg": "pre-filled zones are drawn", "show": "S.ed._autoRoofZones().length + ' / ' + deep(S.ed.shadowRoot, '.e-roof').length" },
         { "assert": "deep(S.ed.shadowRoot, '.e-guide').length > 0", "msg": "guides are drawn", "show": "deep(S.ed.shadowRoot, '.e-guide').length" },
         { "js": "S.ed.remove();" }
