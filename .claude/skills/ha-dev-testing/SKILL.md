@@ -15,6 +15,10 @@ CLAUDE.md's **Testing** section is the reference (start / stop, dashboards, test
 - `dev/ha.sh status` prints your URL; `dev/ha.sh list` lists every running instance (port, pid, checkout). `dev/shot.py`, `dev/ui_test.py`, `dev/api.sh`, `dev/bootstrap.py` pick your instance on their own (`--url` / `HA_URL` override). **Run them from your own checkout.** Several instances at once slow each other down (a suite took 28 s alone, 60 s with three at the same time): fine, don't lower timeouts.
 - **When you're done, `dev/ha.sh stop` in your worktree** (the pilot removes the worktree after the merge; a running instance left behind keeps ~270 MB).
 
+## The agent board
+
+`tools/agent-board/` is a generic page (default http://127.0.0.1:8120, see its README) where the user follows the agents. `dev/ha.sh start` registers your checkout on it, and (sub-agent worktrees only, not the main checkout), and the suites report their runs and tests to it on their own, resolved from your HA port: nothing to do, in the pane (`runner.html`) and headless (`ui_test.py`). If the board isn't running, nothing happens. Use `&board=<url>` on `runner.html` or `--board <url>` on `ui_test.py` to post to another board.
+
 ## Which browser
 
 - The built-in browser pane (`mcp__Claude_Browser__*`) is for the user to watch. With several agents, **each uses its own tab**: `tabs_create` (note the `tabId`), `navigate` to **your** instance's URL (`dev/ha.sh status`), and pass `tabId` on every call. Never act on, navigate or close a tab you didn't create; close yours when done. Login is automatic on any port (`trusted_networks`). A sub-agent that has no `mcp__Claude_Browser__*` tool can't open one: it tests headless and gives the pilot its URL, and only the pilot opens a tab per instance. The pane is often only ~800 px wide: too small for the card editor dialog, and a custom `resize_window` gets reset when the pane's width changes.

@@ -78,6 +78,20 @@
     });
   };
 
+  // Test results go to the agent board (tools/agent-board), fire and forget: a board that is down
+  // must neither slow nor fail a suite. The agent is resolved by the board from this HA's port.
+  const board = q.get('board') || 'http://127.0.0.1:8120';
+  // Headless (dev/ui_test.py) loads one page per test (index=) under a shared run= id, and posts the run's start and end itself.
+  const single = q.get('index') !== null;
+  const runId = q.get('run') || Math.random().toString(36).slice(2, 10);
+  const report = (kind, data) => {
+    if (single && kind.startsWith('run-')) return;
+    fetch(board + '/api/events', {
+      method: 'POST', keepalive: true, headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ kind, run: runId, port: location.port, source: headless ? 'headless' : 'pane', ...data }),
+    }).catch(() => {});
+  };
+
   const run = async () => {
     const name = q.get('suite');
     if (headless) document.body.classList.add('headless');
@@ -98,6 +112,7 @@
       $('list').appendChild(el);
       return el;
     });
+    report('run-start', { suite: name, total: tests.length });
     const total0 = performance.now();
     const results = [];
     let failed = 0;
@@ -111,6 +126,7 @@
       row.className = 't running';
       row.querySelector('.m').textContent = 'RUN';
       row.scrollIntoView({ block: 'nearest' });
+      report('test-start', { name: test.name });
       const t0 = performance.now();
       const errors = [];
       const prints = [];
@@ -186,6 +202,10 @@
         name: test.name, ok: !bad, seconds: Math.round(seconds * 10) / 10,
         failedStep: failure ? failure[0] : null, message: failure ? failure[1] : null, got: failure ? failure[2] : null, errors: errs, prints,
       });
+      report('test-end', {
+        name: test.name, ok: !bad, seconds: Math.round(seconds * 10) / 10,
+        message: bad ? [failure ? `${failure[0]}: ${failure[1]}` : '', ...errs.map((e) => 'console: ' + e.slice(0, 200))].filter(Boolean).join('\n') : undefined,
+      });
       row.className = 't ' + (bad ? 'fail' : 'pass');
       row.querySelector('.m').textContent = bad ? 'FAIL' : 'PASS';
       row.querySelector('.time').textContent = seconds.toFixed(1) + 's';
@@ -197,6 +217,7 @@
     const n = tests.length;
     const summary = `${n - failed}/${n} passed, ${failed} failed, ${errorCount} console error(s), total ${total.toFixed(1)}s`;
     $('summary').textContent = summary;
+    report('run-end', { summary, passed: n - failed, failed });
     document.title = (failed ? 'FAIL ' : 'PASS ') + summary;
     window.uiResult = { passed: n - failed, failed, errors: errorCount, total: Math.round(total * 10) / 10, summary, tests: results };
   };

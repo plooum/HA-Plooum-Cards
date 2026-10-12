@@ -139,6 +139,8 @@ cmd_start() {
   echo "HA starting (pid $(cat "$PIDFILE"), port $PORT)…"
   wait_up
   "$VENV/bin/python" "$DEV/bootstrap.py"
+  # Tell the agent board (tools/agent-board, silent if it isn't running) which agent owns this port: sub-agent worktrees only, the main checkout is the pilot's.
+  [[ "$DEV" == */.claude/worktrees/* ]] && { python3 "$DEV/../tools/agent-board/board.py" agent "$(basename "$(dirname "$DEV")")" --port "$PORT" --checkout "$(dirname "$DEV")" || true; }
   echo "Ready in $((SECONDS - t0)) s: $URL/plooum-test/all"
 }
 
