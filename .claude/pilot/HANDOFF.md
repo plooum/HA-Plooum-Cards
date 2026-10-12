@@ -49,8 +49,10 @@ The user works on two PCs; the pilot may start on either.
 | `dev/shot.py --console` (prompt 13, fast path) | `feature/shot-console`, [#36](https://github.com/plooum/HA-Plooum-Cards/pull/36) | merged 2026-10-12
 | Suites: `finally` steps restore states (prompt 12, fast path) | `feature/suite-finally`, [#38](https://github.com/plooum/HA-Plooum-Cards/pull/38) | merged 2026-10-12
 | Skills: trust the sub-agents' tests, tests at the strict minimum (pilot) | `feature/skills-trust-tests`, [#37](https://github.com/plooum/HA-Plooum-Cards/pull/37) | merged 2026-10-12
-| Agent board part 1: server, page, test results (prompt 14) | `feature/agent-board`, [#39](https://github.com/plooum/HA-Plooum-Cards/pull/39) | reviewed (2 rounds: headless runs report, main checkout not registered, narrow layout), waiting for approval; pilot runs a demo board on 8120 from its worktree |
-| Skills: prompt 14 friction (pkill, Monitor) | `feature/skills-friction-14`, [#40](https://github.com/plooum/HA-Plooum-Cards/pull/40) | waiting for approval |
+| Agent board part 1: server, page, test results (prompt 14) | `feature/agent-board`, [#39](https://github.com/plooum/HA-Plooum-Cards/pull/39) | merged 2026-10-12; board running from main on 8120 (default data dir)
+| Skills: prompt 14 friction (pkill, Monitor) | `feature/skills-friction-14`, [#40](https://github.com/plooum/HA-Plooum-Cards/pull/40) | merged 2026-10-12
+| Agent board part 2: Claude Code hook, commands + file edits (prompt 15) | `feature/board-hook` | sub-agent working (live check only possible in a new Claude Code session: hooks load at session start) |
+| Pilot skill: keep the agent board current | `feature/skills-pilot-board`, [#41](https://github.com/plooum/HA-Plooum-Cards/pull/41) | waiting for approval |
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
 
