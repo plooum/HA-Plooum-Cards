@@ -71,8 +71,8 @@ The user works on two PCs; the pilot may start on either.
 | agent-board: install docs + global skill (prompt 22, not in a worktree: `~/git/agent-board`) | `feature/install-docs`, [plooum/agent-board#1](https://github.com/plooum/agent-board/pull/1) | merged 2026-10-12. Laptop: install pulled, board restarted from it, `~/.claude/settings.json` created with the global hook, `~/.claude/skills/agent-board` symlinked |
 | agent-board: `AGENTS.md` + idempotent `install.sh` (prompt 23, in `~/git/agent-board`, no worktree) | `feature/agents-md`, [plooum/agent-board#2](https://github.com/plooum/agent-board/pull/2) | merged 2026-10-12; `install.sh` re-run on the laptop: all "already there", settings unchanged |
 | [plooum/claude-pilot](https://github.com/plooum/claude-pilot) created (public, GPL-3.0, initial commit, squash-only), dev clone `~/git/claude-pilot` | — | done 2026-10-12 |
-| claude-pilot: generic skills `pilot` + `pilot-subagent`, templates, AGENTS.md, install.sh (prompt 24, no worktree) | `feature/initial-content` on plooum/claude-pilot | sub-agent working |
-| This repo: `pilot` → `pilot-ha-plooum` (specifics only), `pr-workflow` trimmed, CLAUDE.md (prompt 25) | `feature/pilot-skills-split` | sub-agent working. Merge **after** 24 + install (`~/.local/opt/claude-pilot/install.sh`) |
+| claude-pilot: generic skills `pilot` + `pilot-subagent`, templates, AGENTS.md, install.sh (prompt 24, no worktree) | `feature/initial-content`, [plooum/claude-pilot#1](https://github.com/plooum/claude-pilot/pull/1) | reviewed (one round: absolute install paths in the skill), waiting for the user |
+| This repo: `pilot` → `pilot-ha-plooum` (specifics only), `pr-workflow` trimmed, CLAUDE.md (prompt 25) | `feature/pilot-skills-split`, [#55](https://github.com/plooum/HA-Plooum-Cards/pull/55) | reviewed, waiting for the user. Order: merge claude-pilot#1, then #55, then install (`install.sh`), so two `pilot` skills never coexist |
 
 ## Decisions (user)
 
@@ -131,6 +131,8 @@ How to run the loop now (all in the skills since #37 / #41 / #44): short exact p
 Agent board (**plooum/agent-board**, installed in `~/.local/opt/agent-board`, dev clone `~/git/agent-board`; work on it = a sub-agent in that clone, no worktree, PRs there): runs from the install on **8120**, data in `~/.local/share/agent-board/` (30 days). Start: `(setsid nohup python3 ~/.local/opt/agent-board/board.py serve > /dev/null 2>&1 &)`. Stop / restart (after a `board.py` / `index.html` merge): `kill $(ps -eo pid,args | awk '/agent-board\/board.py serve/ && !/awk/ && !/bash/ {print $1}')` in a command **of its own** (`pkill -f` / `pgrep -f` match the calling shell when its command line contains the pattern, exit 144). The hook (`.claude/settings.json`) took effect mid-session; a Bash action shows the raw command when the agent gave no description.
 
 ## Sub-agent notes
+
+- Prompts 24 / 25 (Sonnet, parallel): 24 (other repo, no worktree) 2.2 min, 19 calls + one round; 25 0.9 min, 13 calls. Lesson: a skill linked into `~/.claude/skills` must use absolute paths (relative ones resolve against the link).
 
 - Prompts 21 / 22 (Sonnet, parallel): 21 in 1.5 min, 9 calls, no round; 22 (no worktree, other repo) in 0.9 + 0.3 min, 5 calls, one round. Short exact prompts with listed lines = fastest runs so far.
 
