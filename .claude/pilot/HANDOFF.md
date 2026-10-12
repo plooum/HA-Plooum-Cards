@@ -67,8 +67,8 @@ The user works on two PCs; the pilot may start on either.
 | Skills: measure before setting a speed target (prompt 19) | `feature/skills-friction-19`, [#52](https://github.com/plooum/HA-Plooum-Cards/pull/52) | merged 2026-10-12 |
 | Agent board: projects, generic across repos, still in this repo (prompt 20) | `feature/board-projects`, [#53](https://github.com/plooum/HA-Plooum-Cards/pull/53) | merged 2026-10-12; board restarted, older agents archived with `--all-projects` |
 | Agent board extracted: [plooum/agent-board](https://github.com/plooum/agent-board) (public, GPL-3.0, `git subtree split`, squash-only, auto-delete branches), installed in `~/.local/opt/agent-board`, dev clone `~/git/agent-board`; the board now runs from the install (pilot) | — | done 2026-10-12 |
-| Use the board from its repo, remove `tools/agent-board` (prompt 21) | `feature/board-external` | sub-agent working |
-| agent-board: install docs + global skill (prompt 22, not in a worktree: `~/git/agent-board`) | `feature/install-docs` on plooum/agent-board | sub-agent working |
+| Use the board from its repo, remove `tools/agent-board` (prompt 21) | `feature/board-external`, [#54](https://github.com/plooum/HA-Plooum-Cards/pull/54) | reviewed, waiting for the user |
+| agent-board: install docs + global skill (prompt 22, not in a worktree: `~/git/agent-board`) | `feature/install-docs`, [plooum/agent-board#1](https://github.com/plooum/agent-board/pull/1) | reviewed (one round: `kill` must exclude `bash`), waiting for the user |
 
 ## Decisions (user)
 
@@ -123,6 +123,8 @@ How to run the loop now (all in the skills since #37 / #41 / #44): short exact p
 Agent board (`tools/agent-board/`, generic, to be moved out of the repo one day): runs from the main checkout on **8120**, data in `~/.local/share/agent-board/` (30 days). Start: `(setsid nohup python3 tools/agent-board/board.py serve > /dev/null 2>&1 &)`. Stop / restart (after a `board.py` / `index.html` merge): `kill $(ps -eo pid,args | awk '/agent-board\/board.py serve/ && !/awk/ && !/bash/ {print $1}')` in a command **of its own** (`pkill -f` / `pgrep -f` match the calling shell when its command line contains the pattern, exit 144). The hook (`.claude/settings.json`) took effect mid-session; a Bash action shows the raw command when the agent gave no description.
 
 ## Sub-agent notes
+
+- Prompts 21 / 22 (Sonnet, parallel): 21 in 1.5 min, 9 calls, no round; 22 (no worktree, other repo) in 0.9 + 0.3 min, 5 calls, one round. Short exact prompts with listed lines = fastest runs so far.
 
 - Prompt 20 (Sonnet, 2.8 min + 1 short round, 30 + 5 calls, model 0.9 / tools 1.1 min): 3 sandbox refusals (heredoc python, `kill` chained with `git`), already in `pr-workflow`; no skills PR needed.
 
