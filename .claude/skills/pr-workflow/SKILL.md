@@ -19,6 +19,7 @@ You were given a task by the pilot, an agent who reviews your work and loops wit
 - Run git steps as separate commands rather than one long `&&` chain. In a worktree the sandbox refuses "too complex" commands outright: brace expansion, and `git` mixed with `&&`, `;`, a heredoc or `python3 -`. Run plain separate commands, and write multi-line scripts or file edits with the Write / Edit tools. The refusal also hits a `python3` call on a path containing `git` when chained, and `git` / `gh` / `sed` with shell variables.
 - Stopping a background process: `pkill -f "<pattern>"` also matches (and kills) the shell running it, since its command line contains the pattern (exit 144). Use `pgrep -f "<pattern>"`, then `kill <pid>`.
 - To wait on a background process, load the `Monitor` tool first (`ToolSearch` `select:Monitor`) rather than polling in a foreground loop.
+- A task without HA still needs `dev/.venv` (Playwright) for a scratch script: `dev/ha.sh setup` links the main checkout's venv and `node_modules` into your worktree without starting HA. Don't run `../../../dev/.venv/...` (refused).
 - `node`, `npm`, `gh` or `uv` not found: on the laptop they live in `~/.local/bin` (`export PATH=~/.local/bin:$PATH`, or the full path).
 
 ## Code conventions (from CLAUDE.md)
