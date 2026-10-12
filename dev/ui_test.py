@@ -16,7 +16,8 @@ Suite format (JSON; `//` comment lines are allowed):
                    { "assert": "<JS expression or async body returning a value>", "msg": "...", "show": "<JS expr printed on failure>" },
                    { "shot": "name.png", "el": "<JS expression returning an element>" },
                    { "wait": 500 }                                    // genuine animation only; also allowed as a key of any step
-                 ] } ] }
+                 ],
+                 "finally": [ <steps that always run after "steps", even after a failure: state restores> ] } ] }
 
 JS bodies see the helpers of dev/ui_helpers.js (window.T: deep, sleep, waitFor, pointerDrag, tap,
 openEditor, editor, previewCard, dashboardCards, cancelDialog, fp.*) as plain names, plus `T`, and
