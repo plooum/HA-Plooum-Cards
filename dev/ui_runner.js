@@ -136,35 +136,35 @@
       }
       // Runs one step; returns null, or the failure [label, message, got].
       const runStep = async (step, label) => {
-      try {
-        if (step.wait) await sleep(step.wait);
-        if (step.js) {
-          const v = await runCode(win, step.js, false);
-          if (step.print || q.get('verbose') === '1') prints.push(`${label}: ${short(v)}`);
-        } else if (step.assert) {
-          const v = await runCode(win, step.assert, true);
-          if (!v) {
-            const got = { value: v };
-            if (step.show) got.show = await runCode(win, step.show, true);
-            return [label, step.msg || step.assert, got];
-          }
-        } else if (step.shot) {
-          if (!headless) {
-            console.log(`shot skipped: ${step.shot}`);
-          } else {
-            let rect = null;
-            if (step.el) {
-              const b = await runCode(win, 'const e = (' + step.el + '); const r = e.getBoundingClientRect(); return {x: r.x, y: r.y, width: r.width, height: r.height};', false);
-              rect = { x: b.x * scale, y: b.y * scale, width: b.width * scale, height: b.height * scale };
+        try {
+          if (step.wait) await sleep(step.wait);
+          if (step.js) {
+            const v = await runCode(win, step.js, false);
+            if (step.print || q.get('verbose') === '1') prints.push(`${label}: ${short(v)}`);
+          } else if (step.assert) {
+            const v = await runCode(win, step.assert, true);
+            if (!v) {
+              const got = { value: v };
+              if (step.show) got.show = await runCode(win, step.show, true);
+              return [label, step.msg || step.assert, got];
             }
-            await new Promise((resolve) => { window.uiShotResolve = resolve; window.uiShot = { name: step.shot, rect }; });
-            window.uiShot = null;
+          } else if (step.shot) {
+            if (!headless) {
+              console.log(`shot skipped: ${step.shot}`);
+            } else {
+              let rect = null;
+              if (step.el) {
+                const b = await runCode(win, 'const e = (' + step.el + '); const r = e.getBoundingClientRect(); return {x: r.x, y: r.y, width: r.width, height: r.height};', false);
+                rect = { x: b.x * scale, y: b.y * scale, width: b.width * scale, height: b.height * scale };
+              }
+              await new Promise((resolve) => { window.uiShotResolve = resolve; window.uiShot = { name: step.shot, rect }; });
+              window.uiShot = null;
+            }
           }
+        } catch (e) {
+          return [label, (e && e.message ? String(e.message).split('\n')[0] : '') || String(e), null];
         }
-      } catch (e) {
-        return [label, (e && e.message ? String(e.message).split('\n')[0] : '') || String(e), null];
-      }
-      return null;
+        return null;
       };
       const runSteps = async (list, prefix, stopOnFailure) => {
         for (let i = 0; i < list.length && !(stopOnFailure && failure); i++) {

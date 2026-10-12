@@ -48,7 +48,7 @@
         { "js": "await T.card.editorRenders(S.cards[0]);" }
       ],
       "finally": [
-        { "js": "S.tap();" },
+        { "js": "if (S.s0) await T.card.call('input_boolean', S.s0 === 'on' ? 'turn_on' : 'turn_off', { entity_id: 'input_boolean.living_room_light' });" },
         { "assert": "await T.card.waitState('light.living_room_light', (s) => s.state === S.s0)", "msg": "light restored" }
       ]
     },
@@ -72,7 +72,7 @@
         { "js": "await T.card.editorRenders(S.cards[0]);" }
       ],
       "finally": [
-        { "js": "S.tap();" },
+        { "js": "if (S.s0) await T.card.call('input_boolean', S.s0 === 'on' ? 'turn_on' : 'turn_off', { entity_id: 'input_boolean.living_room_light' });" },
         { "assert": "await T.card.waitState('light.living_room_light', (s) => s.state === S.s0)", "msg": "light restored" }
       ]
     },
@@ -86,7 +86,7 @@
         { "js": "await T.card.editorRenders(S.cards[0]);" }
       ],
       "finally": [
-        { "js": "await T.card.call('input_boolean', 'toggle', { entity_id: 'input_boolean.aquarium_pump' });" },
+        { "js": "if (S.on0) await T.card.call('input_boolean', S.on0 === 'on' ? 'turn_on' : 'turn_off', { entity_id: 'input_boolean.aquarium_pump' });" },
         { "assert": "await T.card.waitState('input_boolean.aquarium_pump', (s) => s.state === S.on0)", "msg": "pump restored" }
       ]
     },
