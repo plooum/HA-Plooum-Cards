@@ -12,7 +12,7 @@ Nothing.
 
 ## Next
 
-- [ ] **Improve the test tool** with the user (2026-10-12: explain it first).
+- [ ] **Agent board** (handoff decisions 2026-10-12): part 1 in progress (prompt 14); part 2 Claude Code hook for commands / file edits; part 3 headless screencast view per agent (agents leave the pane), then update the skills (pilot: register / archive agents; pr-workflow, ha-dev-testing: no pane).
 
 - [ ] **Roof layer checks**: touch input, narrow edit dialog, a plan generated from areas (not tested by prompt 09).
 
