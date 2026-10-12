@@ -55,7 +55,7 @@ The user works on two PCs; the pilot may start on either.
 | Pilot skill: keep the agent board current | `feature/skills-pilot-board`, [#41](https://github.com/plooum/HA-Plooum-Cards/pull/41) | merged 2026-10-12
 | Agent board part 3: live browser view, headless screencast, agents leave the pane (prompt 16) | `feature/board-browser-view`, [#43](https://github.com/plooum/HA-Plooum-Cards/pull/43) | merged 2026-10-12
 | Pilot skill: sub-agents leave the pane | `feature/skills-pilot-no-pane`, [#44](https://github.com/plooum/HA-Plooum-Cards/pull/44) | merged 2026-10-12
-| Agent board: `archive` route fix (pilot, 2 lines) | `feature/board-archive-route`, [#45](https://github.com/plooum/HA-Plooum-Cards/pull/45) | waiting for approval |
+| Agent board: `archive` route fix (pilot, 2 lines) | `feature/board-archive-route`, [#45](https://github.com/plooum/HA-Plooum-Cards/pull/45) | merged 2026-10-12, board restarted |
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
 
