@@ -14,9 +14,11 @@
         { "js": "S.cards = await T.card.rendered('ha-plooum-dpad-card', 2);" },
         { "js": "S.n0 = Number(T.hass().states['counter.ptz_presses'].state); deep(S.cards[0].shadowRoot, '.remote-btn')[0].dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true }));" },
         { "assert": "await T.card.waitState('counter.ptz_presses', (s) => Number(s.state) === S.n0 + 1)", "msg": "a press increments counter.ptz_presses" },
-        { "js": "await T.card.call('counter', 'set_value', { entity_id: 'counter.ptz_presses', value: S.n0 });" },
-        { "assert": "await T.card.waitState('counter.ptz_presses', (s) => Number(s.state) === S.n0)", "msg": "counter restored" },
         { "js": "await T.card.editorRenders(S.cards[0]);" }
+      ],
+      "finally": [
+        { "js": "await T.card.call('counter', 'set_value', { entity_id: 'counter.ptz_presses', value: S.n0 });" },
+        { "assert": "await T.card.waitState('counter.ptz_presses', (s) => Number(s.state) === S.n0)", "msg": "counter restored" }
       ]
     },
     {
@@ -28,9 +30,11 @@
         { "assert": "await T.card.waitState('cover.bedroom_cover', (s) => s.attributes.current_position === 50)", "msg": "known start position (50)" },
         { "js": "deep(S.cards[0].shadowRoot, '.cover-column')[1].querySelectorAll('.control-icon')[1].click();" },
         { "assert": "await T.card.waitState('cover.bedroom_cover', (s) => s.attributes.current_position < 50)", "msg": "the down button moves the Bedroom cover" },
-        { "js": "await T.card.call('cover', 'set_cover_position', { entity_id: 'cover.bedroom_cover', position: S.p0 });" },
-        { "assert": "await T.card.waitState('cover.bedroom_cover', (s) => s.attributes.current_position === S.p0)", "msg": "position restored" },
         { "js": "await T.card.editorRenders(S.cards[0]);" }
+      ],
+      "finally": [
+        { "js": "await T.card.call('cover', 'set_cover_position', { entity_id: 'cover.bedroom_cover', position: S.p0 });" },
+        { "assert": "await T.card.waitState('cover.bedroom_cover', (s) => s.attributes.current_position === S.p0)", "msg": "position restored" }
       ]
     },
     {
@@ -41,9 +45,11 @@
         { "assert": "deep(S.cards[0].shadowRoot, '.icon-wrapper').length === 4", "msg": "on, off, unavailable and missing icons are all there" },
         { "js": "S.s0 = T.hass().states['light.living_room_light'].state; S.tap = () => { const w = deep(S.cards[0].shadowRoot, '.icon-wrapper')[0]; w.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); w.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })); }; S.tap();" },
         { "assert": "await T.card.waitState('light.living_room_light', (s) => s.state !== S.s0)", "msg": "a tap toggles light.living_room_light" },
-        { "js": "S.tap();" },
-        { "assert": "await T.card.waitState('light.living_room_light', (s) => s.state === S.s0)", "msg": "light restored" },
         { "js": "await T.card.editorRenders(S.cards[0]);" }
+      ],
+      "finally": [
+        { "js": "if (S.s0) await T.card.call('input_boolean', S.s0 === 'on' ? 'turn_on' : 'turn_off', { entity_id: 'input_boolean.living_room_light' });" },
+        { "assert": "await T.card.waitState('light.living_room_light', (s) => s.state === S.s0)", "msg": "light restored" }
       ]
     },
     {
@@ -63,9 +69,11 @@
         { "js": "S.cards = await T.card.rendered('ha-plooum-buttonbadge-card', 2);" },
         { "js": "S.s0 = T.hass().states['light.living_room_light'].state; S.tap = () => { const c = deep(S.cards[0].shadowRoot, 'ha-card')[0]; c.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, composed: true })); c.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true })); }; S.tap();" },
         { "assert": "await T.card.waitState('light.living_room_light', (s) => s.state !== S.s0)", "msg": "a tap toggles light.living_room_light" },
-        { "js": "S.tap();" },
-        { "assert": "await T.card.waitState('light.living_room_light', (s) => s.state === S.s0)", "msg": "light restored" },
         { "js": "await T.card.editorRenders(S.cards[0]);" }
+      ],
+      "finally": [
+        { "js": "if (S.s0) await T.card.call('input_boolean', S.s0 === 'on' ? 'turn_on' : 'turn_off', { entity_id: 'input_boolean.living_room_light' });" },
+        { "assert": "await T.card.waitState('light.living_room_light', (s) => s.state === S.s0)", "msg": "light restored" }
       ]
     },
     {
@@ -75,9 +83,11 @@
         { "js": "S.cards = await T.card.rendered('ha-plooum-multi-status-card', 6);" },
         { "js": "S.ic = () => deep(S.cards[0].shadowRoot, 'ha-icon').map((i) => i.getAttribute('icon') || i.icon).join(); S.i0 = S.ic(); S.on0 = T.hass().states['input_boolean.aquarium_pump'].state; await T.card.call('input_boolean', 'toggle', { entity_id: 'input_boolean.aquarium_pump' });" },
         { "assert": "await waitFor(() => S.ic() !== S.i0, 8000, 'the pump icon to change')", "msg": "toggling the pump changes the icon" },
-        { "js": "await T.card.call('input_boolean', 'toggle', { entity_id: 'input_boolean.aquarium_pump' });" },
-        { "assert": "await T.card.waitState('input_boolean.aquarium_pump', (s) => s.state === S.on0)", "msg": "pump restored" },
         { "js": "await T.card.editorRenders(S.cards[0]);" }
+      ],
+      "finally": [
+        { "js": "if (S.on0) await T.card.call('input_boolean', S.on0 === 'on' ? 'turn_on' : 'turn_off', { entity_id: 'input_boolean.aquarium_pump' });" },
+        { "assert": "await T.card.waitState('input_boolean.aquarium_pump', (s) => s.state === S.on0)", "msg": "pump restored" }
       ]
     },
     {
@@ -87,9 +97,11 @@
         { "js": "S.cards = await T.card.rendered('ha-plooum-temp-humidity-card', 12);" },
         { "js": "S.v0 = Number(T.hass().states['input_number.living_room_temperature'].state); await T.card.call('input_number', 'set_value', { entity_id: 'input_number.living_room_temperature', value: 27.3 });" },
         { "assert": "await waitFor(() => S.cards[0].shadowRoot.textContent.includes('27.3'), 8000, '27.3 on the card')", "msg": "the new temperature is shown" },
-        { "js": "await T.card.call('input_number', 'set_value', { entity_id: 'input_number.living_room_temperature', value: S.v0 });" },
-        { "assert": "await T.card.waitState('input_number.living_room_temperature', (s) => Number(s.state) === S.v0)", "msg": "temperature restored" },
         { "js": "await T.card.editorRenders(S.cards[0]);" }
+      ],
+      "finally": [
+        { "js": "await T.card.call('input_number', 'set_value', { entity_id: 'input_number.living_room_temperature', value: S.v0 });" },
+        { "assert": "await T.card.waitState('input_number.living_room_temperature', (s) => Number(s.state) === S.v0)", "msg": "temperature restored" }
       ]
     },
     {
@@ -99,9 +111,11 @@
         { "js": "S.cards = await T.card.rendered('ha-plooum-vivarium-card', 18);" },
         { "js": "S.v0 = Number(T.hass().states['input_number.aquarium_60_temperature'].state); S.c = S.cards.find((c) => c.config.name === 'Aquarium 60L'); await T.card.call('input_number', 'set_value', { entity_id: 'input_number.aquarium_60_temperature', value: 24.7 });" },
         { "assert": "await waitFor(() => S.c.shadowRoot.textContent.includes('24.7'), 8000, '24.7 on the Aquarium 60L card')", "msg": "the new temperature is shown" },
-        { "js": "await T.card.call('input_number', 'set_value', { entity_id: 'input_number.aquarium_60_temperature', value: S.v0 });" },
-        { "assert": "await T.card.waitState('input_number.aquarium_60_temperature', (s) => Number(s.state) === S.v0)", "msg": "temperature restored" },
         { "js": "await T.card.editorRenders(S.cards[0]);" }
+      ],
+      "finally": [
+        { "js": "await T.card.call('input_number', 'set_value', { entity_id: 'input_number.aquarium_60_temperature', value: S.v0 });" },
+        { "assert": "await T.card.waitState('input_number.aquarium_60_temperature', (s) => Number(s.state) === S.v0)", "msg": "temperature restored" }
       ]
     },
     {
@@ -111,9 +125,11 @@
         { "js": "S.cards = await T.card.rendered('ha-plooum-floorplan-card', 6);" },
         { "js": "S.v0 = Number(T.hass().states['input_number.living_room_temperature'].state); await T.card.call('input_number', 'set_value', { entity_id: 'input_number.living_room_temperature', value: 27.3 });" },
         { "assert": "await waitFor(() => S.cards[0].shadowRoot.textContent.includes('27.3'), 8000, '27.3 on the plan')", "msg": "the new temperature is shown on the plan" },
-        { "js": "await T.card.call('input_number', 'set_value', { entity_id: 'input_number.living_room_temperature', value: S.v0 });" },
-        { "assert": "await T.card.waitState('input_number.living_room_temperature', (s) => Number(s.state) === S.v0)", "msg": "temperature restored" },
         { "js": "await T.card.editorRenders(S.cards[0]);" }
+      ],
+      "finally": [
+        { "js": "await T.card.call('input_number', 'set_value', { entity_id: 'input_number.living_room_temperature', value: S.v0 });" },
+        { "assert": "await T.card.waitState('input_number.living_room_temperature', (s) => Number(s.state) === S.v0)", "msg": "temperature restored" }
       ]
     }
   ]

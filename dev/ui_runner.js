@@ -134,11 +134,8 @@
       } catch (e) {
         failure = ['page load', 'page not ready: ' + e.message, null];
       }
-      const steps = failure ? [] : test.steps;
-      for (let i = 0; i < steps.length && !failure; i++) {
-        const step = steps[i];
-        const label = `step ${i + 1}`;
-        stepLabel(`${label}/${steps.length}`);
+      // Runs one step; returns null, or the failure [label, message, got].
+      const runStep = async (step, label) => {
         try {
           if (step.wait) await sleep(step.wait);
           if (step.js) {
@@ -149,7 +146,7 @@
             if (!v) {
               const got = { value: v };
               if (step.show) got.show = await runCode(win, step.show, true);
-              failure = [label, step.msg || step.assert, got];
+              return [label, step.msg || step.assert, got];
             }
           } else if (step.shot) {
             if (!headless) {
@@ -165,10 +162,21 @@
             }
           }
         } catch (e) {
-          failure = [label, (e && e.message ? String(e.message).split('\n')[0] : '') || String(e), null];
+          return [label, (e && e.message ? String(e.message).split('\n')[0] : '') || String(e), null];
         }
-        if (!failure && pause) await sleep(pause);
-      }
+        return null;
+      };
+      const runSteps = async (list, prefix, stopOnFailure) => {
+        for (let i = 0; i < list.length && !(stopOnFailure && failure); i++) {
+          const label = `${prefix} ${i + 1}`;
+          stepLabel(`${label}/${list.length}`);
+          const f = await runStep(list[i], label);
+          if (f && !failure) failure = f;
+          if (!f && pause) await sleep(pause);
+        }
+      };
+      if (!failure) await runSteps(test.steps, 'step', true);
+      if (win && test.finally) await runSteps(test.finally, 'finally', false);
       const errs = errors.filter((e) => !IGNORED.some((k) => e.toLowerCase().includes(k)));
       errorCount += errs.length;
       const bad = !!failure || errs.length > 0;
