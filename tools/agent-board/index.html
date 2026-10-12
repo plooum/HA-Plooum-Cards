@@ -6,14 +6,16 @@
 <link rel="icon" href="data:,">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
+  /* Dark by default, whatever the OS setting; the header toggle switches and is remembered. */
   :root {
-    color-scheme: light dark;
+    color-scheme: dark;
+    --bg: #111418; --panel: #181c21; --line: #2a3038; --fg: #d8dde3; --dim: #8b949e;
+    --ok: #3fb950; --bad: #f85149; --run: #4ea1ff; --sel: #1d2733; --warn: #d29922;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
     --bg: #f6f7f9; --panel: #ffffff; --line: #d9dde3; --fg: #1d2229; --dim: #6a7380;
     --ok: #1a7f37; --bad: #cf222e; --run: #0969da; --sel: #e8f0fb; --warn: #9a6700;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #111418; --panel: #181c21; --line: #2a3038; --fg: #d8dde3; --dim: #8b949e;
-      --ok: #3fb950; --bad: #f85149; --run: #4ea1ff; --sel: #1d2733; --warn: #d29922; }
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, sans-serif; display: flex; flex-direction: column; height: 100vh; }
@@ -21,7 +23,8 @@
   header h1 { font-size: 15px; margin: 0 16px 0 0; }
   header button { background: none; border: 0; color: var(--dim); font: inherit; padding: 4px 10px; cursor: pointer; border-bottom: 2px solid transparent; }
   header button.on { color: var(--fg); border-color: var(--run); }
-  #conn { margin-left: auto; font-size: 12px; color: var(--dim); }
+  #conn { margin-left: auto; font-size: 12px; color: var(--dim); margin-right: 10px; }
+  header button#theme { border: 1px solid var(--line); border-radius: 4px; padding: 2px 8px; font-size: 12px; }
   main { flex: 1; display: flex; min-height: 0; }
   #agents { width: 340px; flex: none; overflow: auto; border-right: 1px solid var(--line); padding: 8px; }
   #detail, #tests { flex: 1; overflow: auto; padding: 16px 20px; }
@@ -66,6 +69,7 @@
   <button id="tab-agents" class="on">Agents</button>
   <button id="tab-tests">Tests</button>
   <span id="conn">connecting...</span>
+  <button id="theme" title="Switch light / dark"></button>
 </header>
 <main id="m-agents">
   <div id="agents"></div>
@@ -78,6 +82,15 @@
   const time = (ts) => new Date(ts * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const dateTime = (ts) => new Date(ts * 1000).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   const get = async (p) => (await fetch(p)).json();
+  const setTheme = (t, save) => {
+    document.documentElement.dataset.theme = t;
+    $('theme').textContent = t === 'dark' ? 'Light' : 'Dark';
+    if (save) { try { localStorage.setItem('agent-board-theme', t); } catch (e) { /* private mode: not remembered */ } }
+  };
+  let stored = null;
+  try { stored = localStorage.getItem('agent-board-theme'); } catch (e) { /* ignore */ }
+  setTheme(stored === 'light' ? 'light' : 'dark', false);
+  $('theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark', true);
   const state = { agents: [], sel: null, tab: 'agents', suite: '', open: new Set(), detail: null };
 
   const render = () => { renderAgents(); renderDetail(); if (state.tab === 'tests') renderTests(); };
