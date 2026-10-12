@@ -49,10 +49,13 @@ The user works on two PCs; the pilot may start on either.
 | `dev/shot.py --console` (prompt 13, fast path) | `feature/shot-console`, [#36](https://github.com/plooum/HA-Plooum-Cards/pull/36) | merged 2026-10-12
 | Suites: `finally` steps restore states (prompt 12, fast path) | `feature/suite-finally`, [#38](https://github.com/plooum/HA-Plooum-Cards/pull/38) | merged 2026-10-12
 | Skills: trust the sub-agents' tests, tests at the strict minimum (pilot) | `feature/skills-trust-tests`, [#37](https://github.com/plooum/HA-Plooum-Cards/pull/37) | merged 2026-10-12
+| Agent board part 1: server, page, test results (prompt 14) | `feature/agent-board` | sub-agent working |
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
 
 ## Decisions (user)
+
+- 2026-10-12, **agent board**: one central live page (own browser, e.g. :8120) showing each sub-agent (title, name, current action), its tests live and after it's done; history 30 days; test run history per suite; the pilot archives previous agents when launching new ones; actions = **commands and file edits only**; **the pilot isn't shown**. **Must be generic and self-contained (`tools/agent-board/`)**: the user will later move it out to use elsewhere. Part 1 = server + page + test results (prompt 14), part 2 = Claude Code hook for actions.
 
 - 2026-10-12: **optimize everything; the pilot doesn't re-run the sub-agents' tests**: trust them, but define their tests carefully in the prompt; tests always at the **strict minimum**. At the review, **show the user the result** (pane / screenshots). The dev HA on 8123 may stay running. After backlog items 1, 3, 4: **explain the test tool to the user** (#37).
 
