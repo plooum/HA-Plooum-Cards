@@ -17,7 +17,7 @@ CLAUDE.md's **Testing** section is the reference (start / stop, dashboards, test
 
 ## The agent board
 
-`tools/agent-board/` is a generic page (default http://127.0.0.1:8120, see its README) where the user follows the agents. `dev/ha.sh start` registers your checkout on it, and the suites run in the pane (`runner.html`) report their runs and tests to it on their own, resolved from your HA port: nothing to do (headless `ui_test.py` runs aren't reported). If the board isn't running, nothing happens. Use `&board=<url>` on `runner.html` to post to another board.
+`tools/agent-board/` is a generic page (default http://127.0.0.1:8120, see its README) where the user follows the agents. `dev/ha.sh start` registers your checkout on it, and (sub-agent worktrees only, not the main checkout), and the suites report their runs and tests to it on their own, resolved from your HA port: nothing to do, in the pane (`runner.html`) and headless (`ui_test.py`). If the board isn't running, nothing happens. Use `&board=<url>` on `runner.html` or `--board <url>` on `ui_test.py` to post to another board.
 
 ## Which browser
 
