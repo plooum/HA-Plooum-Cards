@@ -38,14 +38,14 @@
   // Drags `el` from `from` to `to` ({x, y} in client px; default: the center of `el`, from there).
   // Stubs setPointerCapture (it throws on a made-up pointerId). pointerdown goes to opts.target (default el),
   // pointermove / pointerup to el: the element holding the handlers.
-  T.pointerDrag = async (el, from, to, { target, steps = 4, pointerId = 7 } = {}) => {
+  T.pointerDrag = async (el, from, to, { target, steps = 4, pointerId = 7, pointerType = 'mouse' } = {}) => {
     el.setPointerCapture = () => {};
     el.releasePointerCapture = () => {};
     if (!from) {
       const r = el.getBoundingClientRect();
       from = { x: r.x + r.width / 2, y: r.y + r.height / 2 };
     }
-    const o = { bubbles: true, composed: true, pointerId, button: 0, isPrimary: true, pointerType: 'mouse' };
+    const o = { bubbles: true, composed: true, pointerId, button: 0, isPrimary: true, pointerType };
     (target || el).dispatchEvent(new PointerEvent('pointerdown', { ...o, buttons: 1, clientX: from.x, clientY: from.y }));
     for (let i = 1; i <= steps; i++) {
       const k = i / steps;
