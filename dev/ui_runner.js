@@ -89,7 +89,7 @@
     if (!board || (single && kind.startsWith('run-'))) return;
     fetch(board + '/api/events', {
       method: 'POST', keepalive: true, headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ kind, run: runId, port: location.port, source: headless ? 'headless' : 'pane', ...data }),
+      body: JSON.stringify({ kind, run: runId, port: location.port, project: q.get('project') || undefined, source: headless ? 'headless' : 'pane', ...data }),
     }).catch(() => {});
   };
 

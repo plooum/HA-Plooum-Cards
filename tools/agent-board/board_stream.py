@@ -1,7 +1,7 @@
-"""Streams a headless Chrome (Playwright page) to the agent board (tools/agent-board), read-only.
+"""Streams a headless Chrome (Playwright page) to the agent board, read-only. Needs only the Playwright objects passed in.
 
-start(page, board_url, port): CDP screencast, only the latest frame is posted (a background thread drops older ones).
-shot(page, board_url, port, run, name): posts one JPEG screenshot as a finished test's picture.
+start(page, board_url, port, project=None): CDP screencast, only the latest frame is posted (a background thread drops older ones).
+shot(page, board_url, port, run, name, project=None): posts one JPEG screenshot as a finished test's picture.
 Everything is fire and forget: a board that is down never slows or fails the caller.
 """
 import base64
@@ -44,10 +44,10 @@ class _Poster(threading.Thread):
                 self.down_until = time.time() + 5  # board down: stop trying for a few seconds
 
 
-def start(page, board_url, port):
+def start(page, board_url, port, project=None):
     """Starts the screencast of `page` (it survives page loads in the same tab)."""
     try:
-        poster = _Poster(f"{board_url.rstrip('/')}/api/frame?{urlencode({'port': port})}")
+        poster = _Poster(f"{board_url.rstrip('/')}/api/frame?{urlencode({k: v for k, v in {'port': port, 'project': project}.items() if v})}")
         poster.start()
         cdp = page.context.new_cdp_session(page)
 
@@ -66,10 +66,10 @@ def start(page, board_url, port):
         pass
 
 
-def shot(page, board_url, port, run, name):
+def shot(page, board_url, port, run, name, project=None):
     """Posts the latest screencast frame as the test's picture (nothing is captured; no frame yet: nothing posted)."""
     jpeg = _last[0]
     if jpeg is None:
         return
-    q = urlencode({"port": port, "run": run, "name": name})
+    q = urlencode({k: v for k, v in {"port": port, "run": run, "name": name, "project": project}.items() if v})
     threading.Thread(target=_post, args=(f"{board_url.rstrip('/')}/api/shots?{q}", jpeg, 2), daemon=True).start()

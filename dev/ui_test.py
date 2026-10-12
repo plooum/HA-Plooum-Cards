@@ -32,14 +32,17 @@ import time
 import urllib.request
 import uuid
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 from playwright.sync_api import sync_playwright
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools" / "agent-board"))
 import board_stream
+from board import project_of
 from ha_env import ha_token, ha_url
 
 DEV = Path(__file__).parent
+PROJECT = project_of(DEV)  # the agent board groups by project
 
 def strip_comments(text: str) -> str:
     return "\n".join(line for line in text.splitlines() if not re.match(r"\s*//", line))
@@ -78,7 +81,7 @@ def main() -> int:
     def report(kind, **data):
         if not board:
             return
-        body = {"kind": kind, "run": run_id, "port": urlparse(URL).port, "source": "headless", **data}
+        body = {"kind": kind, "run": run_id, "port": urlparse(URL).port, "project": PROJECT, "source": "headless", **data}
         try:
             urllib.request.urlopen(urllib.request.Request(board + "/api/events", json.dumps(body).encode(), {"Content-Type": "application/json"}), timeout=1).read()
         except Exception:
@@ -95,7 +98,7 @@ def main() -> int:
         ctx = browser.new_context(viewport={"width": 1700, "height": 1050}, color_scheme="dark", locale="en-US")
         ctx.add_init_script(f"localStorage.setItem('hassTokens', {json.dumps(json.dumps(hass_tokens))});")
         page = ctx.new_page()
-        board and board_stream.start(page, board, urlparse(URL).port)  # read-only live view on the agent board
+        board and board_stream.start(page, board, urlparse(URL).port, PROJECT)  # read-only live view on the agent board
 
         # Groups of consecutive tests (same_page, same viewport) share one runner page: index=3,4,5.
         groups = []
@@ -115,7 +118,7 @@ def main() -> int:
             page.set_viewport_size({"width": vw, "height": vh})
             idx = ",".join(str(i) for i, _ in group["items"])
             # The steps run in dev/ui_runner.js (the same code as the live runner page).
-            page.goto(f"{URL}/plooum_dev/runner.html?suite={stem}&headless=1&index={idx}&run={run_id}&board={board}{'&verbose=1' if args.verbose else ''}")
+            page.goto(f"{URL}/plooum_dev/runner.html?suite={stem}&headless=1&index={idx}&run={run_id}&board={board}&project={quote(PROJECT or "")}{'&verbose=1' if args.verbose else ''}")
             while True:
                 page.wait_for_function("() => window.uiResult || window.uiShot", timeout=600000)
                 shot = page.evaluate("() => window.uiShot")
@@ -128,7 +131,7 @@ def main() -> int:
                     print(f"    screenshot: {path}")
                 page.evaluate("() => { window.uiShot = null; window.uiShotResolve(); }")
             for (index, test), res in zip(group["items"], page.evaluate("() => window.uiResult")["tests"]):
-                board and board_stream.shot(page, board, urlparse(URL).port, run_id, test["name"])
+                board and board_stream.shot(page, board, urlparse(URL).port, run_id, test["name"], PROJECT)
                 for pr in res["prints"]:
                     print(f"    [{test['name']}] {pr}")
                 errs = res["errors"]
