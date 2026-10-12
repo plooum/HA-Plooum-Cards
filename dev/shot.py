@@ -43,7 +43,7 @@ def main() -> int:
     parser.add_argument("--light", action="store_true", help="light color scheme (default dark)")
     parser.add_argument("--url", help="HA base URL (default: this checkout's instance, see dev/ha_env.py)")
     parser.add_argument("--ready", help="JS predicate to wait for instead of HA being connected (e.g. \"() => window.uiResult\" on the runner page)")
-    parser.add_argument("--board", default="http://127.0.0.1:8120", help="agent board URL the live frames are streamed to (tools/agent-board)")
+    parser.add_argument("--board", default="http://127.0.0.1:8120", help="agent board URL the live frames are streamed to (tools/agent-board); empty disables")
     parser.add_argument("--wait", type=float, default=2.0, help="extra seconds after the cards render")
     args = parser.parse_args()
 
@@ -71,7 +71,7 @@ def main() -> int:
         )
         context.add_init_script(f"localStorage.setItem('hassTokens', {json.dumps(json.dumps(hass_tokens))});")
         page = context.new_page()
-        board_stream.start(page, args.board, urlparse(URL).port)
+        args.board and board_stream.start(page, args.board, urlparse(URL).port)
         page.on("pageerror", lambda exc: errors.append(f"pageerror: {exc.name}: {exc.message}\n{exc.stack or ''}"))
         matched: list[str] = []
 

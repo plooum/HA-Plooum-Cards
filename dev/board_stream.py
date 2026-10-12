@@ -19,6 +19,9 @@ def _post(url, data, timeout=0.5):
         return False
 
 
+_last = [None]  # the latest screencast frame, posted as a finished test's picture (no capture)
+
+
 class _Poster(threading.Thread):
     def __init__(self, url):
         super().__init__(daemon=True)
@@ -53,18 +56,20 @@ def start(page, board_url, port):
                 cdp.send("Page.screencastFrameAck", {"sessionId": ev["sessionId"]})
             except Exception:
                 pass
-            poster.push(base64.b64decode(ev["data"]))
+            jpeg = base64.b64decode(ev["data"])
+            _last[0] = jpeg
+            poster.push(jpeg)
 
         cdp.on("Page.screencastFrame", on_frame)
-        cdp.send("Page.startScreencast", {"format": "jpeg", "quality": 60, "maxWidth": 1280, "maxHeight": 900})
+        cdp.send("Page.startScreencast", {"format": "jpeg", "quality": 60, "maxWidth": 1024, "maxHeight": 768, "everyNthFrame": 2})
     except Exception:
         pass
 
 
 def shot(page, board_url, port, run, name):
-    try:
-        jpeg = page.screenshot(type="jpeg", quality=70)
-    except Exception:
+    """Posts the latest screencast frame as the test's picture (nothing is captured; no frame yet: nothing posted)."""
+    jpeg = _last[0]
+    if jpeg is None:
         return
     q = urlencode({"port": port, "run": run, "name": name})
     threading.Thread(target=_post, args=(f"{board_url.rstrip('/')}/api/shots?{q}", jpeg, 2), daemon=True).start()
