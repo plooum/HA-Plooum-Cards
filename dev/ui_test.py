@@ -97,13 +97,25 @@ def main() -> int:
         page = ctx.new_page()
         board and board_stream.start(page, board, urlparse(URL).port)  # read-only live view on the agent board
 
+        # Groups of consecutive tests (same_page, same viewport) share one runner page: index=3,4,5.
+        groups = []
+        prev_index = None
         for index, test in enumerate(suite["tests"]):
             if test not in tests:
                 continue
-            vw, vh = test.get("viewport") or suite.get("viewport") or [1700, 1050]
+            vp = test.get("viewport") or suite.get("viewport") or [1700, 1050]
+            if groups and test.get("same_page") and prev_index == index - 1 and groups[-1]["vp"] == vp:
+                groups[-1]["items"].append((index, test))
+            else:
+                groups.append({"vp": vp, "items": [(index, test)]})
+            prev_index = index
+
+        for group in groups:
+            vw, vh = group["vp"]
             page.set_viewport_size({"width": vw, "height": vh})
-            # The steps run in dev/ui_runner.js (the same code as the live runner page), one test per page.
-            page.goto(f"{URL}/plooum_dev/runner.html?suite={stem}&headless=1&index={index}&run={run_id}&board={board}{'&verbose=1' if args.verbose else ''}")
+            idx = ",".join(str(i) for i, _ in group["items"])
+            # The steps run in dev/ui_runner.js (the same code as the live runner page).
+            page.goto(f"{URL}/plooum_dev/runner.html?suite={stem}&headless=1&index={idx}&run={run_id}&board={board}{'&verbose=1' if args.verbose else ''}")
             while True:
                 page.wait_for_function("() => window.uiResult || window.uiShot", timeout=600000)
                 shot = page.evaluate("() => window.uiShot")
@@ -115,21 +127,21 @@ def main() -> int:
                 if args.verbose:
                     print(f"    screenshot: {path}")
                 page.evaluate("() => { window.uiShot = null; window.uiShotResolve(); }")
-            res = page.evaluate("() => window.uiResult")["tests"][0]
-            board and board_stream.shot(page, board, urlparse(URL).port, run_id, test["name"])
-            for pr in res["prints"]:
-                print(f"    [{test['name']}] {pr}")
-            errs = res["errors"]
-            all_errors += len(errs)
-            if not res["ok"]:
-                failed += 1
-            print(f"{'PASS' if res['ok'] else 'FAIL'}  {res['seconds']:4.1f}s  {test['name']}")
-            if res["message"]:
-                print(f"      {res['failedStep']}: {res['message']}")
-                if res["got"] is not None:
-                    print(f"      got: {short(res['got'])}")
-            for e in errs:
-                print(f"      console: {e[:400]}")
+            for (index, test), res in zip(group["items"], page.evaluate("() => window.uiResult")["tests"]):
+                board and board_stream.shot(page, board, urlparse(URL).port, run_id, test["name"])
+                for pr in res["prints"]:
+                    print(f"    [{test['name']}] {pr}")
+                errs = res["errors"]
+                all_errors += len(errs)
+                if not res["ok"]:
+                    failed += 1
+                print(f"{'PASS' if res['ok'] else 'FAIL'}  {res['seconds']:4.1f}s  {test['name']}")
+                if res["message"]:
+                    print(f"      {res['failedStep']}: {res['message']}")
+                    if res["got"] is not None:
+                        print(f"      got: {short(res['got'])}")
+                for e in errs:
+                    print(f"      console: {e[:400]}")
         time.sleep(0.1)  # let the last shot posts leave
         browser.close()
 
