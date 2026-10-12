@@ -12,6 +12,8 @@ Nothing.
 
 ## Next
 
+- [ ] **Agent board: bigger browser previews** (user, 2026-10-12): the Browser panel's live frame (and the test thumbnails) are too small; enlarge them (e.g. the frame at the detail column's full width, thumbnails larger / a hover preview). Small `tools/agent-board/index.html` PR.
+
 - [ ] **Roof layer checks**: touch input, narrow edit dialog, a plan generated from areas (not tested by prompt 09).
 
 ## Dropped (user, 2026-10-11)
