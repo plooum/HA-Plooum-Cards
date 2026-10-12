@@ -56,10 +56,11 @@ The user works on two PCs; the pilot may start on either.
 | Agent board part 3: live browser view, headless screencast, agents leave the pane (prompt 16) | `feature/board-browser-view`, [#43](https://github.com/plooum/HA-Plooum-Cards/pull/43) | merged 2026-10-12
 | Pilot skill: sub-agents leave the pane | `feature/skills-pilot-no-pane`, [#44](https://github.com/plooum/HA-Plooum-Cards/pull/44) | merged 2026-10-12
 | Agent board: `archive` route fix (pilot, 2 lines) | `feature/board-archive-route`, [#45](https://github.com/plooum/HA-Plooum-Cards/pull/45) | merged 2026-10-12, board restarted |
-| Roof layer checks: touch, narrow dialog, generated plan (prompt 17) | `feature/roof-layer-checks`, [#46](https://github.com/plooum/HA-Plooum-Cards/pull/46) | merged 2026-10-12; **next: floorplan patch `CARD_VERSION` PR** (the `.canvas` box-sizing fix in src)
-| Board page: update in place, bigger previews, fixed-size preview (prompt 18 + steer) | `feature/board-page-updates`, [#48](https://github.com/plooum/HA-Plooum-Cards/pull/48) | reviewed, no round, waiting for approval |
-| Skills: `dev/ha.sh setup` for the venv (prompt 18 friction) | `feature/skills-friction-18`, [#49](https://github.com/plooum/HA-Plooum-Cards/pull/49) | waiting for approval |
+| Roof layer checks: touch, narrow dialog, generated plan (prompt 17) | `feature/roof-layer-checks`, [#46](https://github.com/plooum/HA-Plooum-Cards/pull/46) | merged 2026-10-12; version bump in #50
+| Board page: update in place, bigger previews, fixed-size preview (prompt 18 + steer) | `feature/board-page-updates`, [#48](https://github.com/plooum/HA-Plooum-Cards/pull/48) | merged 2026-10-12, board restarted
+| Skills: `dev/ha.sh setup` for the venv (prompt 18 friction) | `feature/skills-friction-18`, [#49](https://github.com/plooum/HA-Plooum-Cards/pull/49) | merged 2026-10-12
 | Skills: scratch suites with `--board ''` (prompt 17 friction) | `feature/skills-friction-17`, [#47](https://github.com/plooum/HA-Plooum-Cards/pull/47) | merged 2026-10-12
+| Floorplan `CARD_VERSION` 1.10.3 (for #46), then release V1.3.3 on the user's go | `feature/floorplan-version-1.10.3`, [#50](https://github.com/plooum/HA-Plooum-Cards/pull/50) | waiting for approval |
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
 
