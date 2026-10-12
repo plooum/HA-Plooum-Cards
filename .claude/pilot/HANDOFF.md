@@ -122,6 +122,7 @@ How to run the loop now (all in the skills since #30 / #33): short exact prompts
 
 - Prompt 01 (Sonnet, ~13 min, 48 tool calls): delivered all 10 test cases and the 2 screenshots. Deviations accepted: narrow = preview hidden **or stacked below** the editor (HA 2026.10 stacks it at 420 px instead of hiding it); entering 3D preview bumps seq. Friction, put in the skills by #8: 420 px stacks the preview; stub `setPointerCapture` for synthetic pointer events; `editor_shot.py` js steps are separate evaluates (persist with `window.x`), one `openEditor` per run; `hui-dialog-edit-card` stays in the DOM after Cancel; to drop a corner in place move ≥4 px then back; pilot skill: commit the handoff from a **detached** worktree (`git worktree add --detach`, `git push origin HEAD:main`); floorplan skill: the setup view's design (setupView, setupDialogs, _setupBump).
 
+- Main checkout HA (8123): its `/plooum-edit` storage dashboard is seeded only once, so it goes stale when `plooum-test.yaml` changes (2026-10-12: missing "Home, drawn roof" shifted `openEditor(5)`, a false failure in floorplan-roof-editor). `dev/ha.sh reset` + `start` after a dashboard change on main. Sub-agent worktrees are seeded fresh.
 - Prompt 18 (Sonnet): 2.5 min, 25 calls, + steer (fixed-size preview), no round.
 - Prompt 17 (Sonnet): 2.7 + 0.5 min, 14 + 4 calls, 1 round. First real board run: actions, frames, 6 runs (2 scratch suites `o`, `zz` polluting the Tests tab).
 - Prompt 16 (Sonnet): 3.7 + 2.7 min, 31 + 12 calls, 1 round (speed). Prompt 15 (Sonnet): 1.2 min, 14 calls, no round.
