@@ -6,10 +6,12 @@ by injecting the long-lived token from dev/.ha-token into localStorage.
   dev/.venv/bin/python dev/shot.py /plooum-test/all
   dev/.venv/bin/python dev/shot.py /plooum-test/multistatus -e ha-plooum-multi-status-card -o dev/shots/ms.png
   dev/.venv/bin/python dev/shot.py /plooum-test/all --js "document.querySelector('home-assistant').hass.states['sensor.living_room_temperature'].state"
+  dev/.venv/bin/python dev/shot.py /plooum-test/dpad --console HA-PLOOUM-DPAD
 
 -e/--element crops to the first element matching a CSS selector (Playwright CSS pierces
 shadow DOM, so a custom element tag works anywhere in the page). --js runs after load
-and prints the JSON result. Exit code 1 if the page logged errors (pageerror / console.error).
+and prints the JSON result. --console SUBSTR (repeatable) prints every console message of any
+type containing SUBSTR (case-insensitive) as `console.<type>: <text>`, e.g. a card's version banner. Exit code 1 if the page logged errors (pageerror / console.error).
 """
 
 import argparse
@@ -32,6 +34,7 @@ def main() -> int:
     parser.add_argument("path", help="page path, e.g. /plooum-test/all")
     parser.add_argument("-o", "--output", help="PNG path (default dev/shots/<path>.png)")
     parser.add_argument("-e", "--element", help="CSS selector to crop to")
+    parser.add_argument("--console", action="append", default=[], help="print console messages (any type) containing this text (repeatable)")
     parser.add_argument("--js", action="append", default=[], help="JS expression to evaluate and print (repeatable)")
     parser.add_argument("--width", type=int, default=1280)
     parser.add_argument("--height", type=int, default=900)
@@ -66,10 +69,15 @@ def main() -> int:
         context.add_init_script(f"localStorage.setItem('hassTokens', {json.dumps(json.dumps(hass_tokens))});")
         page = context.new_page()
         page.on("pageerror", lambda exc: errors.append(f"pageerror: {exc.name}: {exc.message}\n{exc.stack or ''}"))
-        page.on(
-            "console",
-            lambda msg: errors.append(f"console.{msg.type}: {msg.text}") if msg.type == "error" else None,
-        )
+        matched: list[str] = []
+
+        def on_console(msg):
+            if msg.type == "error":
+                errors.append(f"console.{msg.type}: {msg.text}")
+            if any(c.lower() in msg.text.lower() for c in args.console):
+                matched.append(f"console.{msg.type}: {msg.text}")
+
+        page.on("console", on_console)
 
         page.goto(URL + args.path)
         page.wait_for_function(args.ready or "() => document.querySelector('home-assistant')?.hass?.connected", timeout=300000 if args.ready else 30000)
@@ -84,6 +92,8 @@ def main() -> int:
         target.screenshot(path=str(output))
         browser.close()
 
+    for line in matched:
+        print(line)
     print(f"screenshot: {output}")
     errors = [e for e in errors if not any(k in e.lower() for k in IGNORED_ERRORS)]
     for err in errors:
