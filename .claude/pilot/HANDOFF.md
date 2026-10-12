@@ -56,7 +56,8 @@ The user works on two PCs; the pilot may start on either.
 | Agent board part 3: live browser view, headless screencast, agents leave the pane (prompt 16) | `feature/board-browser-view`, [#43](https://github.com/plooum/HA-Plooum-Cards/pull/43) | merged 2026-10-12
 | Pilot skill: sub-agents leave the pane | `feature/skills-pilot-no-pane`, [#44](https://github.com/plooum/HA-Plooum-Cards/pull/44) | merged 2026-10-12
 | Agent board: `archive` route fix (pilot, 2 lines) | `feature/board-archive-route`, [#45](https://github.com/plooum/HA-Plooum-Cards/pull/45) | merged 2026-10-12, board restarted |
-| Roof layer checks: touch, narrow dialog, generated plan (prompt 17) | `feature/roof-layer-checks` | sub-agent working (first real run on the board) |
+| Roof layer checks: touch, narrow dialog, generated plan (prompt 17) | `feature/roof-layer-checks`, [#46](https://github.com/plooum/HA-Plooum-Cards/pull/46) | reviewed (1 round: duplicate editor build), waiting for approval; fixes a 2 px `.canvas` overflow (src: needs a floorplan patch `CARD_VERSION` PR) |
+| Board page: update in place, bigger previews (prompt 18) | `feature/board-page-updates` | sub-agent working |
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
 
@@ -118,6 +119,7 @@ How to run the loop now (all in the skills since #30 / #33): short exact prompts
 
 - Prompt 01 (Sonnet, ~13 min, 48 tool calls): delivered all 10 test cases and the 2 screenshots. Deviations accepted: narrow = preview hidden **or stacked below** the editor (HA 2026.10 stacks it at 420 px instead of hiding it); entering 3D preview bumps seq. Friction, put in the skills by #8: 420 px stacks the preview; stub `setPointerCapture` for synthetic pointer events; `editor_shot.py` js steps are separate evaluates (persist with `window.x`), one `openEditor` per run; `hui-dialog-edit-card` stays in the DOM after Cancel; to drop a corner in place move ≥4 px then back; pilot skill: commit the handoff from a **detached** worktree (`git worktree add --detach`, `git push origin HEAD:main`); floorplan skill: the setup view's design (setupView, setupDialogs, _setupBump).
 
+- Prompt 17 (Sonnet): 2.7 + 0.5 min, 14 + 4 calls, 1 round. First real board run: actions, frames, 6 runs (2 scratch suites `o`, `zz` polluting the Tests tab).
 - Prompt 16 (Sonnet): 3.7 + 2.7 min, 31 + 12 calls, 1 round (speed). Prompt 15 (Sonnet): 1.2 min, 14 calls, no round.
 - Prompt 14 (Sonnet): 4.5 + 1.4 + 0.6 min, 67 + 21 + 12 calls, 2 review rounds (headless reporting missing, main checkout registered; narrow layout).
 - Prompt 12 (Sonnet, fast path): 1.6 + 0.8 min, 19 + 9 calls, 1 review round. Prompt 13 (Sonnet, fast path): 0.7 min, 11 calls, no round. Friction already in the skills.
