@@ -23,10 +23,13 @@ from urllib.parse import urlparse
 
 from playwright.sync_api import sync_playwright
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools" / "agent-board"))
 import board_stream
+from board import project_of
 from ha_env import ha_token, ha_url
 
 DEV = Path(__file__).parent
+PROJECT = project_of(DEV)  # the agent board groups by project
 # Noise from HA itself / the headless environment, not from our cards.
 IGNORED_ERRORS = ("favicon", "manifest", "service worker", "serviceworker")
 
@@ -71,7 +74,7 @@ def main() -> int:
         )
         context.add_init_script(f"localStorage.setItem('hassTokens', {json.dumps(json.dumps(hass_tokens))});")
         page = context.new_page()
-        args.board and board_stream.start(page, args.board, urlparse(URL).port)
+        args.board and board_stream.start(page, args.board, urlparse(URL).port, PROJECT)
         page.on("pageerror", lambda exc: errors.append(f"pageerror: {exc.name}: {exc.message}\n{exc.stack or ''}"))
         matched: list[str] = []
 
