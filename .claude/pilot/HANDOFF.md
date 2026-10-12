@@ -63,7 +63,8 @@ The user works on two PCs; the pilot may start on either.
 | Floorplan `CARD_VERSION` 1.10.3 (for #46), then release V1.3.3 on the user's go | `feature/floorplan-version-1.10.3`, [#50](https://github.com/plooum/HA-Plooum-Cards/pull/50) | merged 2026-10-12, [release V1.3.3](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.3.3) published, both assets attached
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
-| Faster floorplan-roof-editor suite: opt-in `same_page` reuse (prompt 19) | `feature/faster-roof-editor-suite` | sub-agent working (baseline 36–42 s, target ≤ 20 s) |
+| Faster floorplan-roof-editor suite: opt-in `same_page` reuse (prompt 19) | `feature/faster-roof-editor-suite`, [#51](https://github.com/plooum/HA-Plooum-Cards/pull/51) | reviewed, waiting for the user: 43.5 → 32.5 s (~25%), target ≤ 20 s not reached (page load was 1–2 s/test, not the main cost) |
+| Skills: measure before setting a speed target (prompt 19) | `feature/skills-friction-19`, [#52](https://github.com/plooum/HA-Plooum-Cards/pull/52) | waiting for the user |
 
 ## Decisions (user)
 
@@ -114,6 +115,8 @@ How to run the loop now (all in the skills since #37 / #41 / #44): short exact p
 Agent board (`tools/agent-board/`, generic, to be moved out of the repo one day): runs from the main checkout on **8120**, data in `~/.local/share/agent-board/` (30 days). Start: `(setsid nohup python3 tools/agent-board/board.py serve > /dev/null 2>&1 &)`. Stop / restart (after a `board.py` / `index.html` merge): `kill $(ps -eo pid,args | awk '/agent-board\/board.py serve/ && !/awk/ && !/bash/ {print $1}')` in a command **of its own** (`pkill -f` / `pgrep -f` match the calling shell when its command line contains the pattern, exit 144). The hook (`.claude/settings.json`) took effect mid-session; a Bash action shows the raw command when the agent gave no description.
 
 ## Sub-agent notes
+
+- Prompt 19 (Sonnet, 4.3 min, 15 calls, model 0.9 / tools 3.0 min, 179 s in suites): measured the split as asked but didn't stop when page load wasn't dominant (went on, reasonably); flagged its own "~2x" title as wrong.
 
 - Prompt 05 (Sonnet, ~6 min + 1 min review round, 53 tool calls): 9/9 in ~4.4 s. Review round: floorplan test flaked on a cold instance (`rendered(tag, 1)` vs lazy dashboard: pass the view's real count), redundant editor assert, cover test depended on the current position, machine-formatted JSON. Friction: worktree sandbox refuses compound `git` / heredoc / `python3 -` commands; a card's shadow root has 1 child (`ha-card`, styles adopted); an editor appended to `body` fails on `localize` (append next to the card, in the skill now).
 
