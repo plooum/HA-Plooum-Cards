@@ -2,7 +2,7 @@
 
 Read by the next pilot first (see the `pilot` skill). Committed straight to `main`, no PR. Keep it current.
 
-_Last update: 2026-10-11, end of pilot session 3 (Opus 5.5, laptop): #17–#34 merged; releases V1.2.0 (`projected_windows`), V1.3.0 (drawn roofs `roofs` + editor roof layer), V1.3.1 (partial gable end), V1.3.2 (window sides). Live test runner in the pane (`runner.html`), dev user in English, faster measured sub-agent loop. Nothing in progress._
+_Last update: 2026-10-12, pilot session 4 (Opus 5.5, desktop): #35–#50 merged; agent board (tools/agent-board, running on 8120); roof layer tests; release V1.3.3. Nothing in progress, backlog empty._
 
 `main`'s protection: the user turned off "Lock branch" on 2026-10-11 (it blocked PR merges too); the pilot pushes `.claude/pilot/` straight to `main`. The pilot stays on `main` in the main checkout (HA on 8123) and commits the handoff there; sub-agents work in their own worktrees with their own HA (see the `pilot` skill).
 
@@ -60,7 +60,7 @@ The user works on two PCs; the pilot may start on either.
 | Board page: update in place, bigger previews, fixed-size preview (prompt 18 + steer) | `feature/board-page-updates`, [#48](https://github.com/plooum/HA-Plooum-Cards/pull/48) | merged 2026-10-12, board restarted
 | Skills: `dev/ha.sh setup` for the venv (prompt 18 friction) | `feature/skills-friction-18`, [#49](https://github.com/plooum/HA-Plooum-Cards/pull/49) | merged 2026-10-12
 | Skills: scratch suites with `--board ''` (prompt 17 friction) | `feature/skills-friction-17`, [#47](https://github.com/plooum/HA-Plooum-Cards/pull/47) | merged 2026-10-12
-| Floorplan `CARD_VERSION` 1.10.3 (for #46), then release V1.3.3 on the user's go | `feature/floorplan-version-1.10.3`, [#50](https://github.com/plooum/HA-Plooum-Cards/pull/50) | waiting for approval |
+| Floorplan `CARD_VERSION` 1.10.3 (for #46), then release V1.3.3 on the user's go | `feature/floorplan-version-1.10.3`, [#50](https://github.com/plooum/HA-Plooum-Cards/pull/50) | merged 2026-10-12, [release V1.3.3](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.3.3) published, both assets attached
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
 
@@ -106,7 +106,7 @@ The user works on two PCs; the pilot may start on either.
 
 ## Next
 
-Agent board done (#39, #42, #43; skills #41, #44), running from main on 8120 (start it if down: pilot skill). Hook verified live 2026-10-12 (it took effect mid-session: prompt 16 got 29 actions; Bash shows the command when the agent gave no description). Browser panel verified with a pilot demo run (agent `demo-browser-view`, port 8123). Was: check live that the hook (#42, `.claude/settings.json`) posts a sub-agent's commands / edits to its timeline (hooks load at session start; unverified whether the hook's `cwd` is the sub-agent's worktree), and that its suites show in the Browser panel. Then BACKLOG.md (roof layer checks).
+Nothing in progress, backlog empty, V1.3.3 published. The agent board runs from main on 8120 (start it if down). Ask the user what's next.
 
 How to run the loop now (all in the skills since #30 / #33): short exact prompts with checked premises, fast path for one-function fixes, the sub-agent tests in its own pane tab (`runner.html`, `pause=0`) and doesn't wait for CI; watch it in the background and steer it when it drifts; after it reports, `python3 .claude/skills/pilot/agent_timing.py <its task output file>` and log the totals below; keep it (context, worktree, HA) until the user approved the merge; stop its HA before `gh pr merge`; rebase only if `main` moved outside `.claude/pilot/` (CLAUDE.md); skills PR right after each review; releases only on the user's go.
 
