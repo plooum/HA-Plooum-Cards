@@ -2,7 +2,7 @@
 
 Read by the next pilot first (see the `pilot` skill). Committed straight to `main`, no PR. Keep it current.
 
-_Last update: 2026-10-12, pilot session 5 (Opus 5.5, laptop): prompt 19 (faster floorplan-roof-editor suite) launched._
+_Last update: 2026-10-12, pilot session 5 (Opus 5.5, laptop): #51 (same_page suite reuse) and #52 merged. Nothing in progress._
 
 `main`'s protection: the user turned off "Lock branch" on 2026-10-11 (it blocked PR merges too); the pilot pushes `.claude/pilot/` straight to `main`. The pilot stays on `main` in the main checkout (HA on 8123) and commits the handoff there; sub-agents work in their own worktrees with their own HA (see the `pilot` skill).
 
@@ -63,8 +63,8 @@ The user works on two PCs; the pilot may start on either.
 | Floorplan `CARD_VERSION` 1.10.3 (for #46), then release V1.3.3 on the user's go | `feature/floorplan-version-1.10.3`, [#50](https://github.com/plooum/HA-Plooum-Cards/pull/50) | merged 2026-10-12, [release V1.3.3](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.3.3) published, both assets attached
 | Drop fisheye from TODO.md (pilot) | `feature/todo-no-fisheye`, [#12](https://github.com/plooum/HA-Plooum-Cards/pull/12) | merged 2026-10-11 |
 | Pilot skill: no stale branches (pilot) | `feature/skills-branch-hygiene`, [#13](https://github.com/plooum/HA-Plooum-Cards/pull/13) | merged 2026-10-11 |
-| Faster floorplan-roof-editor suite: opt-in `same_page` reuse (prompt 19) | `feature/faster-roof-editor-suite`, [#51](https://github.com/plooum/HA-Plooum-Cards/pull/51) | reviewed, waiting for the user: 43.5 → 32.5 s (~25%), target ≤ 20 s not reached (page load was 1–2 s/test, not the main cost) |
-| Skills: measure before setting a speed target (prompt 19) | `feature/skills-friction-19`, [#52](https://github.com/plooum/HA-Plooum-Cards/pull/52) | waiting for the user |
+| Faster floorplan-roof-editor suite: opt-in `same_page` reuse (prompt 19) | `feature/faster-roof-editor-suite`, [#51](https://github.com/plooum/HA-Plooum-Cards/pull/51) | merged 2026-10-12: 43.5 → 32.5 s (~25%), target ≤ 20 s not reached (page load was 1–2 s/test, not the main cost) |
+| Skills: measure before setting a speed target (prompt 19) | `feature/skills-friction-19`, [#52](https://github.com/plooum/HA-Plooum-Cards/pull/52) | merged 2026-10-12 |
 
 ## Decisions (user)
 
@@ -108,7 +108,7 @@ The user works on two PCs; the pilot may start on either.
 
 ## Next
 
-Prompt 19 running (user's pick, 2026-10-12). Laptop session: the main HA's `/plooum-edit` was stale again (false failure in floorplan-roof-editor), `dev/ha.sh reset` fixed it.
+Nothing in progress, no open PR; no release needed (#51/#52 are dev tools only). Ask the user what's next (BACKLOG.md). Laptop session: the main HA's `/plooum-edit` was stale again (false failure in floorplan-roof-editor), `dev/ha.sh reset` fixed it.
 
 How to run the loop now (all in the skills since #37 / #41 / #44): short exact prompts with checked premises and **the strict minimum of tests** (one check per requirement; a dev-tool change often needs no suite); the pilot **never re-runs** a sub-agent's tests, it reads the diff and the pasted run; sub-agents **never use the built-in pane**: `dev/ui_test.py` / `dev/shot.py` stream their headless Chrome to the **agent board**; fast path for one-function fixes; no CI wait in the sub-agent. Board duties at launch / review / merge: `board.py archive --except agent-<id>`, `board.py agent agent-<id> --title ... --status working|review|done` (pilot skill). Show the user the result at review (screenshots, the board). Keep the sub-agent (context, worktree, HA) until the merge; stop its HA before `gh pr merge`; rebase only if `main` moved outside `.claude/pilot/`; skills PR right after each review; releases only on the user's go.
 
