@@ -36,6 +36,7 @@ from urllib.parse import urlparse
 
 from playwright.sync_api import sync_playwright
 
+import board_stream
 from ha_env import ha_token, ha_url
 
 DEV = Path(__file__).parent
@@ -56,7 +57,7 @@ def main() -> int:
     ap.add_argument("--out", default=str(DEV / "shots"))
     ap.add_argument("--verbose", action="store_true")
     ap.add_argument("--url", help="HA base URL (default: this checkout's instance, see dev/ha_env.py)")
-    ap.add_argument("--board", default="http://127.0.0.1:8120", help="agent board URL the run is reported to (tools/agent-board)")
+    ap.add_argument("--board", default="http://127.0.0.1:8120", help="agent board URL the run is reported to and streamed to (tools/agent-board); empty disables both")
     args = ap.parse_args()
 
     suite = json.loads(strip_comments(Path(args.suite).read_text()))
@@ -75,6 +76,8 @@ def main() -> int:
     board = args.board.rstrip("/")
 
     def report(kind, **data):
+        if not board:
+            return
         body = {"kind": kind, "run": run_id, "port": urlparse(URL).port, "source": "headless", **data}
         try:
             urllib.request.urlopen(urllib.request.Request(board + "/api/events", json.dumps(body).encode(), {"Content-Type": "application/json"}), timeout=1).read()
@@ -92,6 +95,7 @@ def main() -> int:
         ctx = browser.new_context(viewport={"width": 1700, "height": 1050}, color_scheme="dark", locale="en-US")
         ctx.add_init_script(f"localStorage.setItem('hassTokens', {json.dumps(json.dumps(hass_tokens))});")
         page = ctx.new_page()
+        board and board_stream.start(page, board, urlparse(URL).port)  # read-only live view on the agent board
 
         for index, test in enumerate(suite["tests"]):
             if test not in tests:
@@ -112,6 +116,7 @@ def main() -> int:
                     print(f"    screenshot: {path}")
                 page.evaluate("() => { window.uiShot = null; window.uiShotResolve(); }")
             res = page.evaluate("() => window.uiResult")["tests"][0]
+            board and board_stream.shot(page, board, urlparse(URL).port, run_id, test["name"])
             for pr in res["prints"]:
                 print(f"    [{test['name']}] {pr}")
             errs = res["errors"]
@@ -125,6 +130,7 @@ def main() -> int:
                     print(f"      got: {short(res['got'])}")
             for e in errs:
                 print(f"      console: {e[:400]}")
+        time.sleep(0.1)  # let the last shot posts leave
         browser.close()
 
     n = len(tests)

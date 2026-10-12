@@ -80,12 +80,12 @@
 
   // Test results go to the agent board (tools/agent-board), fire and forget: a board that is down
   // must neither slow nor fail a suite. The agent is resolved by the board from this HA's port.
-  const board = q.get('board') || 'http://127.0.0.1:8120';
+  const board = q.has('board') ? q.get('board') : 'http://127.0.0.1:8120';  // board= (empty) disables reporting
   // Headless (dev/ui_test.py) loads one page per test (index=) under a shared run= id, and posts the run's start and end itself.
   const single = q.get('index') !== null;
   const runId = q.get('run') || Math.random().toString(36).slice(2, 10);
   const report = (kind, data) => {
-    if (single && kind.startsWith('run-')) return;
+    if (!board || (single && kind.startsWith('run-'))) return;
     fetch(board + '/api/events', {
       method: 'POST', keepalive: true, headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ kind, run: runId, port: location.port, source: headless ? 'headless' : 'pane', ...data }),
