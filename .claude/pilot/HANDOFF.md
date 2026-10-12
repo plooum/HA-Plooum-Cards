@@ -2,7 +2,7 @@
 
 Read by the next pilot first (see the `pilot` skill). Committed straight to `main`, no PR. Keep it current.
 
-_Last update: 2026-10-12, pilot session 5 (Opus 5.5, laptop): #51–#54 merged, agent board extracted to plooum/agent-board (agent-board#1 merged) and installed globally on the laptop. Nothing in progress._
+_Last update: 2026-10-12, pilot session 5 (Opus 5.5, laptop): agent board extracted and installed globally; prompt 23 (AGENTS.md + install.sh in plooum/agent-board) running._
 
 `main`'s protection: the user turned off "Lock branch" on 2026-10-11 (it blocked PR merges too); the pilot pushes `.claude/pilot/` straight to `main`. The pilot stays on `main` in the main checkout (HA on 8123) and commits the handoff there; sub-agents work in their own worktrees with their own HA (see the `pilot` skill).
 
@@ -69,8 +69,11 @@ The user works on two PCs; the pilot may start on either.
 | Agent board extracted: [plooum/agent-board](https://github.com/plooum/agent-board) (public, GPL-3.0, `git subtree split`, squash-only, auto-delete branches), installed in `~/.local/opt/agent-board`, dev clone `~/git/agent-board`; the board now runs from the install (pilot) | — | done 2026-10-12 |
 | Use the board from its repo, remove `tools/agent-board` (prompt 21) | `feature/board-external`, [#54](https://github.com/plooum/HA-Plooum-Cards/pull/54) | merged 2026-10-12 |
 | agent-board: install docs + global skill (prompt 22, not in a worktree: `~/git/agent-board`) | `feature/install-docs`, [plooum/agent-board#1](https://github.com/plooum/agent-board/pull/1) | merged 2026-10-12. Laptop: install pulled, board restarted from it, `~/.claude/settings.json` created with the global hook, `~/.claude/skills/agent-board` symlinked |
+| agent-board: `AGENTS.md` + idempotent `install.sh` (prompt 23, in `~/git/agent-board`, no worktree) | `feature/agents-md` on plooum/agent-board | sub-agent working |
 
 ## Decisions (user)
+
+- 2026-10-12: the user wants to tell a **future project's pilot** "use this board: <repo URL>, the instructions are in the repo": `AGENTS.md` (for agents) + `install.sh` (idempotent: clone/pull, hook merged into `~/.claude/settings.json`, skill symlink, start) in plooum/agent-board (prompt 23). The pilot workflow itself stays in this repo for now (a `plooum/claude-pilot` the same way, maybe later).
 
 - 2026-10-12: **the agent board goes to its own repo `plooum/agent-board`, public, history kept**; **installed once per machine** (`~/.local/opt/agent-board`, hook in `~/.claude/settings.json` for all projects); this repo uses it when present and works without it. After #21's merge the pilot adds the global hook and the skill symlink (`~/.claude/skills/agent-board`).
 
