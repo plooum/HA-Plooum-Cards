@@ -72,6 +72,7 @@ The user works on two PCs; the pilot may start on either.
 | agent-board: `AGENTS.md` + idempotent `install.sh` (prompt 23, in `~/git/agent-board`, no worktree) | `feature/agents-md`, [plooum/agent-board#2](https://github.com/plooum/agent-board/pull/2) | merged 2026-10-12; `install.sh` re-run on the laptop: all "already there", settings unchanged |
 | [plooum/claude-pilot](https://github.com/plooum/claude-pilot) created (public, GPL-3.0, initial commit, squash-only), dev clone `~/git/claude-pilot` | — | done 2026-10-12 |
 | claude-pilot: generic skills `pilot` + `pilot-subagent`, templates, AGENTS.md, install.sh (prompt 24, no worktree) | `feature/initial-content`, [plooum/claude-pilot#1](https://github.com/plooum/claude-pilot/pull/1) | merged 2026-10-12; installed in `~/.local/opt/claude-pilot`, skills linked |
+| agent-board leftovers (light theme, Tests project filter, SSE reconnect): already in the code, checked by the pilot in the pane, no sub-agent | — | done 2026-10-13 |
 | This repo: `pilot` → `pilot-ha-plooum` (specifics only), `pr-workflow` trimmed, CLAUDE.md (prompt 25) | `feature/pilot-skills-split`, [#55](https://github.com/plooum/HA-Plooum-Cards/pull/55) | merged 2026-10-12 |
 
 ## Decisions (user)

@@ -12,9 +12,8 @@ Nothing.
 
 ## Next
 
-Candidates proposed to the user on 2026-10-12, none chosen yet:
+Candidates proposed to the user on 2026-10-12 (agent board leftovers: checked by the pilot 2026-10-13, nothing to do):
 
-- [ ] **Agent board leftovers** (in plooum/agent-board): eye check of the light theme, the Tests tab project filter in the page, SSE reconnection after a restart.
 - [ ] **New card features**: on hold since 2026-10-11 ("no new feature for now"); wait for the user's ideas.
 
 ## Dropped (user, 2026-10-11)
