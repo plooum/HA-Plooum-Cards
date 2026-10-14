@@ -84,6 +84,8 @@ L'utilisateur travaille sur deux PC ; le pilote peut démarrer sur l'un ou l'aut
 
 ## Décisions (utilisateur)
 
+- 2026-10-15 : quand l'utilisateur écrit seulement **« maj board »**, le pilote met à jour le board tout de suite : relevé `get_usage` → `board.py usage --file`, sa ligne `board.py pilot --status ...`, les statuts des sous-agents, puis recharge l'onglet du board et répond en une ou deux lignes.
+
 - 2026-10-14 : **tout en français sauf le code et la documentation utilisateur** (README.md, docs/) : chat, fichiers du pilote, prompts, PR, commits, CLAUDE.md, skills du projet et skills globaux de claude-pilot (prompts 28–30). **Montrer à l'utilisateur chaque prompt** envoyé à un sous-agent (et les relances). Carte ciel : dôme, option `time_control` (rotate d'abord), astronomy-engine, bandeau « prochain événement » ; suivi dans [ROADMAP.md](ROADMAP.md).
 
 - 2026-10-14 : **nouvelles cartes, dans cet ordre** : 1. horloge de Berlin (prompt 27, conception par le pilote) ; 2. une carte du ciel (horloge astronomique + planétarium ; une carte à deux modes ou deux cartes, et astronomy-engine ou formules écrites à la main : **reste à décider** avec l'utilisateur). **Toujours afficher l'agent board dans le pane intégré** quand on pilote.
