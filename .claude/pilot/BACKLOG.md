@@ -14,7 +14,7 @@ Nothing.
 
 Candidates proposed to the user on 2026-10-12 (agent board leftovers: checked by the pilot 2026-10-13, nothing to do):
 
-- [ ] **New card features**: on hold since 2026-10-11 ("no new feature for now"); wait for the user's ideas.
+- New cards and features: see [ROADMAP.md](ROADMAP.md) (2026-10-14).
 
 ## Dropped (user, 2026-10-11)
 
