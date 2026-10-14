@@ -53,6 +53,17 @@
       ]
     },
     {
+      "name": "berlin-clock: renders, reads the time, editor",
+      "path": "/plooum-test/berlin-clock",
+      "steps": [
+        { "js": "S.cards = await T.card.rendered('ha-plooum-berlin-clock-card', 2); S.C = customElements.get('ha-plooum-berlin-clock-card');" },
+        { "assert": "deep(S.cards[0].shadowRoot, '.lamp').length === 24", "msg": "24 lamps" },
+        { "assert": "(() => { const l = S.C.lamps(13, 37, 42); return l.seconds === true && l.rows.map((r) => r.filter(Boolean).length).join() === '2,3,7,2'; })()", "msg": "13:37:42 reads 2 / 3 / 7 / 2, seconds lit" },
+        { "assert": "(() => { const l = S.C.lamps(0, 0, 1); return l.seconds === false && l.rows.every((r) => r.every((x) => !x)); })()", "msg": "00:00:01 lights nothing" },
+        { "js": "await T.card.editorRenders(S.cards[0]);" }
+      ]
+    },
+    {
       "name": "tabbed: renders, reacts, editor",
       "path": "/plooum-test/tabbed",
       "steps": [

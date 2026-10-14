@@ -6,6 +6,7 @@
 // 2. Add an import line below.
 // That's it: the build (npm run build) regenerates ha-plooum-cards.js including the new card.
 
+import './cards/berlin-clock/ha-plooum-berlin-clock-card.js';
 import './cards/button-badge/ha-plooum-buttonbadge-card.js';
 import './cards/cover/ha-plooum-cover-card.js';
 import './cards/dpad/ha-plooum-dpad-card.js';
