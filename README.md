@@ -11,6 +11,7 @@ A collection of custom Lovelace cards for Home Assistant, packaged as **a single
 
 | Card | Lovelace type | Docs |
 | :--- | :--- | :--- |
+| Ha Plooum Berlin Clock Card | `custom:ha-plooum-berlin-clock-card` | [docs/berlin-clock.md](docs/berlin-clock.md) |
 | Ha Plooum Button Badge Card | `custom:ha-plooum-buttonbadge-card` | [docs/button-badge.md](docs/button-badge.md) |
 | Ha Plooum Cover Card | `custom:ha-plooum-cover-card` | [docs/cover.md](docs/cover.md) |
 | Ha Plooum D-Pad Card | `custom:ha-plooum-dpad-card` | [docs/dpad.md](docs/dpad.md) |
@@ -22,6 +23,11 @@ A collection of custom Lovelace cards for Home Assistant, packaged as **a single
 | HA Plooum Vivarium Card | `custom:ha-plooum-vivarium-card` | [docs/vivarium.md](docs/vivarium.md) |
 
 ---
+
+### Ha Plooum Berlin Clock Card
+The time as a Berlin clock (Mengenlehreuhr): 24 lamps read from top to bottom, with classic or theme colors.
+
+![Berlin Clock preview](docs/previews/berlin-clock.png)
 
 ### Ha Plooum Button Badge Card
 A button combined with a floating badge, with a custom icon and text, and tap/hold actions (toggle, navigate, script).
@@ -106,6 +112,7 @@ All the cards are compiled together into a single file (`ha-plooum-cards.js`) wi
 src/
 ├── index.js                  # entry point: imports every card
 └── cards/
+    ├── berlin-clock/
     ├── button-badge/
     ├── cover/
     ├── dpad/

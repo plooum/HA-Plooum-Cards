@@ -95,6 +95,7 @@ views:
           - input_boolean.aquarium_uv
           - counter.ptz_presses
           - counter.script_runs
+      - type: custom:ha-plooum-berlin-clock-card
 
   - title: D-Pad
     path: dpad
@@ -716,3 +717,13 @@ views:
               - input_boolean.bedroom_light
               - input_boolean.tv_plug_available
               - counter.script_runs
+
+  - title: Berlin Clock
+    path: berlin-clock
+    cards:
+      - type: custom:ha-plooum-berlin-clock-card
+      - type: custom:ha-plooum-berlin-clock-card
+        title: Server time
+        colors: theme
+        show_time: true
+        time_zone: server
