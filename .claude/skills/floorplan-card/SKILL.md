@@ -1,58 +1,58 @@
 ---
 name: floorplan-card
-description: Working on the floorplan card (src/cards/floorplan/ha-plooum-floorplan-card.js, ~7,200 lines) - map of the file, plan / 3D / camera conventions, the editor's camera alignment, the 3D view's orbit, and pitfalls. Load it before changing the floorplan card or its editor.
+description: Travailler sur la carte floorplan (src/cards/floorplan/ha-plooum-floorplan-card.js, ~7 200 lignes) - plan du fichier, conventions de plan / 3D / caméra, alignement de la caméra dans l'éditeur, orbite de la vue 3D et pièges. À charger avant de modifier la carte floorplan ou son éditeur.
 ---
 
-# Floorplan card
+# Carte floorplan
 
-One file, [src/cards/floorplan/ha-plooum-floorplan-card.js](../../../src/cards/floorplan/ha-plooum-floorplan-card.js). Its user docs: [docs/floorplan.md](../../../docs/floorplan.md). Don't read the file top to bottom: grep for the section, then read around it. Line numbers below are approximate (they drift).
+Un seul fichier, [src/cards/floorplan/ha-plooum-floorplan-card.js](../../../src/cards/floorplan/ha-plooum-floorplan-card.js). Sa doc utilisateur : [docs/floorplan.md](../../../docs/floorplan.md). Ne lis pas le fichier de haut en bas : cherche la section avec grep, puis lis autour. Les numéros de ligne ci-dessous sont approximatifs (ils dérivent).
 
-## Map
+## Plan
 
-| Lines | What |
+| Lignes | Quoi |
 | :--- | :--- |
-| 1–130 | constants: `CARD_VERSION`, `CARD_DEFAULTS`, ranges, `U3` (px per plan unit in 3D), `ORBIT_DEFAULT`, `TILT_MIN/MAX` |
-| ~130–620 | plan helpers: rooms, `roomAt`, `resolveFloor(hass, floor)` (items with state, camera settings, `plan.indoor`, `plan.rooms`, `plan.bounds`) |
-| `// --- Cameras` ~627 | camera config normalization (direction, tilt, fov, height, distortion, pins…) |
-| `// --- 3D geometry` ~740 | `wallSegments`, walls, roofs |
-| `// --- Camera model` ~978 | `cameraHeight`, `cameraPose(cam, C, z0)`, `toPicture(pose, P, aspect)`, lens model |
+| 1–130 | constantes : `CARD_VERSION`, `CARD_DEFAULTS`, plages, `U3` (px par unité de plan en 3D), `ORBIT_DEFAULT`, `TILT_MIN/MAX` |
+| ~130–620 | helpers du plan : pièces, `roomAt`, `resolveFloor(hass, floor)` (éléments avec état, réglages de caméra, `plan.indoor`, `plan.rooms`, `plan.bounds`) |
+| `// --- Cameras` ~627 | normalisation de la configuration des caméras (direction, tilt, fov, hauteur, distorsion, épingles…) |
+| `// --- 3D geometry` ~740 | `wallSegments`, murs, toits |
+| `// --- Camera model` ~978 | `cameraHeight`, `cameraPose(cam, C, z0)`, `toPicture(pose, P, aspect)`, modèle d'objectif |
 | `// --- WebGL renderer` ~1181 | `Mesh`, `GlScene`, `viewMatrix` |
-| ~1800–2040 | camera solving and editor geometry: `solveCamera`, `planCorners`, `facadeCorners`, `planOccluders`, `segmentToPicture` |
-| `class HaPlooumFloorplanCard` ~2188 | the card. `// --- 3D view` ~3068 (`_homeView`, `_renderScene3d`, `_shownOrbit`, `_buildScene`), interactions ~3986–4115 (`_down3d`, `_move3d`, `_up3d`, `_wheel3d`, `_zoom3d`, `_resetView`, `_screenTap`) |
-| `class HaPlooumFloorplanCardEditor` ~5178 | the editor. `_editFloor`, `_applyDrag`, the selection panel and camera "Advanced: 3D and projection" panel (~5650), `_renderCameraView` (~5747), `_cvDown/_cvMove/_cvUp`, `_pinnedSettings`, `_selectionChanged`, `_cameraDefaults` |
-| ~7225 | registration |
+| ~1800–2040 | résolution de caméra et géométrie de l'éditeur : `solveCamera`, `planCorners`, `facadeCorners`, `planOccluders`, `segmentToPicture` |
+| `class HaPlooumFloorplanCard` ~2188 | la carte. `// --- 3D view` ~3068 (`_homeView`, `_renderScene3d`, `_shownOrbit`, `_buildScene`), interactions ~3986–4115 (`_down3d`, `_move3d`, `_up3d`, `_wheel3d`, `_zoom3d`, `_resetView`, `_screenTap`) |
+| `class HaPlooumFloorplanCardEditor` ~5178 | l'éditeur. `_editFloor`, `_applyDrag`, le panneau de sélection et le panneau caméra « Advanced: 3D and projection » (~5650), `_renderCameraView` (~5747), `_cvDown/_cvMove/_cvUp`, `_pinnedSettings`, `_selectionChanged`, `_cameraDefaults` |
+| ~7225 | enregistrement |
 
 ## Conventions
 
-- Plan coordinates: x to the right, y **down**, in plan units (≈ metres). Floor k stands at `z0 = k * (wallHeight + SLAB)`.
-- Camera `direction`: degrees in the plan, `tilt`: down from horizontal, `fov`: horizontal.
-- **3D orbit** (`this._orbit`, null = framed by `_homeView`): `{ az, tilt, dist, target: [x, y, z] }`. The eye is `target + d·(sin t·sin a, sin t·cos a, cos t)` with `d = dist / U3`: `tilt` 0 = straight down, 90 = horizontal; the eye's horizontal direction from the target is `(sin az, cos az)`, so `az = atan2(nx, ny)` puts the eye along the plan vector `(nx, ny)`. `_shownOrbit` animates towards a new `_orbit`. `_screenTap` is a worked example of a computed orbit (behind a camera, framing its screen). `dist` is in px (`U3` = 100 px per plan unit) while `target` is in plan units (z too): `dist: 1000` is 10 units from the target. In a test or a render script, set `card._orbit` (and `card.setConfig({...card.config, ...})`) in the page: no reload needed.
-- For a render showing geometry (roofs, walls), turn `projection` off in the card's config first: projected pictures hide it. Before a series of shots, take one and check which side of the house you're on.
-- **Camera pictures refresh on `card._tick`** (the `t=` query of every snapshot URL). After changing what a dev camera films (a cover's position), bump `card._tick++` and wait for the new picture; a camera without `reference_picture` projects its latest snapshot.
-- 3D view state: `_view` ('2d' / '3d'), `_level3d` (shown floors, null = all + roof), `_focus`. `_scene3dState` holds `vp` (`{ w, h, p }`: viewport and perspective distance), `home`, `screens`, `cameras`.
-- `facadeCorners(plan.indoor, wallHeight, pose, aspect, hidden)` returns the 4 corners of the facade an outdoor camera sees best: the one the editor offers for pinning. An indoor camera uses its own room: `plan.indoor[roomAt(plan.indoor, x, y)]`.
+- Coordonnées du plan : x vers la droite, y **vers le bas**, en unités de plan (≈ mètres). L'étage k se tient à `z0 = k * (wallHeight + SLAB)`.
+- `direction` de la caméra : degrés dans le plan, `tilt` : vers le bas depuis l'horizontale, `fov` : horizontal.
+- **Orbite 3D** (`this._orbit`, null = cadrée par `_homeView`) : `{ az, tilt, dist, target: [x, y, z] }`. L'œil est à `target + d·(sin t·sin a, sin t·cos a, cos t)` avec `d = dist / U3` : `tilt` 0 = droit vers le bas, 90 = horizontal ; la direction horizontale de l'œil depuis la cible est `(sin az, cos az)`, donc `az = atan2(nx, ny)` place l'œil le long du vecteur de plan `(nx, ny)`. `_shownOrbit` s'anime vers une nouvelle `_orbit`. `_screenTap` est un exemple travaillé d'orbite calculée (derrière une caméra, cadrant son écran). `dist` est en px (`U3` = 100 px par unité de plan) alors que `target` est en unités de plan (z aussi) : `dist: 1000` fait 10 unités de la cible. Dans un test ou un script de rendu, fixe `card._orbit` (et `card.setConfig({...card.config, ...})`) dans la page : pas de rechargement nécessaire.
+- Pour un rendu qui montre de la géométrie (toits, murs), désactive d'abord `projection` dans la configuration de la carte : les images projetées la cachent. Avant une série de captures, prends-en une et vérifie de quel côté de la maison tu es.
+- **Les images des caméras se rafraîchissent sur `card._tick`** (le paramètre `t=` de chaque URL d'instantané). Après avoir changé ce que filme une caméra de dev (la position d'un volet), incrémente `card._tick++` et attends la nouvelle image ; une caméra sans `reference_picture` projette son dernier instantané.
+- État de la vue 3D : `_view` ('2d' / '3d'), `_level3d` (étages affichés, null = tous + toit), `_focus`. `_scene3dState` contient `vp` (`{ w, h, p }` : zone d'affichage et distance de perspective), `home`, `screens`, `cameras`.
+- `facadeCorners(plan.indoor, wallHeight, pose, aspect, hidden)` renvoie les 4 coins de la façade qu'une caméra extérieure voit le mieux : celle que l'éditeur propose d'épingler. Une caméra intérieure utilise sa propre pièce : `plan.indoor[roomAt(plan.indoor, x, y)]`.
 
-- Inspecting the 3D scene from a test: `card._plans3d(card._floors(), 99)` gives the stacked floors `s` (`s.all`, `s.shown`, `s.H`); build on such methods rather than reaching for module-level functions, which tests can't call.
+- Inspecter la scène 3D depuis un test : `card._plans3d(card._floors(), 99)` donne les étages empilés `s` (`s.all`, `s.shown`, `s.H`) ; appuie-toi sur de telles méthodes plutôt que sur des fonctions de niveau module, que les tests ne peuvent pas appeler.
 
-## Editor pitfalls
+## Pièges de l'éditeur
 
-- Editor undo: `_history` entries are `{ floors, roofs }` (`_remember`, `_undo`). The roof layer (`_roofLayer`) edits `roofs` through `_editRoofs` / `_setRoofs`; rooms and roof zones share the canvas pointer code (the drag's `target: 'room' | 'roof'`). For tests: `_autoRoofZones()` / `_roofZones()`.
+- Annulation dans l'éditeur : les entrées de `_history` sont `{ floors, roofs }` (`_remember`, `_undo`). La couche des toits (`_roofLayer`) modifie `roofs` par `_editRoofs` / `_setRoofs` ; les pièces et les zones de toit partagent le code de pointeur du canvas (le `target` du glissement : `'room' | 'roof'`). Pour les tests : `_autoRoofZones()` / `_roofZones()`.
 
-- During a corner or picture drag, the new camera settings only live in `this._camDrag.settings` (applied to the rendered floor by `_applyDrag`). **`config-changed` is only dispatched on pointer up** (`_cvUp`): the HA preview card updates on drop, not during the drag.
-- HA may give the preview card a new config through `setConfig` or recreate it (stacks rebuild their cards): state that must survive an update can't live only on the card instance.
-- The card has no direct link to its editor: they're separate elements, both somewhere under `hui-dialog-edit-card`'s shadow root. Both are defined in this file, so module-level state is shared between them.
-- In edit mode `card.preview` is true for the dashboard cards too, not only for the dialog's preview (see `ha-dev-testing`).
+- Pendant un glissement de coin ou d'image, les nouveaux réglages de caméra ne vivent que dans `this._camDrag.settings` (appliqués à l'étage affiché par `_applyDrag`). **`config-changed` n'est émis qu'au relâchement du pointeur** (`_cvUp`) : la carte d'aperçu de HA se met à jour au dépôt, pas pendant le glissement.
+- HA peut donner à la carte d'aperçu une nouvelle configuration par `setConfig` ou la recréer (les piles reconstruisent leurs cartes) : un état qui doit survivre à une mise à jour ne peut pas vivre seulement sur l'instance de la carte.
+- La carte n'a pas de lien direct avec son éditeur : ce sont des éléments séparés, tous deux quelque part sous le shadow root de `hui-dialog-edit-card`. Les deux sont définis dans ce fichier, donc l'état de niveau module est partagé entre eux.
+- En mode édition, `card.preview` vaut vrai aussi pour les cartes du tableau de bord, pas seulement pour l'aperçu de la boîte de dialogue (voir `ha-dev-testing`).
 
-## Setup view (editor ↔ preview)
+## Vue de réglage (éditeur ↔ aperçu)
 
-While a projecting camera is lined up (Advanced panel open), the dialog's preview card, or the editor's embedded card in a narrow dialog, shows the projection from a checking viewpoint. Design, to reuse for anything else the editor must show in the preview:
+Tant qu'une caméra à projection est alignée (panneau Advanced ouvert), la carte d'aperçu de la boîte de dialogue, ou la carte intégrée de l'éditeur dans une boîte étroite, montre la projection depuis un point de vue de contrôle. Conception, à réutiliser pour tout ce que l'éditeur doit montrer dans l'aperçu :
 
-- `setupView(hass, floors, req, vp, wallHeight)`: the one function computing the viewpoint (outdoor: facing `facadeCorners`' facade; indoor: above the camera, its floor only; else behind the camera).
-- `setupDialogs`: module-level `Map` keyed by the `hui-dialog-edit-card` element (found with `dialogOf()`, walking `parentNode || host`): the editor, its config, the request `{ camera, floor, aspect, seq }`, the registered cards, free-view state, the view to restore (`before`). Cards register in `connectedCallback` and read it right away, which is how a card rebuilt by HA keeps the setup. Readable in tests as `customElements.get('ha-plooum-floorplan-card').setupDialogs`.
-- `setupTarget(state)`: the preview's card, matched by config (`configKey()` caches the JSON strings per config object: it runs on every card update).
-- Editor: `_setupBump()` after each alignment change (`seq++`), `_checkLayout()` (rAF-coalesced, never during a drag) decides wide vs narrow, `_embeddedCard()` is a real card with `_embedded = true` (no header).
-- Card: `_syncSetup()` (from connect, `setConfig`, `updated`), `_userMoved()` in every 3D gesture → free view, `_renderSetupBadge()`.
+- `setupView(hass, floors, req, vp, wallHeight)` : l'unique fonction qui calcule le point de vue (extérieur : face à la façade de `facadeCorners` ; intérieur : au-dessus de la caméra, son étage seulement ; sinon derrière la caméra).
+- `setupDialogs` : une `Map` de niveau module indexée par l'élément `hui-dialog-edit-card` (trouvé avec `dialogOf()`, en remontant `parentNode || host`) : l'éditeur, sa configuration, la requête `{ camera, floor, aspect, seq }`, les cartes enregistrées, l'état de la vue libre, la vue à restaurer (`before`). Les cartes s'enregistrent dans `connectedCallback` et la lisent aussitôt, c'est ainsi qu'une carte reconstruite par HA garde le réglage. Lisible dans les tests par `customElements.get('ha-plooum-floorplan-card').setupDialogs`.
+- `setupTarget(state)` : la carte de l'aperçu, retrouvée par sa configuration (`configKey()` met en cache les chaînes JSON par objet de configuration : il tourne à chaque mise à jour de carte).
+- Éditeur : `_setupBump()` après chaque changement d'alignement (`seq++`), `_checkLayout()` (regroupé par rAF, jamais pendant un glissement) décide large ou étroit, `_embeddedCard()` est une vraie carte avec `_embedded = true` (sans en-tête).
+- Carte : `_syncSetup()` (depuis connect, `setConfig`, `updated`), `_userMoved()` dans chaque geste 3D → vue libre, `_renderSetupBadge()`.
 
-## Test plan
+## Plan de test
 
-`/plooum-test/floorplan` and `/plooum-edit/floorplan?edit=1` (stack card 1 "Home" in 2D, card 3 "Home in 3D", card 4 "floating screens"). Cameras: `camera.garden_camera` (outdoor, wide angle, `distortion: -0.25`, projected), `camera.living_room_camera` (indoor, projected), `camera.garage_camera` (can become unavailable), `camera.does_not_exist` (missing). Their pictures are rendered from their real pose, so a right setting makes the projection fall exactly on the walls and floor.
+`/plooum-test/floorplan` et `/plooum-edit/floorplan?edit=1` (carte 1 de la pile « Home » en 2D, carte 3 « Home in 3D », carte 4 « floating screens »). Caméras : `camera.garden_camera` (extérieure, grand-angle, `distortion: -0.25`, projetée), `camera.living_room_camera` (intérieure, projetée), `camera.garage_camera` (peut devenir indisponible), `camera.does_not_exist` (manquante). Leurs images sont rendues depuis leur vraie pose, donc un bon réglage fait tomber la projection exactement sur les murs et le sol.
