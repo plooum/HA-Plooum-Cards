@@ -1,74 +1,76 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Ce fichier donne à Claude Code (claude.ai/code) les consignes pour travailler dans ce dépôt.
 
-## Commands
+## Commandes
 
 ```bash
 npm install     # install dependencies
 npm run build   # rollup -c — regenerates ha-plooum-cards.js and its sourcemap at the repo root
 ```
 
-`compil.sh` runs both of the above in sequence. There is no lint or unit-test setup; cards are tested in a local Home Assistant — see **Testing** below.
+`compil.sh` enchaîne les deux. Il n'y a ni lint ni tests unitaires : les cartes se testent dans un Home Assistant local, voir **Testing** plus bas.
 
-The compiled bundle (`ha-plooum-cards.js` / `.js.map`) is **not** committed (gitignored). Locally, run `npm run build` after any change under `src/` so the dev HA serves it. On GitHub, [build.yml](.github/workflows/build.yml) builds it on every push and PR (downloadable artifact), and attaches it to each published release — HACS downloads it from the release assets. [validate.yml](.github/workflows/validate.yml) runs the HACS checks.
+Le bundle compilé (`ha-plooum-cards.js` / `.js.map`) n'est **pas** versionné (gitignored). En local, lance `npm run build` après toute modification sous `src/` pour que le HA de dev le serve. Sur GitHub, [build.yml](.github/workflows/build.yml) le construit à chaque push et chaque PR (artefact téléchargeable) et l'attache à chaque release publiée : HACS le télécharge depuis les assets de la release. [validate.yml](.github/workflows/validate.yml) lance les vérifications HACS.
 
 ## Architecture
 
-This is a single HACS (Home Assistant Community Store) Lovelace plugin that bundles several independent custom cards into one JS file.
+C'est un unique plugin Lovelace HACS (Home Assistant Community Store) qui regroupe plusieurs cartes personnalisées indépendantes dans un seul fichier JS.
 
-- **Single entry point**: [src/index.js](src/index.js) imports every card module so they register themselves. Rollup ([rollup.config.mjs](rollup.config.mjs)) bundles this into one IIFE file, `ha-plooum-cards.js`, which is the one resource HACS/Home Assistant loads (declared in [hacs.json](hacs.json), shipped as a release asset).
-- **Each card is fully self-contained** in `src/cards/<card-name>/`, as a single `.js` file built with `lit` (`LitElement`, `html`, `css`). A card file defines, in order:
-  1. The card class (`static getConfigElement()`, `static getStubConfig()`, `setConfig()`, `render()`, `static get styles()`).
-  2. A paired editor class (`<Card>Editor`) implementing the visual config UI (`setConfig()`, `_valueChanged()` dispatching `config-changed` events, `render()`).
-  3. A registration block at the bottom: `customElements.define('ha-plooum-<name>-card', ...)` and `customElements.define('ha-plooum-<name>-card-editor', ...)`, each guarded with `if (!customElements.get(...))` to avoid double-registration, followed by pushing an entry (`type`, `name`, `description`, `preview`) onto `window.customCards`.
-- Cards do not share code or state with each other — there is no shared component/util layer. Any similarity between cards (e.g. color picker inputs, entity pickers in editors) is duplicated per card rather than factored out.
-- New cards should keep the folder name and the `ha-plooum-<name>-card` custom element slug matching (e.g. `src/cards/dpad/` → `ha-plooum-dpad-card`). Some existing cards don't: `multistatus/` → `ha-plooum-multi-status-card`, `tabbed/` → `ha-plooum-tabs-card`, `button-badge/` → `ha-plooum-buttonbadge-card`. Never rename an existing element: user dashboards reference it. The only exception is an explicit request from the owner, shipped as a breaking change announced in the release notes (the `habitat` card became `ha-plooum-vivarium-card`, its `habitat` option `vivarium_type`, with no alias).
+- **Point d'entrée unique** : [src/index.js](src/index.js) importe chaque module de carte pour qu'il s'enregistre. Rollup ([rollup.config.mjs](rollup.config.mjs)) l'assemble en un seul fichier IIFE, `ha-plooum-cards.js`, l'unique ressource que HACS / Home Assistant charge (déclarée dans [hacs.json](hacs.json), livrée comme asset de release).
+- **Chaque carte est entièrement autonome** dans `src/cards/<card-name>/`, en un seul fichier `.js` écrit avec `lit` (`LitElement`, `html`, `css`). Un fichier de carte définit, dans l'ordre :
+  1. La classe de la carte (`static getConfigElement()`, `static getStubConfig()`, `setConfig()`, `render()`, `static get styles()`).
+  2. Une classe d'éditeur associée (`<Card>Editor`) qui implémente l'interface visuelle de configuration (`setConfig()`, `_valueChanged()` qui émet des événements `config-changed`, `render()`).
+  3. Un bloc d'enregistrement en bas de fichier : `customElements.define('ha-plooum-<name>-card', ...)` et `customElements.define('ha-plooum-<name>-card-editor', ...)`, chacun protégé par `if (!customElements.get(...))` pour éviter le double enregistrement, puis l'ajout d'une entrée (`type`, `name`, `description`, `preview`) dans `window.customCards`.
+- Les cartes ne partagent ni code ni état : il n'y a pas de couche de composants ou d'utilitaires commune. Toute ressemblance entre cartes (sélecteurs de couleur, sélecteurs d'entité dans les éditeurs…) est dupliquée dans chaque carte plutôt que factorisée.
+- Une nouvelle carte garde le nom de dossier et le slug de l'élément personnalisé `ha-plooum-<name>-card` identiques (ex. `src/cards/dpad/` → `ha-plooum-dpad-card`). Certaines cartes existantes ne le font pas : `multistatus/` → `ha-plooum-multi-status-card`, `tabbed/` → `ha-plooum-tabs-card`, `button-badge/` → `ha-plooum-buttonbadge-card`. Ne renomme jamais un élément existant : les tableaux de bord des utilisateurs le référencent. Seule exception : une demande explicite du propriétaire, livrée comme changement cassant annoncé dans les notes de release (la carte `habitat` est devenue `ha-plooum-vivarium-card`, son option `habitat` `vivarium_type`, sans alias).
 
 ### Conventions
 
-- **English everywhere in cards and code**: UI strings shown by cards and editors (labels, tooltips, messages), comments, identifiers, and the dev environment.
-- **The README exists in two languages**: [README.md](README.md) in English (shown by GitHub and HACS) and [README.fr.md](README.fr.md) in French, each linking to the other at the top. Any change to one must be made to the other in the same PR.
-- Out-of-scope issues noticed while working go into [TODO.md](TODO.md), not into spawned background tasks or worktrees.
+- **Tout est en français dans ce dépôt, sauf le code et la documentation utilisateur** (décision du 2026-10-14).
+  - Restent en anglais : le code (identifiants, commentaires, textes affichés par les cartes et leurs éditeurs : libellés, infobulles, messages), [README.md](README.md) et `docs/*.md`. [README.fr.md](README.fr.md) reste en français.
+  - Passent en français : ce fichier, les skills du projet, les fichiers du pilote, les prompts, les titres et descriptions de PR, les messages de commit, les notes de release.
+- **Le README existe en deux langues** : [README.md](README.md) en anglais (affiché par GitHub et HACS) et [README.fr.md](README.fr.md) en français, chacun renvoyant vers l'autre en haut. Toute modification de l'un doit être faite dans l'autre, dans la même PR.
+- Les problèmes hors périmètre repérés en travaillant vont dans [TODO.md](TODO.md), pas dans des tâches de fond ni des worktrees lancés à part.
 
-### Adding a new card
+### Ajouter une nouvelle carte
 
-1. Create `src/cards/<card-name>/` with the card's source file, following the class/editor/registration pattern above (including the `customElements.get` existence guards).
-2. Add an import line in [src/index.js](src/index.js): `import './cards/<card-name>/<file>.js';`.
-3. Run `npm run build`.
-4. Add a row (and a short description with a preview) to [README.md](README.md) and [README.fr.md](README.fr.md), and a `docs/<card-name>.md` file documenting its config parameters.
-5. Add a view for it in [dev/ha-config/dashboards/plooum-test.yaml](dev/ha-config/dashboards/plooum-test.yaml) (and a card in the `all` view), wired to the test entities.
+1. Crée `src/cards/<card-name>/` avec le fichier source de la carte, selon le schéma classe / éditeur / enregistrement ci-dessus (garde-fous `customElements.get` compris).
+2. Ajoute une ligne d'import dans [src/index.js](src/index.js) : `import './cards/<card-name>/<file>.js';`.
+3. Lance `npm run build`.
+4. Ajoute une ligne (et une courte description avec un aperçu) dans [README.md](README.md) et [README.fr.md](README.fr.md), et un fichier `docs/<card-name>.md` qui documente ses paramètres de configuration.
+5. Ajoute-lui une vue dans [dev/ha-config/dashboards/plooum-test.yaml](dev/ha-config/dashboards/plooum-test.yaml) (et une carte dans la vue `all`), branchée sur les entités de test.
 
-No other configuration (no new Rollup config, no new HACS resource) is needed — every card ships in the same bundle.
+Aucune autre configuration (ni nouvelle config Rollup, ni nouvelle ressource HACS) n'est nécessaire : toutes les cartes sont livrées dans le même bundle.
 
-## Git workflow
+## Workflow Git
 
-Every change goes through a pull request: code, docs, READMEs, this file, [TODO.md](TODO.md), the skills in `.claude/skills/`, workflows, `CARD_VERSION` bumps. Nothing is committed directly on `main`, with one exception: the pilot's handoff and prompts in `.claude/pilot/` (see **Pilot mode**) are committed and pushed straight to `main`. It is a light gitflow, with no `develop` or `release` branches.
+Toute modification passe par une pull request : code, docs, READMEs, ce fichier, [TODO.md](TODO.md), les skills de `.claude/skills/`, workflows, changements de `CARD_VERSION`. Rien n'est commité directement sur `main`, à une exception : le passage de relais et les prompts du pilote dans `.claude/pilot/` (voir **Mode pilote**) sont commités et poussés directement sur `main`. C'est un gitflow léger, sans branches `develop` ni `release`.
 
-1. Branch `feature/<name>` off an up-to-date `main` (`git fetch`, `git pull --ff-only`). The branch name must not contain `tags/` (e.g. `feature/semver-tags`): HACS strips `tags/` from the URLs it downloads, so its validation fails on such a branch.
-2. Commit there and push the branch. One feature or fix per PR: several TODO items mean several PRs.
-3. Open a PR against `main` with `gh pr create` and check that its CI (Build, Validate) passes.
-4. Wait for the owner's explicit approval. Never merge a PR before it.
-5. Once approved: if `main` has moved (other than commits touching only `.claude/pilot/`, which change nothing CI checks), rebase the branch on `origin/main` and push it again (force-push is allowed on the feature branch only) so CI runs on the real result. Then **squash-merge** it: `gh pr merge <N> --squash --delete-branch`, subject `<PR title> (#<N>)`. Each PR becomes a single commit on `main`.
-6. Locally: `git checkout main`, `git pull --ff-only`, `git branch -D feature/<name>` (`-D`: a squashed branch isn't an ancestor of `main`). Check the Build and Validate runs on `main`.
+1. Crée une branche `feature/<name>` depuis un `main` à jour (`git fetch`, `git pull --ff-only`). Le nom de la branche ne doit pas contenir `tags/` (ex. `feature/semver-tags`) : HACS retire `tags/` des URL qu'il télécharge, sa validation échoue donc sur une telle branche.
+2. Commite dessus et pousse la branche. Une fonctionnalité ou un correctif par PR : plusieurs éléments du TODO donnent plusieurs PR.
+3. Ouvre une PR vers `main` avec `gh pr create` et vérifie que sa CI (Build, Validate) passe. Titre et description de la PR, ainsi que messages de commit, en français.
+4. Attends l'approbation explicite du propriétaire. Ne fusionne jamais une PR avant.
+5. Une fois approuvée : si `main` a bougé (hors commits qui ne touchent que `.claude/pilot/`, qui ne changent rien à ce que la CI vérifie), rebase la branche sur `origin/main` et repousse-la (le force-push est permis sur la branche de fonctionnalité uniquement) pour que la CI tourne sur le résultat réel. Puis **squash-merge** : `gh pr merge <N> --squash --delete-branch`, sujet `<titre de la PR> (#<N>)`. Chaque PR devient un seul commit sur `main`.
+6. En local : `git checkout main`, `git pull --ff-only`, `git branch -D feature/<name>` (`-D` : une branche squashée n'est pas un ancêtre de `main`). Vérifie les runs Build et Validate sur `main`.
 
 ### Releases
 
-Tags are named `V<major>.<minor>.<patch>` (lightweight) and follow semantic versioning since `V1.0.0` (the `V0.0.NN` tags came before): bump the major version for a breaking change to user dashboards (a renamed card, element or option, a removed option), the minor version for new features, the patch version for fixes only. They are made on `main` once the PRs are merged; run `git fetch --tags` first. The GitHub release is titled with the tag name and its notes are in French, like [README.fr.md](README.fr.md). A `CARD_VERSION` bump goes through its own PR like any change; a new card ships at its initial `CARD_VERSION`.
+Les tags s'appellent `V<major>.<minor>.<patch>` (légers) et suivent le versionnement sémantique depuis `V1.0.0` (les tags `V0.0.NN` sont antérieurs) : incrémente la version majeure pour un changement cassant des tableaux de bord utilisateurs (carte, élément ou option renommé, option supprimée), la mineure pour une nouvelle fonctionnalité, le patch pour de simples correctifs. Ils se posent sur `main` une fois les PR fusionnées ; lance d'abord `git fetch --tags`. La release GitHub porte le nom du tag et ses notes sont en français, comme [README.fr.md](README.fr.md). Un changement de `CARD_VERSION` passe par sa propre PR comme tout changement ; une nouvelle carte sort avec son `CARD_VERSION` initial.
 
-Publishing the release triggers [build.yml](.github/workflows/build.yml), which builds the bundle and attaches `ha-plooum-cards.js` and its `.map` to it: check that the run passed and that both assets are on the release.
+La publication de la release déclenche [build.yml](.github/workflows/build.yml), qui construit le bundle et y attache `ha-plooum-cards.js` et son `.map` : vérifie que le run a réussi et que les deux assets sont sur la release.
 
-## Pilot mode
+## Mode pilote
 
-When the user tells an agent it is **the pilot** ("tu es le pilote"), it takes that role for the session without further prompting: it loads the global `pilot` skill (from [plooum/claude-pilot](https://github.com/plooum/claude-pilot); on a new machine: `git clone https://github.com/plooum/claude-pilot ~/.local/opt/claude-pilot && ~/.local/opt/claude-pilot/install.sh`) **and** the project's [pilot-ha-plooum](.claude/skills/pilot-ha-plooum/SKILL.md), then reads the handoff [.claude/pilot/HANDOFF.md](.claude/pilot/HANDOFF.md), and runs the loop: it writes the prompts, launches sub-agents (mostly Sonnet), reviews and iterates on their PRs, turns their friction into skills, and keeps the handoff current. It asks the user only for decisions that are theirs and for merge approvals.
+Quand l'utilisateur dit à un agent qu'il est **le pilote** (« tu es le pilote »), celui-ci prend ce rôle pour la session sans autre consigne : il charge le skill global `pilot` (de [plooum/claude-pilot](https://github.com/plooum/claude-pilot) ; sur une nouvelle machine : `git clone https://github.com/plooum/claude-pilot ~/.local/opt/claude-pilot && ~/.local/opt/claude-pilot/install.sh`) **et** le skill du projet [pilot-ha-plooum](.claude/skills/pilot-ha-plooum/SKILL.md), puis lit le passage de relais [.claude/pilot/HANDOFF.md](.claude/pilot/HANDOFF.md) et fait tourner la boucle : il écrit les prompts, lance des sous-agents (surtout Sonnet), relit et fait itérer leurs PR, transforme leurs frictions en skills et tient le passage de relais à jour. Il ne demande à l'utilisateur que les décisions qui lui reviennent et les approbations de fusion.
 
-Project skills live in `.claude/skills/` (`pilot-ha-plooum`, `pr-workflow`, `ha-dev-testing`, `floorplan-card`, …). Sub-agents load them when their description matches; they load `pr-workflow` together with the global `pilot-subagent`.
+Les skills du projet vivent dans `.claude/skills/` (`pilot-ha-plooum`, `pr-workflow`, `ha-dev-testing`, `floorplan-card`, …). Les sous-agents les chargent quand leur description correspond ; ils chargent `pr-workflow` avec le skill global `pilot-subagent`.
 
 ## Testing
 
-Cards are tested in a real, local Home Assistant Core (no Docker: the user is not in the `docker` group) that lives in [dev/](dev/). Its config, test entities and dashboards are versioned; its runtime state (`.storage`, database, venv, token, logs) is gitignored.
+Les cartes se testent dans un vrai Home Assistant Core local (sans Docker : l'utilisateur n'est pas dans le groupe `docker`) qui vit dans [dev/](dev/). Sa configuration, ses entités de test et ses tableaux de bord sont versionnés ; son état d'exécution (`.storage`, base de données, venv, token, logs) est gitignored.
 
-### Start it
+### Le démarrer
 
 ```bash
 dev/ha.sh start     # first run: installs HA (uv venv, Python 3.14), onboards, creates the token and the /plooum-edit dashboard (~10 s afterwards)
@@ -76,71 +78,71 @@ dev/ha.sh status | stop | restart | logs [n]
 dev/ha.sh reset     # wipes runtime state only (git clean -X on dev/ha-config); next start re-onboards
 ```
 
-HA listens on 127.0.0.1 only. Check whether it is already running (`dev/ha.sh status`) before starting it.
+HA écoute sur 127.0.0.1 uniquement. Vérifie s'il tourne déjà (`dev/ha.sh status`) avant de le démarrer.
 
-**One instance per checkout.** The main checkout's HA is on **8123**. A git worktree has its own: `dev/ha.sh start` run in the worktree takes the first free port from 8124 (kept in the gitignored `dev/.ha-port`; `HA_PORT=<n>` forces one), onboards in ~7 s, and serves **that worktree's** bundle (`npm run build` there). The venv and `node_modules` are the main checkout's, linked in by `dev/ha.sh start` / `dev/ha.sh setup` (so the main checkout needs `npm install` and one `dev/ha.sh start`/`install` first). `dev/shot.py`, `dev/ui_test.py`, `dev/api.sh` and `dev/bootstrap.py` follow the checkout they live in (its `dev/.ha-port` and `dev/.ha-token`; `--url` / `HA_URL` override). `dev/ha.sh list` shows every running instance (port, pid, checkout); `dev/ha.sh stop` stops only this checkout's. Stop it before removing the worktree. Each instance uses ~270 MB. The dev user's language is set to English by `dev/bootstrap.py` (whatever the browser's locale), and its test credentials are in it; a long-lived token is written to `dev/.ha-token`.
+**Une instance par checkout.** Le HA du checkout principal est sur **8123**. Un worktree git a le sien : `dev/ha.sh start` lancé dans le worktree prend le premier port libre à partir de 8124 (gardé dans `dev/.ha-port`, gitignored ; `HA_PORT=<n>` en force un), s'initialise en ~7 s et sert le bundle **de ce worktree** (`npm run build` dedans). Le venv et `node_modules` sont ceux du checkout principal, liés par `dev/ha.sh start` / `dev/ha.sh setup` (le checkout principal a donc besoin d'un `npm install` et d'un premier `dev/ha.sh start`/`install`). `dev/shot.py`, `dev/ui_test.py`, `dev/api.sh` et `dev/bootstrap.py` suivent le checkout où ils se trouvent (son `dev/.ha-port` et son `dev/.ha-token` ; `--url` / `HA_URL` forcent autre chose). `dev/ha.sh list` montre toutes les instances qui tournent (port, pid, checkout) ; `dev/ha.sh stop` n'arrête que celle de ce checkout. Arrête-la avant de supprimer le worktree. Chaque instance prend ~270 Mo. La langue de l'utilisateur de dev est réglée sur l'anglais par `dev/bootstrap.py` (quelle que soit la langue du navigateur), ses identifiants de test s'y trouvent ; un token longue durée est écrit dans `dev/.ha-token`.
 
-### Edit → test loop
+### Boucle modifier → tester
 
-1. Edit `src/…`, run `npm run build`.
-2. Reload the page. No HA restart: the `plooum_dev` custom integration ([dev/ha-config/custom_components/plooum_dev](dev/ha-config/custom_components/plooum_dev/__init__.py)) serves the repo's `ha-plooum-cards.js` (and `.map`) at `/plooum_dev/` with `Cache-Control: no-store`, declared as a Lovelace resource exactly like a HACS install.
-3. Restart HA (`dev/ha.sh restart`) only after changing `configuration.yaml`. YAML dashboards are re-read on page reload.
+1. Modifie `src/…`, lance `npm run build`.
+2. Recharge la page. Pas de redémarrage de HA : l'intégration personnalisée `plooum_dev` ([dev/ha-config/custom_components/plooum_dev](dev/ha-config/custom_components/plooum_dev/__init__.py)) sert le `ha-plooum-cards.js` du dépôt (et son `.map`) sur `/plooum_dev/` avec `Cache-Control: no-store`, déclaré comme ressource Lovelace exactement comme une installation HACS.
+3. Ne redémarre HA (`dev/ha.sh restart`) qu'après une modification de `configuration.yaml`. Les tableaux de bord YAML sont relus au rechargement de la page.
 
-### Dashboards
+### Tableaux de bord
 
-- `/plooum-test/<view>`: YAML dashboard ([plooum-test.yaml](dev/ha-config/dashboards/plooum-test.yaml)) with an `all` view showing every card, and one view per card for focused cases (`/plooum-test/vivarium` is a sections view covering every severity, strip style and fold case, including narrow and short grid cells; `/plooum-test/multistatus` covers on, off, unavailable, missing entity and SVG items; `/plooum-test/floorplan` is a full-width panel view with a hand-written two-floor plan with cameras and a terrace, the same plan in 3D, in 3D with floating screens (`screen_mode: billboard`), and a plan generated from the areas; the garden and living room cameras project their picture). Put regression cases for a card in its view.
-- `/plooum-edit/<view>?edit=1`: storage-mode copy of the same dashboard, the only kind where **card editors** can be opened (click "Modifier" on a card). It is seeded from the YAML file only when it doesn't exist; to re-seed it, `dev/ha.sh reset`.
+- `/plooum-test/<view>` : tableau de bord YAML ([plooum-test.yaml](dev/ha-config/dashboards/plooum-test.yaml)) avec une vue `all` qui montre toutes les cartes, et une vue par carte pour les cas ciblés (`/plooum-test/vivarium` est une vue en sections qui couvre chaque sévérité, chaque style de bandeau et chaque cas de repli, y compris les cellules de grille étroites et basses ; `/plooum-test/multistatus` couvre les éléments allumés, éteints, indisponibles, à entité manquante et SVG ; `/plooum-test/floorplan` est une vue panneau pleine largeur avec un plan à deux étages écrit à la main, avec caméras et terrasse, le même plan en 3D, en 3D avec écrans flottants (`screen_mode: billboard`), et un plan généré à partir des zones ; les caméras du jardin et du salon projettent leur image). Mets les cas de régression d'une carte dans sa vue.
+- `/plooum-edit/<view>?edit=1` : copie du même tableau de bord en mode stockage, le seul où l'on peut ouvrir les **éditeurs de carte** (clic sur « Modifier » sur une carte). Il est initialisé depuis le fichier YAML seulement s'il n'existe pas ; pour le réinitialiser, `dev/ha.sh reset`.
 
-### Browser: use the built-in browser pane
+### Navigateur : utiliser le panneau navigateur intégré
 
-The user wants to watch, so drive the Claude Code built-in browser (`mcp__Claude_Browser__*`): `preview_start` with `url: http://127.0.0.1:8123/plooum-test/all` (the port of the checkout's instance, `dev/ha.sh status`; with several instances, one browser tab each: `tabs_create`, then `navigate` with its `tabId`, and only ever act on your own tab). Login is automatic (`trusted_networks` provider with bypass for 127.0.0.1). Use `read_console_messages` (onlyErrors) to catch card errors, and `javascript_tool` to inspect shadow DOM or simulate input. The pane's console buffer is not cleared between page loads: it keeps older messages, such as websocket failures logged while HA was restarting. For a clean error check, run `dev/shot.py`.
+L'utilisateur veut regarder, donc pilote le navigateur intégré de Claude Code (`mcp__Claude_Browser__*`) : `preview_start` avec `url: http://127.0.0.1:8123/plooum-test/all` (le port de l'instance du checkout, `dev/ha.sh status` ; avec plusieurs instances, un onglet par instance : `tabs_create`, puis `navigate` avec son `tabId`, et n'agis jamais que sur ton propre onglet). La connexion est automatique (fournisseur `trusted_networks` avec contournement pour 127.0.0.1). Utilise `read_console_messages` (onlyErrors) pour repérer les erreurs de carte, et `javascript_tool` pour inspecter le shadow DOM ou simuler une saisie. Le tampon de console du panneau n'est pas vidé entre deux chargements de page : il garde d'anciens messages, comme les échecs de websocket pendant un redémarrage de HA. Pour une vérification propre des erreurs, lance `dev/shot.py`.
 
-[dev/shot.py](dev/shot.py) is the headless fallback (system Chrome via Playwright) for when the pane isn't available or for scripted checks. It takes a screenshot, can crop to an element, evaluates JS, and exits with code 1 if the page logged errors:
+[dev/shot.py](dev/shot.py) est la solution de repli sans interface (Chrome système via Playwright), quand le panneau n'est pas disponible ou pour des vérifications scriptées. Il fait une capture d'écran, peut recadrer sur un élément, évalue du JS, et sort avec le code 1 si la page a journalisé des erreurs :
 
 ```bash
 dev/.venv/bin/python dev/shot.py /plooum-test/multistatus -e ha-plooum-multi-status-card -o dev/shots/ms.png --js "1+1"
 ```
 
-### UI test suites
+### Suites de tests d'interface
 
-[dev/ui_test.py](dev/ui_test.py) runs a feature's whole test list in one command, in one headless Chrome, with assertions: `dev/.venv/bin/python dev/ui_test.py dev/tests/<suite>.json [--only <name>]` prints PASS / FAIL per test, the failing step and the console errors, and exits 1 on any failure. Suites live in [dev/tests/](dev/tests/) (JSON: tests made of `js` / `assert` / `shot` steps); their helpers (open an editor dialog, drag, wait for a condition, floorplan specifics) are in [dev/ui_helpers.js](dev/ui_helpers.js). The `ha-dev-testing` skill documents the format.
+[dev/ui_test.py](dev/ui_test.py) lance toute la liste de tests d'une fonctionnalité en une commande, dans un seul Chrome sans interface, avec des assertions : `dev/.venv/bin/python dev/ui_test.py dev/tests/<suite>.json [--only <name>]` affiche PASS / FAIL par test, l'étape en échec et les erreurs de console, et sort avec le code 1 au moindre échec. Les suites vivent dans [dev/tests/](dev/tests/) (JSON : des tests faits d'étapes `js` / `assert` / `shot`) ; leurs helpers (ouvrir la boîte de dialogue d'un éditeur, glisser, attendre une condition, spécificités du floorplan) sont dans [dev/ui_helpers.js](dev/ui_helpers.js). Le skill `ha-dev-testing` documente le format.
 
-**Live in the browser pane.** The steps are run by [dev/ui_runner.js](dev/ui_runner.js), which `ui_test.py` loads headless and the pane can open too: `http://127.0.0.1:<port>/plooum_dev/runner.html?suite=<name>[&only=<substring>][&pause=<ms>]` (served by `plooum_dev`, suites from `dev/tests/`). It runs each test in a same-origin iframe at the test's viewport (scaled to fit the pane), lists PASS / FAIL live, and ends with `window.uiResult` (`{ passed, failed, errors, summary, tests }`, also in the page title). When the user watches, run the suites there (`pause=300` to follow); `shot` steps are skipped in the pane.
+**En direct dans le panneau navigateur.** Les étapes sont exécutées par [dev/ui_runner.js](dev/ui_runner.js), que `ui_test.py` charge sans interface et que le panneau peut aussi ouvrir : `http://127.0.0.1:<port>/plooum_dev/runner.html?suite=<name>[&only=<substring>][&pause=<ms>]` (servi par `plooum_dev`, suites prises dans `dev/tests/`). Il exécute chaque test dans une iframe de même origine à la taille d'écran du test (réduite pour tenir dans le panneau), affiche PASS / FAIL en direct, et finit par `window.uiResult` (`{ passed, failed, errors, summary, tests }`, aussi dans le titre de la page). Quand l'utilisateur regarde, lance les suites là (`pause=300` pour suivre) ; les étapes `shot` y sont ignorées.
 
-**Smoke suite, to run after any card change** (about 5 s, all nine cards: each renders, reacts once, and its editor renders): `dev/.venv/bin/python dev/ui_test.py dev/tests/cards-smoke.json`. One test per card, on its own `/plooum-test/<view>`; it restores the states it changes.
+**Suite de fumée, à lancer après toute modification de carte** (environ 5 s, les neuf cartes : chacune s'affiche, réagit une fois et son éditeur s'affiche) : `dev/.venv/bin/python dev/ui_test.py dev/tests/cards-smoke.json`. Un test par carte, sur sa propre `/plooum-test/<view>` ; elle restaure les états qu'elle change.
 
-### Test entities (all in [configuration.yaml](dev/ha-config/configuration.yaml))
+### Entités de test (toutes dans [configuration.yaml](dev/ha-config/configuration.yaml))
 
-| Entity | Use | Controlled by |
+| Entité | Usage | Piloté par |
 | :--- | :--- | :--- |
-| `light.living_room_light` | toggle target | `input_boolean.living_room_light` |
-| `switch.tv_plug` | toggle target, **becomes `unavailable`** | `input_boolean.tv_plug`, availability: `input_boolean.tv_plug_available` |
-| `sensor.living_room_temperature` / `sensor.living_room_humidity` | numeric values (°C, %) | `input_number.living_room_temperature` / `input_number.living_room_humidity` |
-| `cover.living_room_cover` / `cover.bedroom_cover` | position covers (open/close/stop/set_position) | `input_number.*_cover_position` |
-| `cover.kitchen_cover` / `cover.hallway_cover` | position covers on the outer walls the garden camera sees (east wall of the Kitchen, south wall of the Hallway); drawn in its fake picture (`WINDOWS` in `camera.py`) | `input_number.kitchen_cover_position` / `input_number.hallway_cover_position` |
-| `button.ptz_up/down/left/right` | D-Pad `press` | each press increments `counter.ptz_presses` |
-| `script.test_script` | script actions | each run increments `counter.script_runs` |
-| `input_boolean.aquarium_pump/co2/uv`, `input_boolean.mower` | plain booleans | themselves |
-| `light.kitchen_light` / `light.bedroom_light` | toggle targets | `input_boolean.kitchen_light` / `input_boolean.bedroom_light` |
-| `sensor.kitchen_temperature` / `sensor.bedroom_temperature` | numeric values (°C) | `input_number.kitchen_temperature` / `input_number.bedroom_temperature` |
-| `binary_sensor.front_door` (door) / `binary_sensor.hallway_motion` (motion) | binary sensors with a device class | `input_boolean.front_door_open` / `input_boolean.hallway_motion` |
-| `camera.garden_camera`, `camera.driveway_camera` (outdoor scenes), `camera.living_room_camera`, `camera.kitchen_camera`, `camera.garage_camera` (indoor scenes) | fake cameras ([camera.py](dev/ha-config/custom_components/plooum_dev/camera.py)): name and clock drawn on each image; `camera.living_room_camera` films the Living Room from inside and `camera.garden_camera` the house from the garden through a wide-angle lens (`distortion: -0.25`), for real (checkerboard floor or ground, striped walls, from their pose on the floorplan view): projected in 3D their pictures must fall exactly on the room / the facades and ground, and their tile corners are known points for the editor's point matching; `camera.garage_camera` **becomes `unavailable`** | availability: `input_boolean.garage_camera_available` |
-| `sensor.aquarium_temperature` (150L), `sensor.aquarium_60l_temperature` (60L) | vivarium card measures (°C) | `input_number.aquarium_temperature` / `input_number.aquarium_60_temperature` |
-| `sensor.aquarium_ph` | vivarium card measure, **non-numeric** (`calibrating`) when `input_boolean.aquarium_ph_calibrating` is on | `input_number.aquarium_ph` |
-| `input_number.aquarium_nitrate` | vivarium card custom measure (mg/L) | itself |
-| `light.aquarium_light` | dimmable light, its level (%) is an `input_number`, 0 = off | `input_number.aquarium_light_level` |
-| `input_boolean.aquarium_60_air` | a critical actuator, off at start | itself |
-| `sensor.terrarium_temperature` / `sensor.terrarium_humidity` | vivarium card measures (°C, %) | `input_number.terrarium_*` |
-| `switch.terrarium_heat_lamp` / `switch.terrarium_mister` / `switch.terrarium_uvb` | vivarium card actuators; `switch.terrarium_uvb` **becomes `unavailable`** | `input_boolean.terrarium_*`, availability: `input_boolean.terrarium_uvb_available` |
-| `sensor.pond_temperature` / `switch.pond_uv` | pond measure and actuator | `input_number.pond_temperature` / `input_boolean.pond_uv` |
+| `light.living_room_light` | cible de bascule | `input_boolean.living_room_light` |
+| `switch.tv_plug` | cible de bascule, **devient `unavailable`** | `input_boolean.tv_plug`, disponibilité : `input_boolean.tv_plug_available` |
+| `sensor.living_room_temperature` / `sensor.living_room_humidity` | valeurs numériques (°C, %) | `input_number.living_room_temperature` / `input_number.living_room_humidity` |
+| `cover.living_room_cover` / `cover.bedroom_cover` | volets à position (open/close/stop/set_position) | `input_number.*_cover_position` |
+| `cover.kitchen_cover` / `cover.hallway_cover` | volets à position sur les murs extérieurs que voit la caméra du jardin (mur est de la cuisine, mur sud du couloir) ; dessinés dans sa fausse image (`WINDOWS` dans `camera.py`) | `input_number.kitchen_cover_position` / `input_number.hallway_cover_position` |
+| `button.ptz_up/down/left/right` | `press` du D-Pad | chaque appui incrémente `counter.ptz_presses` |
+| `script.test_script` | actions de script | chaque exécution incrémente `counter.script_runs` |
+| `input_boolean.aquarium_pump/co2/uv`, `input_boolean.mower` | booléens simples | eux-mêmes |
+| `light.kitchen_light` / `light.bedroom_light` | cibles de bascule | `input_boolean.kitchen_light` / `input_boolean.bedroom_light` |
+| `sensor.kitchen_temperature` / `sensor.bedroom_temperature` | valeurs numériques (°C) | `input_number.kitchen_temperature` / `input_number.bedroom_temperature` |
+| `binary_sensor.front_door` (door) / `binary_sensor.hallway_motion` (motion) | capteurs binaires avec une classe d'appareil | `input_boolean.front_door_open` / `input_boolean.hallway_motion` |
+| `camera.garden_camera`, `camera.driveway_camera` (scènes extérieures), `camera.living_room_camera`, `camera.kitchen_camera`, `camera.garage_camera` (scènes intérieures) | fausses caméras ([camera.py](dev/ha-config/custom_components/plooum_dev/camera.py)) : nom et horloge dessinés sur chaque image ; `camera.living_room_camera` filme le salon de l'intérieur et `camera.garden_camera` la maison depuis le jardin à travers un grand-angle (`distortion: -0.25`), pour de vrai (sol ou terrain en damier, murs rayés, depuis leur pose sur la vue floorplan) : projetées en 3D, leurs images doivent tomber exactement sur la pièce / les façades et le terrain, et les coins de leurs carreaux sont des points connus pour la mise en correspondance de points de l'éditeur ; `camera.garage_camera` **devient `unavailable`** | disponibilité : `input_boolean.garage_camera_available` |
+| `sensor.aquarium_temperature` (150L), `sensor.aquarium_60l_temperature` (60L) | mesures de la carte vivarium (°C) | `input_number.aquarium_temperature` / `input_number.aquarium_60_temperature` |
+| `sensor.aquarium_ph` | mesure de la carte vivarium, **non numérique** (`calibrating`) quand `input_boolean.aquarium_ph_calibrating` est activé | `input_number.aquarium_ph` |
+| `input_number.aquarium_nitrate` | mesure personnalisée de la carte vivarium (mg/L) | lui-même |
+| `light.aquarium_light` | lumière variable, son niveau (%) est un `input_number`, 0 = éteinte | `input_number.aquarium_light_level` |
+| `input_boolean.aquarium_60_air` | un actionneur critique, éteint au départ | lui-même |
+| `sensor.terrarium_temperature` / `sensor.terrarium_humidity` | mesures de la carte vivarium (°C, %) | `input_number.terrarium_*` |
+| `switch.terrarium_heat_lamp` / `switch.terrarium_mister` / `switch.terrarium_uvb` | actionneurs de la carte vivarium ; `switch.terrarium_uvb` **devient `unavailable`** | `input_boolean.terrarium_*`, disponibilité : `input_boolean.terrarium_uvb_available` |
+| `sensor.pond_temperature` / `switch.pond_uv` | mesure et actionneur du bassin | `input_number.pond_temperature` / `input_boolean.pond_uv` |
 
-`switch.does_not_exist` and `camera.does_not_exist` are referenced on purpose but don't exist (missing-entity case).
+`switch.does_not_exist` et `camera.does_not_exist` sont référencées exprès mais n'existent pas (cas de l'entité manquante).
 
-`dev/bootstrap.py` also puts these entities in floors and areas (Ground Floor: Living Room, Kitchen, Hallway; Upstairs: Bedroom, Bathroom — empty on purpose), for cards that read the area registry (the floorplan card's generated plan). Edit `AREAS` in it and run `dev/.venv/bin/python dev/bootstrap.py` to change them; it only adds and reassigns, so remove areas through the UI or `dev/ha.sh reset`.
+`dev/bootstrap.py` range aussi ces entités dans des étages et des zones (Ground Floor : Living Room, Kitchen, Hallway ; Upstairs : Bedroom, Bathroom — vide exprès), pour les cartes qui lisent le registre des zones (le plan généré de la carte floorplan). Modifie `AREAS` dedans et lance `dev/.venv/bin/python dev/bootstrap.py` pour les changer ; il ne fait qu'ajouter et réaffecter, donc supprime des zones par l'interface ou avec `dev/ha.sh reset`.
 
-`image_upload:` is enabled for the floorplan editor's **Capture** button (a camera's reference picture, served at `/api/image/serve/<id>/original`); uploaded pictures live in the runtime state, so `dev/ha.sh reset` drops them and the YAML dashboard can't reference one.
+`image_upload:` est activé pour le bouton **Capture** de l'éditeur floorplan (l'image de référence d'une caméra, servie sur `/api/image/serve/<id>/original`) ; les images envoyées vivent dans l'état d'exécution, donc `dev/ha.sh reset` les supprime et le tableau de bord YAML ne peut pas en référencer une.
 
-Change states and check that actions fired with [dev/api.sh](dev/api.sh):
+Change des états et vérifie que les actions se sont déclenchées avec [dev/api.sh](dev/api.sh) :
 
 ```bash
 dev/api.sh POST services/input_boolean/turn_off '{"entity_id":"input_boolean.tv_plug_available"}'   # switch.tv_plug → unavailable
@@ -149,20 +151,20 @@ dev/api.sh GET states/counter.ptz_presses        # did the D-Pad click call butt
 dev/api.sh POST states/sensor.fake '{"state":"unknown"}'   # arbitrary state, not persisted, no services
 ```
 
-Cards update live over the websocket; no reload is needed after a state change.
+Les cartes se mettent à jour en direct par le websocket ; aucun rechargement n'est nécessaire après un changement d'état.
 
-### What to check for a card change
+### Quoi vérifier pour une modification de carte
 
-- Rendering in each relevant state: on / off / `unavailable` / `unknown` / entity missing, and non-numeric values for sensors.
-- Actions: click in the pane, then check the backing entity or counter with `dev/api.sh`.
-- The editor in `/plooum-edit`: open it, change a field, and confirm the `config-changed` payload. The native `<input type="color">` opens an OS dialog the pane can't drive: set `.value` and dispatch an `input` event through `javascript_tool` instead.
-- No errors in the console.
+- Le rendu dans chaque état pertinent : allumé / éteint / `unavailable` / `unknown` / entité manquante, et valeurs non numériques pour les capteurs.
+- Les actions : clique dans le panneau, puis vérifie l'entité ou le compteur sous-jacent avec `dev/api.sh`.
+- L'éditeur dans `/plooum-edit` : ouvre-le, change un champ et confirme la charge utile de `config-changed`. Le `<input type="color">` natif ouvre une boîte de dialogue du système que le panneau ne peut pas piloter : fixe plutôt `.value` et déclenche un événement `input` via `javascript_tool`.
+- Aucune erreur dans la console.
 
-### Gotchas (HA 2026.10)
+### Pièges (HA 2026.10)
 
-- On a dashboard, a card that fails `setConfig` or isn't defined becomes a `hui-error-card` that is **invisible outside edit mode**. An empty spot means a broken card: check in `?edit=1` or look for `hui-error-card` in the DOM.
-- The frontend uses a scoped custom-element registry polyfill. Loading the bundle through `frontend: extra_module_url` runs it before the polyfill and the cards are never found, so keep it as a Lovelace resource.
-- `http:` in YAML is deprecated: it becomes a "pending" config to confirm in the UI, with auto-revert. `dev/ha.sh` seeds `.storage/http` instead.
-- Without `recorder:`, every page load logs an `unknown_command` (`recorder/info`) rejection. It's kept enabled to keep the console clean.
-- `/lovelace` redirects to the new `/home/overview` page, which is not an editable Lovelace dashboard; use `/plooum-edit`.
-- `ha-form` ignores a `label` key in schema entries; labels need `.computeLabel`.
+- Sur un tableau de bord, une carte dont `setConfig` échoue ou qui n'est pas définie devient une `hui-error-card` **invisible hors du mode édition**. Un emplacement vide signale une carte cassée : vérifie avec `?edit=1` ou cherche `hui-error-card` dans le DOM.
+- Le frontend utilise un polyfill de registre d'éléments personnalisés à portée limitée. Charger le bundle par `frontend: extra_module_url` l'exécute avant le polyfill et les cartes ne sont jamais trouvées : garde-le comme ressource Lovelace.
+- `http:` en YAML est déprécié : il devient une configuration « en attente » à confirmer dans l'interface, avec retour arrière automatique. `dev/ha.sh` initialise `.storage/http` à la place.
+- Sans `recorder:`, chaque chargement de page journalise un rejet `unknown_command` (`recorder/info`). Il reste activé pour garder la console propre.
+- `/lovelace` redirige vers la nouvelle page `/home/overview`, qui n'est pas un tableau de bord Lovelace modifiable ; utilise `/plooum-edit`.
+- `ha-form` ignore une clé `label` dans les entrées du schéma ; les libellés passent par `.computeLabel`.
