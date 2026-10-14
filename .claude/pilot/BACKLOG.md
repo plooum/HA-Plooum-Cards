@@ -1,23 +1,23 @@
 # Backlog
 
-What is left to do, kept by the pilot (user's request, 2026-10-11). Committed straight to `main` with the handoff, no PR. The handoff's **State** tracks work in progress; this file lists what hasn't started. When an item starts, move it to the handoff's State; when it's merged, delete it here.
+Ce qu'il reste à faire, tenu par le pilote (demande de l'utilisateur, 2026-10-11). Commité directement sur `main` avec la passation, sans PR. L'**État** de la passation suit le travail en cours ; ce fichier liste ce qui n'a pas commencé. Quand un élément démarre, le déplacer dans l'État de la passation ; quand il est mergé, le supprimer ici.
 
-[TODO.md](../../TODO.md) stays the repo's list of out-of-scope issues noticed while working (changed through PRs); its items are mirrored here so this file is the one complete inventory.
+[TODO.md](../../TODO.md) reste la liste du dépôt des problèmes hors périmètre repérés en travaillant (modifiée via des PR) ; ses éléments y sont repris pour que ce fichier soit l'inventaire complet.
 
-_Last update: 2026-10-12, end of pilot session 4 (V1.3.3 released)._
+_Dernière mise à jour : 2026-10-12, fin de la session pilote 4 (V1.3.3 publiée)._
 
-## Waiting on the user
+## En attente de l'utilisateur
 
-Nothing.
+Rien.
 
-## Next
+## Suite
 
-Candidates proposed to the user on 2026-10-12 (agent board leftovers: checked by the pilot 2026-10-13, nothing to do):
+Candidats proposés à l'utilisateur le 2026-10-12 (restes d'agent board : vérifiés par le pilote le 2026-10-13, rien à faire) :
 
-- New cards and features: see [ROADMAP.md](ROADMAP.md) (2026-10-14).
+- Nouvelles cartes et fonctionnalités : voir [ROADMAP.md](ROADMAP.md) (2026-10-14).
 
-## Dropped (user, 2026-10-11)
+## Abandonné (utilisateur, 2026-10-11)
 
-- Android test of the floorplan setup view: not needed.
-- Fisheye lenses / any more complex camera handling: never.
-- `feature/dpad-keyboard`: deleted.
+- Test Android de la vue de réglage du floorplan : pas nécessaire.
+- Optiques fisheye / toute gestion de caméra plus complexe : jamais.
+- `feature/dpad-keyboard` : supprimée.
