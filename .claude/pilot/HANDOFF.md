@@ -74,9 +74,12 @@ The user works on two PCs; the pilot may start on either.
 | claude-pilot: generic skills `pilot` + `pilot-subagent`, templates, AGENTS.md, install.sh (prompt 24, no worktree) | `feature/initial-content`, [plooum/claude-pilot#1](https://github.com/plooum/claude-pilot/pull/1) | merged 2026-10-12; installed in `~/.local/opt/claude-pilot`, skills linked |
 | agent-board leftovers (light theme, Tests project filter, SSE reconnect): already in the code, checked by the pilot in the pane, no sub-agent | — | done 2026-10-13 |
 | agent-board: browser box always shown, fixed 480×300 (prompt 26, fast path, no worktree) | `feature/fixed-browser-box`, [plooum/agent-board#3](https://github.com/plooum/agent-board/pull/3) | merged 2026-10-13; install pulled, board restarted. Sub-agent 0.6 min, 7 calls, no round |
+| **New card: Berlin clock** (prompt 27) | `feature/berlin-clock-card`, worktree `agent-a24a878c1cee3d8fc` | sub-agent working (2026-10-14) |
 | This repo: `pilot` → `pilot-ha-plooum` (specifics only), `pr-workflow` trimmed, CLAUDE.md (prompt 25) | `feature/pilot-skills-split`, [#55](https://github.com/plooum/HA-Plooum-Cards/pull/55) | merged 2026-10-12 |
 
 ## Decisions (user)
+
+- 2026-10-14: **new cards, in this order**: 1. Berlin clock (prompt 27, design by the pilot); 2. a sky card (astronomical clock + planetarium; one card with two modes or two cards, and astronomy-engine vs hand-written formulas: **still to decide** with the user). **Always show the agent board in the built-in pane** when piloting.
 
 - 2026-10-12: **the pilot workflow moves to its own repo `plooum/claude-pilot`** (public, no history): generic global skills `pilot` + `pilot-subagent`, templates, AGENTS.md, install.sh; this repo keeps `pilot-ha-plooum` (specifics) and a trimmed `pr-workflow`.
 
