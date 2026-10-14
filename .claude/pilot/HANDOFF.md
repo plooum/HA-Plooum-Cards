@@ -74,7 +74,7 @@ The user works on two PCs; the pilot may start on either.
 | claude-pilot: generic skills `pilot` + `pilot-subagent`, templates, AGENTS.md, install.sh (prompt 24, no worktree) | `feature/initial-content`, [plooum/claude-pilot#1](https://github.com/plooum/claude-pilot/pull/1) | merged 2026-10-12; installed in `~/.local/opt/claude-pilot`, skills linked |
 | agent-board leftovers (light theme, Tests project filter, SSE reconnect): already in the code, checked by the pilot in the pane, no sub-agent | — | done 2026-10-13 |
 | agent-board: browser box always shown, fixed 480×300 (prompt 26, fast path, no worktree) | `feature/fixed-browser-box`, [plooum/agent-board#3](https://github.com/plooum/agent-board/pull/3) | merged 2026-10-13; install pulled, board restarted. Sub-agent 0.6 min, 7 calls, no round |
-| **New card: Berlin clock** (prompt 27) | `feature/berlin-clock-card`, worktree `agent-a24a878c1cee3d8fc` | sub-agent working (2026-10-14) |
+| **New card: Berlin clock** (prompt 27) | `feature/berlin-clock-card`, [#56](https://github.com/plooum/HA-Plooum-Cards/pull/56), worktree `agent-a24a878c1cee3d8fc` (HA 8124) | reviewed, waiting for approval. Skills [#57](https://github.com/plooum/HA-Plooum-Cards/pull/57) (worktree `../HA-Plooum-Cards-skills`). Sub-agent 3.0 min, 30 calls, no round |
 | This repo: `pilot` → `pilot-ha-plooum` (specifics only), `pr-workflow` trimmed, CLAUDE.md (prompt 25) | `feature/pilot-skills-split`, [#55](https://github.com/plooum/HA-Plooum-Cards/pull/55) | merged 2026-10-12 |
 
 ## Decisions (user)
