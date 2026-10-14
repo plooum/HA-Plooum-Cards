@@ -11,7 +11,7 @@ _Dernière mise à jour : 2026-10-14._
 | # | Étape | Statut |
 | :--- | :--- | :--- |
 | B1 | Carte `ha-plooum-berlin-clock-card` 1.0.0 (prompt 27) | fait, [#56](https://github.com/plooum/HA-Plooum-Cards/pull/56) |
-| B2 | Release **V1.4.0** (mineure : nouvelle carte) | en attente : feu vert de l'utilisateur |
+| B2 | Release **V1.4.0** (mineure : nouvelle carte) | fait, [V1.4.0](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.4.0) |
 
 ## Carte ciel (planétarium)
 
