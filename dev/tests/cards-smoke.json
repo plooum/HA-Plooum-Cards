@@ -93,7 +93,18 @@
         { "assert": "deep(S.cards[0].shadowRoot, '.event').length === 0", "msg": "show_next_event: false removes the banner" },
         { "js": "S.cards[0].setConfig(S.cfg); await S.cards[0].updateComplete;" },
         { "assert": "deep(S.cards[0].shadowRoot, '.event').length === 1", "msg": "the banner is back with the original config" },
-        { "js": "await T.card.editorRenders(S.cards[0]);" }
+        { "js": "await T.card.editorRenders(S.cards[0]);" },
+        { "js": "S.edit = async (card) => { const ed = await customElements.get(card.localName).getConfigElement(); ed.hass = T.hass(); ed.setConfig(card.config); card.parentNode.append(ed); await ed.updateComplete; S.ed = ed; S.got = []; ed.addEventListener('config-changed', (e) => S.got.push(e.detail.config)); return ed; }; const ed = await S.edit(S.cards[0]); await waitFor(() => deep(ed.shadowRoot, 'ha-selector-location').length, 8000, 'location selector'); S.sel = deep(ed.shadowRoot, 'ha-selector-location')[0];" },
+        { "assert": "S.sel.value.latitude === T.hass().config.latitude && S.sel.value.longitude === T.hass().config.longitude", "msg": "the picker starts on the Home Assistant location", "show": "JSON.stringify(S.sel.value)" },
+        { "assert": "!S.ed.shadowRoot.querySelector('.home')", "msg": "no home button without a chosen position" },
+        { "js": "S.ed.shadowRoot.querySelector('ha-form').dispatchEvent(new CustomEvent('value-changed', { detail: { value: { show_constellations: false, location: { latitude: T.hass().config.latitude, longitude: T.hass().config.longitude } } } })); await S.ed.updateComplete;" },
+        { "assert": "S.got.length === 1 && S.got[0].show_constellations === false && !('latitude' in S.got[0]) && !('longitude' in S.got[0]) && !('location' in S.got[0])", "msg": "toggling another option does not write the default home location", "show": "JSON.stringify(S.got)" },
+        { "js": "S.got.length = 0; S.ed.setConfig(S.cards[0].config); await S.ed.updateComplete;" },
+        { "js": "S.ed.shadowRoot.querySelector('ha-form').dispatchEvent(new CustomEvent('value-changed', { detail: { value: { title: 'x', location: { latitude: -33.87, longitude: 151.21 } } } })); await S.ed.updateComplete;" },
+        { "assert": "S.got.length === 1 && S.got[0].latitude === -33.87 && S.got[0].longitude === 151.21 && !('location' in S.got[0])", "msg": "picking a place writes latitude and longitude, not location", "show": "JSON.stringify(S.got)" },
+        { "js": "S.ed.remove(); const ed = await S.edit(S.cards[1]); await waitFor(() => ed.shadowRoot.querySelector('.home'), 8000, 'home button'); ed.shadowRoot.querySelector('.home').click();" },
+        { "assert": "S.got.length === 1 && !('latitude' in S.got[0]) && !('longitude' in S.got[0]) && !('location' in S.got[0])", "msg": "the home button removes latitude and longitude", "show": "JSON.stringify(S.got)" },
+        { "js": "S.ed.remove();" }
       ]
     },
     {

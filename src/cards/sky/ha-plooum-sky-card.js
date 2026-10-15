@@ -575,16 +575,14 @@ class HaPlooumSkyCard extends LitElement {
    ========================================================================== */
 const SCHEMA = [
   { name: 'title', selector: { text: {} } },
-  { name: 'latitude', selector: { number: { mode: 'box', min: -90, max: 90, step: 'any' } } },
-  { name: 'longitude', selector: { number: { mode: 'box', min: -180, max: 180, step: 'any' } } },
+  { name: 'location', selector: { location: { radius: false } } },
   { name: 'time_control', selector: { select: { mode: 'dropdown', options: TIME_CONTROL_OPTIONS } } },
   { name: 'show_constellations', selector: { boolean: {} } },
   { name: 'show_next_event', selector: { boolean: {} } },
 ];
 const LABELS = {
   title: 'Title',
-  latitude: 'Latitude (degrees)',
-  longitude: 'Longitude (degrees)',
+  location: 'Location',
   time_control: 'Time control',
   show_constellations: 'Show the constellations',
   show_next_event: 'Show the next sky event',
@@ -604,10 +602,26 @@ class HaPlooumSkyCardEditor extends LitElement {
 
   _valueChanged(ev) {
     const config = { ...ev.detail.value };
+    // The location picker yields one { latitude, longitude } value; the config keeps two plain options.
+    // ha-form returns the whole data: an untouched default (home) location must not be written.
+    const home = this.hass?.config || {};
+    const isHome = config.location
+      && this._config.latitude === undefined && this._config.longitude === undefined
+      && Math.abs(config.location.latitude - Number(home.latitude ?? 0)) < 1e-4
+      && Math.abs(config.location.longitude - Number(home.longitude ?? 0)) < 1e-4;
+    if (config.location && !isHome) {
+      config.latitude = Math.round(config.location.latitude * 1e4) / 1e4;
+      config.longitude = Math.round(config.location.longitude * 1e4) / 1e4;
+    }
+    delete config.location;
     for (const key of Object.keys(config)) {
       const v = config[key];
       if (v === '' || v === undefined || (typeof v === 'number' && isNaN(v))) delete config[key];
     }
+    this._emit(config);
+  }
+
+  _emit(config) {
     this._config = config;
     this.dispatchEvent(new CustomEvent('config-changed', {
       detail: { config },
@@ -616,9 +630,23 @@ class HaPlooumSkyCardEditor extends LitElement {
     }));
   }
 
+  _useHome() {
+    const { latitude, longitude, ...config } = this._config;
+    this._emit(config);
+  }
+
   render() {
     if (!this.hass || !this._config) return nothing;
-    const data = { time_control: 'rotate', show_constellations: true, show_next_event: true, ...this._config };
+    const { latitude, longitude, ...rest } = this._config;
+    const chosen = latitude !== undefined || longitude !== undefined;
+    const home = this.hass.config || {};
+    const data = {
+      time_control: 'rotate', show_constellations: true, show_next_event: true, ...rest,
+      location: {
+        latitude: Number(latitude ?? home.latitude ?? 0),
+        longitude: Number(longitude ?? home.longitude ?? 0),
+      },
+    };
     return html`
       <div class="editor">
         <ha-form
@@ -628,7 +656,8 @@ class HaPlooumSkyCardEditor extends LitElement {
           .computeLabel=${(s) => LABELS[s.name] || s.name}
           @value-changed=${this._valueChanged}
         ></ha-form>
-        <div class="hint">Leave the latitude and longitude empty to use the Home Assistant location. Drag the sky sideways to move the time by up to 6 hours, double-tap to come back to now.</div>
+        ${chosen ? html`<ha-button class="home" @click=${this._useHome}>Use the home location</ha-button>` : nothing}
+        <div class="hint">The card uses the Home Assistant location until you pick another one on the map. Drag the sky sideways to move the time by up to 6 hours, double-tap to come back to now.</div>
       </div>
     `;
   }

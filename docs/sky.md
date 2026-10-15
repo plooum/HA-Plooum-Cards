@@ -38,8 +38,8 @@ An event stays announced for 6 hours after it. When it is within 6 hours of now 
 | :--- | :--- | :--- | :--- |
 | `type` | string | **Required** | `custom:ha-plooum-sky-card` |
 | `title` | string | none | Title shown above the dome |
-| `latitude` | number | Home Assistant's | Latitude in degrees (north positive) |
-| `longitude` | number | Home Assistant's | Longitude in degrees (east positive) |
+| `latitude` | number | Home Assistant's | Latitude in degrees (north positive); picked on a map in the editor |
+| `longitude` | number | Home Assistant's | Longitude in degrees (east positive); picked on a map in the editor |
 | `time_control` | string | `rotate` | How the time is moved. Only `rotate` for now: drag the sky sideways |
 | `show_constellations` | boolean | `true` | Draw the constellation lines and names |
 | `show_next_event` | boolean | `true` | Show the next sky event under the time |
