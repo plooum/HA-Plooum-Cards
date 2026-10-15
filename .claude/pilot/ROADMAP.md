@@ -25,7 +25,7 @@ Décidé le 2026-10-14 : un dôme (zénith au centre, horizon au bord, points ca
 | S4 | `time_control: wheel` | à faire |
 | S5 | `time_control: filmstrip` | à faire |
 | S6 | V2 : les comètes brillantes via l'API COBS (cobs.si), dessinées sur le dôme avec leur magnitude ; d'abord un test de faisabilité de l'appel depuis le navigateur (CORS), sinon en passant par HA (capteur REST) | à faire |
-| S7 | Release(s) : la carte à son `CARD_VERSION` initial, puis des releases mineures au fil des étapes | [V1.5.0](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.5.0) publiée le 2026-10-15 (partie 1) ; les suivantes sur feu vert |
+| S7 | Release(s) : la carte à son `CARD_VERSION` initial, puis des releases mineures au fil des étapes | [V1.5.0](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.5.0) publiée le 2026-10-15 (partie 1), [V1.5.1](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.5.1) (ciel de jour, fond noir corrigé) ; les suivantes sur feu vert |
 
 ## Plus tard / idées (non décidées)
 
