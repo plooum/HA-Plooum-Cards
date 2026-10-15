@@ -8,7 +8,7 @@ Shows the sky above the house as a dome, as if you were lying on the ground look
 
 - The **zenith** (straight above you) is at the center, the **horizon** is the outer circle. Only what is above the horizon is drawn.
 - **N, E, S, W** are written on the edge. North is at the top and east on the left, as on a sky map you hold over your head.
-- White dots are the stars up to magnitude 4.5 (the brighter, the bigger). Thin lines and names show the 88 constellations. Stars and constellations fade as the sky brightens.
+- White dots are the stars up to magnitude 4.5 (the brighter, the bigger). Thin lines and names show the 88 constellations. By day the sky is blue and stars, lines and names stay visible, turning navy blue.
 - Colored dots with a name are the planets (Mercury, Venus, Mars, Jupiter, Saturn). The Moon is drawn with its phase, its lit side facing the Sun. The Sun is shown when it is up.
 - The background follows the Sun: day, then civil, nautical and astronomical twilight (Sun 0, -6, -12 and -18 degrees below the horizon), then night.
 

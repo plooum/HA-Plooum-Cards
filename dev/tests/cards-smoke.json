@@ -76,6 +76,9 @@
         { "js": "S.svg.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, composed: true })); await S.cards[0].updateComplete;" },
         { "assert": "deep(S.cards[0].shadowRoot, '.offset').length === 0", "msg": "a double-click removes the offset" },
         { "assert": "S.cards[0].shouldUpdate(new Map([['hass', S.cards[0].hass]])) === false && S.cards[0].shouldUpdate(new Map([['_offset', 0]])) === true", "msg": "a hass change alone does not redraw the sky" },
+        { "js": "S.cards[0]._now = new Date('2026-06-21T12:00:00Z'); await S.cards[0].updateComplete;" },
+        { "assert": "Number(deep(S.cards[0].shadowRoot, '.stars')[0].getAttribute('opacity')) >= 0.8 && deep(S.cards[0].shadowRoot, '.stars circle').length > 0", "msg": "by day the stars stay visible", "show": "deep(S.cards[0].shadowRoot, '.stars')[0].getAttribute('opacity')" },
+        { "js": "S.cards[0]._now = new Date(); await S.cards[0].updateComplete;" },
         { "js": "await T.card.editorRenders(S.cards[0]);" }
       ]
     },

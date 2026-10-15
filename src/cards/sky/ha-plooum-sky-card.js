@@ -24,7 +24,7 @@ const PLANETS = [
 
 // Sky colors (zenith, horizon) by altitude of the Sun, interpolated between the keys.
 const SKY_COLORS = [
-  [6, [63, 134, 214], [165, 211, 245]],
+  [6, [78, 160, 230], [176, 222, 250]],
   [0, [74, 120, 192], [242, 178, 122]],
   [-6, [36, 58, 115], [182, 106, 122]],
   [-12, [16, 27, 69], [74, 63, 120]],
@@ -37,8 +37,8 @@ const DEG = 180 / Math.PI;
 
 function skyColors(sunAlt) {
   const last = SKY_COLORS.length - 1;
-  if (sunAlt >= SKY_COLORS[0][0]) return [SKY_COLORS[0][1], SKY_COLORS[0][2]];
-  if (sunAlt <= SKY_COLORS[last][0]) return [SKY_COLORS[last][1], SKY_COLORS[last][2]];
+  if (sunAlt >= SKY_COLORS[0][0]) return [`rgb(${SKY_COLORS[0][1]})`, `rgb(${SKY_COLORS[0][2]})`];
+  if (sunAlt <= SKY_COLORS[last][0]) return [`rgb(${SKY_COLORS[last][1]})`, `rgb(${SKY_COLORS[last][2]})`];
   let i = 0;
   while (sunAlt < SKY_COLORS[i + 1][0]) i++;
   const [a0, z0, h0] = SKY_COLORS[i];
@@ -49,6 +49,9 @@ function skyColors(sunAlt) {
 }
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+// Blends two [r, g, b] colors; t = 1 gives the night color, t = 0 the day one.
+const blend = (day, night, t) => `rgb(${day.map((v, k) => Math.round(v + (night[k] - v) * t)).join(',')})`;
 const pad2 = (n) => String(n).padStart(2, '0');
 
 /* ==========================================================================
@@ -265,8 +268,11 @@ class HaPlooumSkyCard extends LitElement {
     const withConstellations = this.config.show_constellations !== false;
     const sky = HaPlooumSkyCard.skyAt(when, lat, lon, withConstellations);
     const [zenithColor, horizonColor] = skyColors(sky.sunAlt);
-    // Stars and constellations fade out as the sky brightens.
+    // Stars and constellations stay visible by day: they turn navy blue as the sky brightens.
     const dark = clamp((-sky.sunAlt - 3) / 15, 0, 1);
+    const starFill = blend([13, 42, 92], [255, 255, 255], dark);
+    const lineStroke = blend([29, 63, 122], [159, 180, 255], dark);
+    const nameFill = blend([29, 63, 122], [207, 216, 255], dark);
     const pt = (p) => this._xy(p.alt, p.az).map((v) => v.toFixed(1)).join(',');
 
     return html`
@@ -286,16 +292,16 @@ class HaPlooumSkyCard extends LitElement {
           <circle cx=${C} cy=${C} r=${R} fill="url(#bg)"></circle>
           <g clip-path="url(#dome)">
             ${svg`
-              ${withConstellations ? svg`<g class="constellations" opacity=${0.45 * dark}>
+              ${withConstellations ? svg`<g class="constellations" opacity=${0.5} stroke=${lineStroke}>
                 ${sky.constellations.lines.map((run) => svg`<polyline points=${run.map(pt).join(' ')}></polyline>`)}
               </g>
-              <g class="names" opacity=${0.6 * dark}>
+              <g class="names" opacity=${0.7} fill=${nameFill}>
                 ${sky.constellations.names.filter((n) => n.alt > 5).map((n) => {
                   const [x, y] = this._xy(n.alt, n.az);
                   return svg`<text x=${x} y=${y}>${n.name}</text>`;
                 })}
               </g>` : nothing}
-              <g class="stars" opacity=${dark}>
+              <g class="stars" opacity=${0.85} fill=${starFill}>
                 ${sky.stars.filter((s) => s.alt > 0).map((s) => {
                   const [x, y] = this._xy(s.alt, s.az);
                   return svg`<circle cx=${x.toFixed(1)} cy=${y.toFixed(1)} r=${Math.max(0.6, 0.6 + (4.6 - s.mag) * 0.5).toFixed(2)}></circle>`;
@@ -353,14 +359,11 @@ class HaPlooumSkyCard extends LitElement {
         -webkit-user-select: none;
         cursor: ew-resize;
       }
-      .stars circle { fill: #fff; }
       .constellations polyline {
         fill: none;
-        stroke: #9fb4ff;
         stroke-width: 0.7;
       }
       .names text {
-        fill: #cfd8ff;
         font-size: 8px;
         text-anchor: middle;
         pointer-events: none;
