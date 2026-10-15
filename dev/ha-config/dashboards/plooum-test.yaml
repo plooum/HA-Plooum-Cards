@@ -96,6 +96,7 @@ views:
           - counter.ptz_presses
           - counter.script_runs
       - type: custom:ha-plooum-berlin-clock-card
+      - type: custom:ha-plooum-sky-card
 
   - title: D-Pad
     path: dpad
@@ -727,3 +728,13 @@ views:
         colors: theme
         show_time: true
         time_zone: server
+
+  - title: Sky
+    path: sky
+    cards:
+      - type: custom:ha-plooum-sky-card
+      - type: custom:ha-plooum-sky-card
+        title: Sydney
+        latitude: -33.87
+        longitude: 151.21
+        show_constellations: false

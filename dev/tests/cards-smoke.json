@@ -64,6 +64,22 @@
       ]
     },
     {
+      "name": "sky: renders, computes the sky, drags the time, editor",
+      "path": "/plooum-test/sky",
+      "steps": [
+        { "js": "S.cards = await T.card.rendered('ha-plooum-sky-card', 2); S.C = customElements.get('ha-plooum-sky-card'); S.sky = S.C.skyAt(new Date('2026-10-15T22:00:00Z'), 48.86, 2.35); S.polaris = 71;" },
+        { "assert": "S.sky.sunAlt < -18", "msg": "22:00 UTC in Paris in October is astronomical night", "show": "S.sky.sunAlt" },
+        { "assert": "Math.abs(S.sky.stars[S.polaris].alt - 48.86) <= 1", "msg": "Polaris (the star nearest to ra 37.95, dec 89.26) stands at the latitude", "show": "S.sky.stars[S.polaris].alt" },
+        { "assert": "deep(S.cards[0].shadowRoot, '.stars circle').length >= 100", "msg": "at least 100 stars are drawn", "show": "deep(S.cards[0].shadowRoot, '.stars circle').length" },
+        { "js": "S.svg = deep(S.cards[0].shadowRoot, 'svg.sky')[0]; const r = S.svg.getBoundingClientRect(); const half = r.width * 364 / 400 / 2; const from = { x: r.x + r.width * 0.3, y: r.y + r.height / 2 }; await T.pointerDrag(S.svg, from, { x: from.x + half, y: from.y }); await S.cards[0].updateComplete;" },
+        { "assert": "(() => { const t = deep(S.cards[0].shadowRoot, '.offset')[0]?.textContent.trim(); const m = /^\\+(\\d) h (\\d\\d)$/.exec(t || ''); return !!m && Math.abs(Number(m[1]) * 60 + Number(m[2]) - 180) <= 5; })()", "msg": "half a dome to the right reads about +3 h 00", "show": "deep(S.cards[0].shadowRoot, '.offset')[0]?.textContent" },
+        { "js": "S.svg.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, composed: true })); await S.cards[0].updateComplete;" },
+        { "assert": "deep(S.cards[0].shadowRoot, '.offset').length === 0", "msg": "a double-click removes the offset" },
+        { "assert": "S.cards[0].shouldUpdate(new Map([['hass', S.cards[0].hass]])) === false && S.cards[0].shouldUpdate(new Map([['_offset', 0]])) === true", "msg": "a hass change alone does not redraw the sky" },
+        { "js": "await T.card.editorRenders(S.cards[0]);" }
+      ]
+    },
+    {
       "name": "tabbed: renders, reacts, editor",
       "path": "/plooum-test/tabbed",
       "steps": [

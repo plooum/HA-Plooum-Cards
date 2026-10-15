@@ -18,6 +18,7 @@ A collection of custom Lovelace cards for Home Assistant, packaged as **a single
 | Ha Plooum Floorplan Card | `custom:ha-plooum-floorplan-card` | [docs/floorplan.md](docs/floorplan.md) |
 | HA Plooum GridIcons Card | `custom:ha-plooum-gridicons-card` | [docs/gridicons.md](docs/gridicons.md) |
 | HA Plooum Multi Status Card | `custom:ha-plooum-multi-status-card` | [docs/multistatus.md](docs/multistatus.md) |
+| Ha Plooum Sky Card | `custom:ha-plooum-sky-card` | [docs/sky.md](docs/sky.md) |
 | Ha Plooum Tabs Card | `custom:ha-plooum-tabs-card` | [docs/tabbed.md](docs/tabbed.md) |
 | Ha Plooum Room Temp & Humidity Card | `custom:ha-plooum-temp-humidity-card` | [docs/temp-humidity.md](docs/temp-humidity.md) |
 | HA Plooum Vivarium Card | `custom:ha-plooum-vivarium-card` | [docs/vivarium.md](docs/vivarium.md) |
@@ -62,6 +63,11 @@ A compact row of entity icons in a pill container, with state colors and tap/hol
 A compact card to follow several boolean entities (light, pump, CO2...) around a main value (e.g. temperature).
 
 ![Multi Status preview](docs/previews/multistatus.png)
+
+### Ha Plooum Sky Card
+The sky above the house as a dome: bright stars, constellations, planets, the Moon with its phase and the Sun, on a background that follows day, twilight and night. Drag the sky sideways to move the time by up to 6 hours.
+
+![Sky preview](docs/previews/sky.png)
 
 ### Ha Plooum Tabs Card
 Organizes other cards into tabs, keeping their state in memory (ideal for camera streams).
@@ -119,6 +125,7 @@ src/
     ├── floorplan/
     ├── gridicons/
     ├── multistatus/
+    ├── sky/
     ├── tabbed/
     ├── temp-humidity/
     └── vivarium/
