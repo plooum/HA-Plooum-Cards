@@ -51,6 +51,7 @@ Le rôle, la boucle, la relecture et le passage de relais sont dans le skill glo
 | `pr-workflow` | tout sous-agent : spécificités de livraison de ce dépôt |
 | `ha-dev-testing` | toute tâche qui teste dans le HA de dev |
 | `floorplan-card` | toute modification de la carte floorplan |
+| `sky-card` | toute modification de la carte ciel |
 
 Idées de skills : `vivarium-card`, `docs-readme`, `new-card`.
 
