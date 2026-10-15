@@ -2,7 +2,7 @@
 
 Lu en premier par le pilote suivant (voir le skill `pilot`). Commité directement sur `main`, sans PR. À tenir à jour.
 
-_Dernière mise à jour : 2026-10-15, session pilote 7 (Opus 5.5, portable) : V1.5.0 (carte ciel) et V1.5.1 (ciel de jour) publiées ; S1 partie 2 (bandeau prochain événement, #64) mergée ; position sur une carte (#66) et bouton cover (#68) mergés, non publiés : `CARD_VERSION` (ciel 1.1.0, cover patch) + release V1.6.0 sur accord de l'utilisateur._
+_Dernière mise à jour : 2026-10-15, session pilote 7 (Opus 5.5, portable) : V1.5.0 (carte ciel) et V1.5.1 (ciel de jour) publiées ; S1 partie 2 (bandeau prochain événement, #64) mergée ; [release V1.6.0](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.6.0) publiée (ciel 1.1.0 : prochain événement + position sur une carte ; volets 1.0.1), [#69](https://github.com/plooum/HA-Plooum-Cards/pull/69). Rien en cours ; demander la suite à l'utilisateur._
 
 Protection de `main` : l'utilisateur a désactivé « Lock branch » le 2026-10-11 (elle bloquait aussi les merges de PR) ; le pilote pousse `.claude/pilot/` directement sur `main`. Le pilote reste sur `main` dans le checkout principal (HA sur 8123) et y commite la passation ; les sous-agents travaillent dans leurs propres worktrees avec leur propre HA (voir le skill `pilot`).
 
