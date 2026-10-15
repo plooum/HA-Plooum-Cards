@@ -39,6 +39,7 @@ Le rôle, la boucle, la relecture et le passage de relais sont dans le skill glo
 
 ## Prémisses de test
 
+- **Les prompts ne demandent que les tests de ce qui change** (décision de l'utilisateur, 2026-10-15) : `dev/ui_test.py dev/tests/cards-smoke.json --only <carte>:` et la suite de la fonctionnalité, jamais « toute la suite de fumée ».
 - Vérifie les cas de test contre `dev/ha-config/dashboards/plooum-test.yaml` (les deux étages) ; le prompt 10 supposait un côté libre qui était l'aile propre du rez-de-chaussée.
 - Une tâche d'accélération : mesure d'abord la répartition (`dev/ui_test.py --verbose`) ; le prompt 19 supposait que les chargements de page dominaient, ce qui était faux.
 
