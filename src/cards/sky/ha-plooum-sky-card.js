@@ -173,6 +173,16 @@ class HaPlooumSkyCard extends LitElement {
     this._timer = null;
   }
 
+  // hass changes on every state change in Home Assistant: only redraw the sky when the
+  // effective position differs from the one of the last render.
+  shouldUpdate(changed) {
+    if (changed.size === 1 && changed.has('hass') && this._lastPos && this.config) {
+      const { lat, lon } = this._position();
+      return lat !== this._lastPos.lat || lon !== this._lastPos.lon;
+    }
+    return true;
+  }
+
   _position() {
     const num = (v, fallback) => (typeof v === 'number' && isFinite(v) ? v : fallback);
     return {
@@ -250,6 +260,7 @@ class HaPlooumSkyCard extends LitElement {
   render() {
     if (!this.config) return nothing;
     const { lat, lon } = this._position();
+    this._lastPos = { lat, lon };
     const when = new Date(this._now.getTime() + this._offset * 60000);
     const withConstellations = this.config.show_constellations !== false;
     const sky = HaPlooumSkyCard.skyAt(when, lat, lon, withConstellations);

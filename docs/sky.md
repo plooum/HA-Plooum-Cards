@@ -14,7 +14,7 @@ Shows the sky above the house as a dome, as if you were lying on the ground look
 
 ## Moving through time
 
-With `time_control: rotate`, drag the sky **sideways** (mouse or finger): the whole width of the dome is 6 hours, and dragging to the right moves the time forward. The range is +-6 hours. **Double-tap** (or double-click) to come back to now.
+With `time_control: rotate`, drag the sky **sideways** (mouse or finger): the whole width of the dome is 6 hours, and dragging to the right moves the time forward. The range is ±6 hours. **Double-tap** (or double-click) to come back to now.
 
 Under the dome, the displayed time (`HH:MM`, browser time zone) is shown, followed by the offset from now (`+2 h 15`, `-0 h 30`) when there is one. The card refreshes every minute.
 

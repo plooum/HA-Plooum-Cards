@@ -75,6 +75,7 @@
         { "assert": "(() => { const t = deep(S.cards[0].shadowRoot, '.offset')[0]?.textContent.trim(); const m = /^\\+(\\d) h (\\d\\d)$/.exec(t || ''); return !!m && Math.abs(Number(m[1]) * 60 + Number(m[2]) - 180) <= 5; })()", "msg": "half a dome to the right reads about +3 h 00", "show": "deep(S.cards[0].shadowRoot, '.offset')[0]?.textContent" },
         { "js": "S.svg.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, composed: true })); await S.cards[0].updateComplete;" },
         { "assert": "deep(S.cards[0].shadowRoot, '.offset').length === 0", "msg": "a double-click removes the offset" },
+        { "assert": "S.cards[0].shouldUpdate(new Map([['hass', S.cards[0].hass]])) === false && S.cards[0].shouldUpdate(new Map([['_offset', 0]])) === true", "msg": "a hass change alone does not redraw the sky" },
         { "js": "await T.card.editorRenders(S.cards[0]);" }
       ]
     },
