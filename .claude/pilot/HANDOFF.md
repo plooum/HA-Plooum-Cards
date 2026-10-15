@@ -2,7 +2,7 @@
 
 Lu en premier par le pilote suivant (voir le skill `pilot`). Commité directement sur `main`, sans PR. À tenir à jour.
 
-_Dernière mise à jour : 2026-10-15, session pilote 7 (Opus 5.5, portable) : V1.5.0 (carte ciel) et V1.5.1 (ciel de jour) publiées ; suite : S1 partie 2 (bandeau prochain événement)._
+_Dernière mise à jour : 2026-10-15, session pilote 7 (Opus 5.5, portable) : V1.5.0 (carte ciel) et V1.5.1 (ciel de jour) publiées ; S1 partie 2 (bandeau prochain événement) lancée, prompt 34._
 
 Protection de `main` : l'utilisateur a désactivé « Lock branch » le 2026-10-11 (elle bloquait aussi les merges de PR) ; le pilote pousse `.claude/pilot/` directement sur `main`. Le pilote reste sur `main` dans le checkout principal (HA sur 8123) et y commite la passation ; les sous-agents travaillent dans leurs propres worktrees avec leur propre HA (voir le skill `pilot`).
 
@@ -82,6 +82,7 @@ L'utilisateur travaille sur deux PC ; le pilote peut démarrer sur l'un ou l'aut
 | agent-board : ligne d'état du pilote par projet (busy / waiting / idle + contexte), bouton « Clear idle pilots » (fait par le pilote) | `feature/pilot-strip`, [plooum/agent-board#5](https://github.com/plooum/agent-board/pull/5) | mergée le 2026-10-14 ; install à jour, board redémarré. Le pilote tient sa ligne : `board.py pilot --status ...` (skill agent-board) |
 | **Carte ciel S1, partie 1** : dôme + `time_control: rotate` (prompt 32, Sonnet, worktree `agent-ae768090058fd9b81`) ; partie 2 = bandeau prochain événement, prompt suivant | `feature/sky-card`, [#59](https://github.com/plooum/HA-Plooum-Cards/pull/59) ; skills [#60](https://github.com/plooum/HA-Plooum-Cards/pull/60) | mergées le 2026-10-15 (worktree et HA nettoyés), publiées dans la [release V1.5.0](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.5.0) (deux assets attachés). Sous-agent 5,1 + 0,5 min, 34 + 3 appels, 1 aller-retour (re-rendu à chaque `hass`) |
 | Carte ciel : de jour fond bleu ciel, étoiles / constellations toujours visibles (remarque de l'utilisateur après V1.5.0 ; prompt 33, voie rapide) | `feature/sky-day-visible`, [#61](https://github.com/plooum/HA-Plooum-Cards/pull/61) | mergée le 2026-10-15, `CARD_VERSION` 1.0.1 ([#62](https://github.com/plooum/HA-Plooum-Cards/pull/62)), [release V1.5.1](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.5.1) publiée (deux assets). 1,8 min, 16 appels, aucun aller-retour. A aussi corrigé un bug de V1.5.0 que ma relecture de #59 a raté : `skyColors()` rendait des tableaux bruts hors de [-24°, 6°], fond noir de jour et en pleine nuit → V1.5.1 |
+| **Carte ciel S1, partie 2** : bandeau prochain événement (prompt 34, Sonnet, worktree) | `feature/sky-next-event` | sous-agent au travail (lancé le 2026-10-15 ; un premier lancement parti avec un prompt vide a été arrêté aussitôt, sans reste) |
 | Ce dépôt : `pilot` → `pilot-ha-plooum` (spécificités uniquement), `pr-workflow` allégé, CLAUDE.md (prompt 25) | `feature/pilot-skills-split`, [#55](https://github.com/plooum/HA-Plooum-Cards/pull/55) | mergée le 2026-10-12 |
 
 ## Décisions (utilisateur)

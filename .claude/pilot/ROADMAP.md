@@ -19,7 +19,7 @@ Décidé le 2026-10-14 : un dôme (zénith au centre, horizon au bord, points ca
 
 | # | Étape | Statut |
 | :--- | :--- | :--- |
-| S1 | V1 : le dôme (étoiles brillantes, lignes et noms des constellations, planètes, Lune avec sa phase, points cardinaux, couleur du ciel selon le crépuscule / la nuit), `time_control: rotate`, et un bandeau **prochain événement** calculé localement : éclipses, conjonctions, oppositions, pleines lunes / super-lunes, équinoxes / solstices, pluies d'étoiles filantes (table embarquée, avec la phase de la Lune) ; un tap amène le dôme sur l'événement quand il tombe dans les ±6 h | partie 1 faite (dôme + `rotate`, [#59](https://github.com/plooum/HA-Plooum-Cards/pull/59)) ; partie 2 suivante (bandeau prochain événement) |
+| S1 | V1 : le dôme (étoiles brillantes, lignes et noms des constellations, planètes, Lune avec sa phase, points cardinaux, couleur du ciel selon le crépuscule / la nuit), `time_control: rotate`, et un bandeau **prochain événement** calculé localement : éclipses, conjonctions, oppositions, pleines lunes / super-lunes, équinoxes / solstices, pluies d'étoiles filantes (table embarquée, avec la phase de la Lune) ; un tap amène le dôme sur l'événement quand il tombe dans les ±6 h | partie 1 faite (dôme + `rotate`, [#59](https://github.com/plooum/HA-Plooum-Cards/pull/59)) ; partie 2 en cours (bandeau prochain événement, prompt 34) |
 | S2 | `time_control: strip` | à faire |
 | S3 | `time_control: ring` | à faire |
 | S4 | `time_control: wheel` | à faire |
