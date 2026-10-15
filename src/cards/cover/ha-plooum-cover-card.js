@@ -321,7 +321,7 @@ class PlooumCoverCardEditor extends LitElement {
           `;
         })}
 
-        <mwc-button raised @click=${this._addCover}>+ Add cover</mwc-button>
+        <ha-button @click=${this._addCover}>+ Add cover</ha-button>
       </div>
     `;
   }
