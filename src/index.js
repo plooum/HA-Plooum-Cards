@@ -14,5 +14,6 @@ import './cards/floorplan/ha-plooum-floorplan-card.js';
 import './cards/gridicons/ha-plooum-gridicons-card.js';
 import './cards/vivarium/ha-plooum-vivarium-card.js';
 import './cards/multistatus/ha-plooum-multi-status-card.js';
+import './cards/sky/ha-plooum-sky-card.js';
 import './cards/tabbed/ha-plooum-tabbed-card.js';
 import './cards/temp-humidity/ha-plooum-temp-humidity-card.js';

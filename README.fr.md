@@ -18,6 +18,7 @@ Une collection de cartes Lovelace personnalisées pour Home Assistant, packagée
 | Ha Plooum Floorplan Card | `custom:ha-plooum-floorplan-card` | [docs/floorplan.md](docs/floorplan.md) |
 | HA Plooum GridIcons Card | `custom:ha-plooum-gridicons-card` | [docs/gridicons.md](docs/gridicons.md) |
 | HA Plooum Multi Status Card | `custom:ha-plooum-multi-status-card` | [docs/multistatus.md](docs/multistatus.md) |
+| Ha Plooum Sky Card | `custom:ha-plooum-sky-card` | [docs/sky.md](docs/sky.md) |
 | Ha Plooum Tabs Card | `custom:ha-plooum-tabs-card` | [docs/tabbed.md](docs/tabbed.md) |
 | Ha Plooum Room Temp & Humidity Card | `custom:ha-plooum-temp-humidity-card` | [docs/temp-humidity.md](docs/temp-humidity.md) |
 | HA Plooum Vivarium Card | `custom:ha-plooum-vivarium-card` | [docs/vivarium.md](docs/vivarium.md) |
@@ -62,6 +63,11 @@ Rangée compacte d'icônes d'entités dans un pill container, avec couleurs d'é
 Carte compacte pour suivre plusieurs entités booléennes (lumière, pompe, CO2...) autour d'une valeur principale (ex. température).
 
 ![Multi Status preview](docs/previews/multistatus.png)
+
+### Ha Plooum Sky Card
+Le ciel au-dessus de la maison en dôme : étoiles brillantes, constellations, planètes, Lune avec sa phase et Soleil, sur un fond qui suit le jour, le crépuscule et la nuit. On fait défiler le temps de ±6 h en faisant tourner le ciel au doigt.
+
+![Sky preview](docs/previews/sky.png)
 
 ### Ha Plooum Tabs Card
 Organise d'autres cartes en onglets, en gardant leur état en mémoire (idéal pour les flux caméra).
@@ -119,6 +125,7 @@ src/
     ├── floorplan/
     ├── gridicons/
     ├── multistatus/
+    ├── sky/
     ├── tabbed/
     ├── temp-humidity/
     └── vivarium/

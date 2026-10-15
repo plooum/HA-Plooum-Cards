@@ -7,6 +7,7 @@
     "build": "rollup -c"
   },
   "dependencies": {
+    "astronomy-engine": "^2.1.19",
     "lit": "^3.0.0"
   },
   "devDependencies": {
