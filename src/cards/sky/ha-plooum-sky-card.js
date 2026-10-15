@@ -2,7 +2,7 @@ import { LitElement, html, css, nothing, svg } from "lit";
 import * as Astronomy from "astronomy-engine";
 import { STARS, CONSTELLATION_LINES, CONSTELLATION_NAMES } from "./sky-data.js";
 
-const CARD_VERSION = '1.0.0';
+const CARD_VERSION = '1.0.1';
 
 const MAX_OFFSET = 360; // minutes
 const TIME_CONTROL_OPTIONS = [
