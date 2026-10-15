@@ -2,7 +2,7 @@
 
 Lu en premier par le pilote suivant (voir le skill `pilot`). Commité directement sur `main`, sans PR. À tenir à jour.
 
-_Dernière mise à jour : 2026-10-15, session pilote 7 (Opus 5.5, portable) : V1.5.0 (carte ciel) et V1.5.1 (ciel de jour) publiées ; S1 partie 2 (bandeau prochain événement, #64) mergée ; suite : `CARD_VERSION` / release sur accord, puis S2 (`time_control: strip`)._
+_Dernière mise à jour : 2026-10-15, session pilote 7 (Opus 5.5, portable) : V1.5.0 (carte ciel) et V1.5.1 (ciel de jour) publiées ; S1 partie 2 (bandeau prochain événement, #64) mergée ; position sur une carte dans l'éditeur lancée (prompt 35) ; puis `CARD_VERSION` / release sur accord._
 
 Protection de `main` : l'utilisateur a désactivé « Lock branch » le 2026-10-11 (elle bloquait aussi les merges de PR) ; le pilote pousse `.claude/pilot/` directement sur `main`. Le pilote reste sur `main` dans le checkout principal (HA sur 8123) et y commite la passation ; les sous-agents travaillent dans leurs propres worktrees avec leur propre HA (voir le skill `pilot`).
 
@@ -83,9 +83,12 @@ L'utilisateur travaille sur deux PC ; le pilote peut démarrer sur l'un ou l'aut
 | **Carte ciel S1, partie 1** : dôme + `time_control: rotate` (prompt 32, Sonnet, worktree `agent-ae768090058fd9b81`) ; partie 2 = bandeau prochain événement, prompt suivant | `feature/sky-card`, [#59](https://github.com/plooum/HA-Plooum-Cards/pull/59) ; skills [#60](https://github.com/plooum/HA-Plooum-Cards/pull/60) | mergées le 2026-10-15 (worktree et HA nettoyés), publiées dans la [release V1.5.0](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.5.0) (deux assets attachés). Sous-agent 5,1 + 0,5 min, 34 + 3 appels, 1 aller-retour (re-rendu à chaque `hass`) |
 | Carte ciel : de jour fond bleu ciel, étoiles / constellations toujours visibles (remarque de l'utilisateur après V1.5.0 ; prompt 33, voie rapide) | `feature/sky-day-visible`, [#61](https://github.com/plooum/HA-Plooum-Cards/pull/61) | mergée le 2026-10-15, `CARD_VERSION` 1.0.1 ([#62](https://github.com/plooum/HA-Plooum-Cards/pull/62)), [release V1.5.1](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.5.1) publiée (deux assets). 1,8 min, 16 appels, aucun aller-retour. A aussi corrigé un bug de V1.5.0 que ma relecture de #59 a raté : `skyColors()` rendait des tableaux bruts hors de [-24°, 6°], fond noir de jour et en pleine nuit → V1.5.1 |
 | **Carte ciel S1, partie 2** : bandeau prochain événement (prompt 34, Sonnet, worktree) | `feature/sky-next-event`, [#64](https://github.com/plooum/HA-Plooum-Cards/pull/64) ; skills [#65](https://github.com/plooum/HA-Plooum-Cards/pull/65) (nouveau skill `sky-card`, worktree `../HA-Plooum-Cards-skills`) | mergées le 2026-10-15 (worktrees, branches et HA nettoyés), pas encore publiées : `CARD_VERSION` 1.1.0 + release V1.6.0 sur accord de l'utilisateur (relue ; 1 aller-retour : date du bandeau en 24 h). Sous-agent 4,8 + ~1 min, 55 + 6 appels. HA du sous-agent sur 8124. Un premier lancement parti avec un prompt vide a été arrêté aussitôt, sans reste : vérifier le champ `prompt` avant d'envoyer |
+| Carte ciel : position choisie sur une carte (`ha-selector-location`, maison par défaut, sans géocodage externe : décision de l'utilisateur) (prompt 35, Sonnet, worktree) | `feature/sky-location-picker` | sous-agent au travail |
 | Ce dépôt : `pilot` → `pilot-ha-plooum` (spécificités uniquement), `pr-workflow` allégé, CLAUDE.md (prompt 25) | `feature/pilot-skills-split`, [#55](https://github.com/plooum/HA-Plooum-Cards/pull/55) | mergée le 2026-10-12 |
 
 ## Décisions (utilisateur)
+
+- 2026-10-15 : carte ciel : **seul `time_control: rotate`** (strip / ring / wheel / filmstrip retirés de la feuille de route) ; la position se choisit sur une carte dans l'éditeur, maison par défaut, **sans service de géocodage externe**.
 
 - 2026-10-15 : **les sous-agents ne déroulent plus toute la suite de non-régression**, seulement les tests qui les concernent (`--only <carte>:` + la suite de la fonctionnalité) ; la suite complète seulement sur demande. [#63](https://github.com/plooum/HA-Plooum-Cards/pull/63) et [plooum/claude-pilot#4](https://github.com/plooum/claude-pilot/pull/4) mergées le 2026-10-15, installation de claude-pilot mise à jour. Et : le pilote envoie un relevé `get_usage` au board à **chaque** étape (oublié en début de session 7).
 

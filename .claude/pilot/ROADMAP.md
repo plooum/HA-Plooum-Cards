@@ -15,15 +15,12 @@ _Dernière mise à jour : 2026-10-15._
 
 ## Carte ciel (planétarium)
 
-Décidé le 2026-10-14 : un dôme (zénith au centre, horizon au bord, points cardinaux), position tirée d'HA (latitude / longitude de `hass.config`, modifiable dans la config), calculs avec **astronomy-engine** (MIT, ~110 Ko dans le bundle). On fait défiler le temps sur **±6 h** ; la façon de le faire devient une option à choisir parmi cinq (maquettes montrées le 2026-10-14) : `rotate` (faire tourner le ciel au doigt, double-tap = maintenant), `ring` (une bague de 12 h autour du dôme), `strip` (une frise colorée selon la nuit sous le dôme, avec les levers / couchers), `wheel` (une molette verticale des heures), `filmstrip` (sept vignettes toutes les 2 h).
+Décidé le 2026-10-14 : un dôme (zénith au centre, horizon au bord, points cardinaux), position tirée d'HA (latitude / longitude de `hass.config`, modifiable dans la config), calculs avec **astronomy-engine** (MIT, ~110 Ko dans le bundle). On fait défiler le temps sur **±6 h** ; seul `rotate` existe (faire tourner le ciel au doigt, double-tap = maintenant) : les autres modes (`ring`, `strip`, `wheel`, `filmstrip`) ont été retirés par l'utilisateur le 2026-10-15.
 
 | # | Étape | Statut |
 | :--- | :--- | :--- |
 | S1 | V1 : le dôme (étoiles brillantes, lignes et noms des constellations, planètes, Lune avec sa phase, points cardinaux, couleur du ciel selon le crépuscule / la nuit), `time_control: rotate`, et un bandeau **prochain événement** calculé localement : éclipses, conjonctions, oppositions, pleines lunes / super-lunes, équinoxes / solstices, pluies d'étoiles filantes (table embarquée, avec la phase de la Lune) ; un tap amène le dôme sur l'événement quand il tombe dans les ±6 h | partie 1 faite (dôme + `rotate`, [#59](https://github.com/plooum/HA-Plooum-Cards/pull/59)) ; partie 2 faite (bandeau prochain événement, [#64](https://github.com/plooum/HA-Plooum-Cards/pull/64)) |
-| S2 | `time_control: strip` | à faire |
-| S3 | `time_control: ring` | à faire |
-| S4 | `time_control: wheel` | à faire |
-| S5 | `time_control: filmstrip` | à faire |
+| S2 | Position choisie sur une carte dans l'éditeur, maison par défaut, sans service externe (prompt 35) | en cours |
 | S6 | V2 : les comètes brillantes via l'API COBS (cobs.si), dessinées sur le dôme avec leur magnitude ; d'abord un test de faisabilité de l'appel depuis le navigateur (CORS), sinon en passant par HA (capteur REST) | à faire |
 | S7 | Release(s) : la carte à son `CARD_VERSION` initial, puis des releases mineures au fil des étapes | [V1.5.0](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.5.0) publiée le 2026-10-15 (partie 1), [V1.5.1](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.5.1) (ciel de jour, fond noir corrigé) ; les suivantes sur feu vert |
 
