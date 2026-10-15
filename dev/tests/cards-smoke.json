@@ -64,7 +64,7 @@
       ]
     },
     {
-      "name": "sky: renders, computes the sky, drags the time, editor",
+      "name": "sky: renders, computes the sky, drags the time, next event, editor",
       "path": "/plooum-test/sky",
       "steps": [
         { "js": "S.cards = await T.card.rendered('ha-plooum-sky-card', 2); S.C = customElements.get('ha-plooum-sky-card'); S.sky = S.C.skyAt(new Date('2026-10-15T22:00:00Z'), 48.86, 2.35); S.polaris = 71;" },
@@ -79,6 +79,20 @@
         { "js": "S.cards[0]._now = new Date('2026-06-21T12:00:00Z'); await S.cards[0].updateComplete;" },
         { "assert": "Number(deep(S.cards[0].shadowRoot, '.stars')[0].getAttribute('opacity')) >= 0.8 && deep(S.cards[0].shadowRoot, '.stars circle').length > 0", "msg": "by day the stars stay visible", "show": "deep(S.cards[0].shadowRoot, '.stars')[0].getAttribute('opacity')" },
         { "js": "S.cards[0]._now = new Date(); await S.cards[0].updateComplete;" },
+        { "js": "S.E = S.C.eventsBetween(new Date('2026-08-01T00:00:00Z'), new Date('2026-09-30T00:00:00Z'), 48.86, 2.35); S.near = (type, kind, iso) => S.E.some((e) => e.type === type && (!kind || e.kind === kind) && Math.abs(e.date - new Date(iso)) <= 3600000);" },
+        { "assert": "S.E.every((e, i) => i === 0 || S.E[i - 1].date <= e.date) && S.E.some((e) => e.name === 'Perseids meteor shower') && S.near('meteor_shower', null, '2026-08-12T16:48:00Z')", "msg": "events are sorted and the Perseids peak on 12 Aug 2026 16:48 UTC", "show": "JSON.stringify(S.E.map((e) => [e.type, e.date]))" },
+        { "assert": "S.near('solar_eclipse', 'partial', '2026-08-12T18:17:00Z') && S.near('lunar_eclipse', 'partial', '2026-08-28T04:13:00Z') && S.near('equinox', null, '2026-09-23T00:06:00Z')", "msg": "the partial solar eclipse, the partial lunar eclipse and the equinox of Aug-Sep 2026", "show": "JSON.stringify(S.E.map((e) => [e.type, e.date]))" },
+        { "assert": "(() => { const c = S.C.eventsBetween(new Date('2026-05-25T00:00:00Z'), new Date('2026-06-25T00:00:00Z'), 48.86, 2.35).filter((e) => e.type === 'conjunction' && e.bodies.includes('Venus') && e.bodies.includes('Jupiter')); return c.length === 1 && Math.abs(c[0].date - new Date('2026-06-10T00:00:00Z')) <= 86400000 && c[0].separation < 2; })()", "msg": "Venus and Jupiter are in conjunction around 10 Jun 2026" },
+        { "assert": "(() => { const m = S.C.eventsBetween(new Date('2026-10-20T00:00:00Z'), new Date('2026-12-01T00:00:00Z'), 48.86, 2.35).filter((e) => e.type === 'full_moon'); return m.length === 2 && m[0].supermoon === false && m[1].supermoon === true && m[1].name === 'Supermoon'; })()", "msg": "the 26 Oct 2026 full Moon is not a supermoon, the 24 Nov one is" },
+        { "js": "S.peak = S.E.find((e) => e.name === 'Perseids meteor shower').date; S.cards[0]._now = new Date(S.peak.getTime() - 3 * 3600000); await S.cards[0].updateComplete; S.banner = deep(S.cards[0].shadowRoot, '.event')[0];" },
+        { "assert": "S.banner && S.banner.textContent.includes('Perseids') && S.banner.classList.contains('reachable')", "msg": "3 h before the peak, the banner announces the Perseids and is tappable", "show": "S.banner?.textContent" },
+        { "js": "S.banner.click(); await S.cards[0].updateComplete;" },
+        { "assert": "(() => { const m = /^\\+(\\d) h (\\d\\d)$/.exec(deep(S.cards[0].shadowRoot, '.offset')[0]?.textContent.trim() || ''); return !!m && Math.abs(Number(m[1]) * 60 + Number(m[2]) - 180) <= 5; })()", "msg": "tapping the banner brings the dome to +3 h 00", "show": "deep(S.cards[0].shadowRoot, '.offset')[0]?.textContent" },
+        { "js": "S.cards[0]._now = new Date(); S.cards[0]._offset = 0; await S.cards[0].updateComplete;" },
+        { "js": "S.cfg = S.cards[0].config; S.cards[0].setConfig({ ...S.cfg, show_next_event: false }); await S.cards[0].updateComplete;" },
+        { "assert": "deep(S.cards[0].shadowRoot, '.event').length === 0", "msg": "show_next_event: false removes the banner" },
+        { "js": "S.cards[0].setConfig(S.cfg); await S.cards[0].updateComplete;" },
+        { "assert": "deep(S.cards[0].shadowRoot, '.event').length === 1", "msg": "the banner is back with the original config" },
         { "js": "await T.card.editorRenders(S.cards[0]);" }
       ]
     },

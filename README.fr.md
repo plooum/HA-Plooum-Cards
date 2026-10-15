@@ -65,7 +65,7 @@ Carte compacte pour suivre plusieurs entités booléennes (lumière, pompe, CO2.
 ![Multi Status preview](docs/previews/multistatus.png)
 
 ### Ha Plooum Sky Card
-Le ciel au-dessus de la maison en dôme : étoiles brillantes, constellations, planètes, Lune avec sa phase et Soleil, sur un fond qui suit le jour, le crépuscule et la nuit. On fait défiler le temps de ±6 h en faisant tourner le ciel au doigt.
+Le ciel au-dessus de la maison en dôme : étoiles brillantes, constellations, planètes, Lune avec sa phase et Soleil, sur un fond qui suit le jour, le crépuscule et la nuit. On fait défiler le temps de ±6 h en faisant tourner le ciel au doigt. Une ligne sous le dôme annonce le prochain événement du ciel (éclipse, conjonction, opposition, pleine Lune ou super-lune, équinoxe ou solstice, pluie d'étoiles filantes) ; un tap dessus amène le dôme sur l'événement quand il tombe dans les 6 h.
 
 ![Sky preview](docs/previews/sky.png)
 
