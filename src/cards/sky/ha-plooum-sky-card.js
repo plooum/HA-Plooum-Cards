@@ -2,7 +2,7 @@ import { LitElement, html, css, nothing, svg } from "lit";
 import * as Astronomy from "astronomy-engine";
 import { STARS, CONSTELLATION_LINES, CONSTELLATION_NAMES, METEOR_SHOWERS } from "./sky-data.js";
 
-const CARD_VERSION = '1.0.1';
+const CARD_VERSION = '1.1.0';
 
 const MAX_OFFSET = 360; // minutes
 const EVENT_WINDOW_MIN = 360; // an event stays reachable from the dome this long around its date
