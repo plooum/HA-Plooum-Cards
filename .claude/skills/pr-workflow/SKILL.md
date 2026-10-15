@@ -20,6 +20,7 @@ La branche, la PR, le format du rapport et les pièges du bac à sable sont dans
 
 - Le code reste en anglais : textes de l'interface, commentaires, identifiants. Tout le reste est en français : PR (titre et description), messages de commit, rapport, prompts.
 - README.md et README.fr.md changent ensemble ; le comportement ou les options d'une carte vont dans `docs/<card>.md`.
+- Boutons d'éditeur : `ha-button`. `mwc-button` ne s'affiche plus dans HA 2026.10 (du texte brut).
 - Problèmes hors périmètre : signale-les dans ton rapport ; TODO.md est laissé au pilote.
 
 ## Tests
