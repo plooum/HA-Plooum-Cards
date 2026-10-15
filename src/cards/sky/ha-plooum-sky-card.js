@@ -603,7 +603,13 @@ class HaPlooumSkyCardEditor extends LitElement {
   _valueChanged(ev) {
     const config = { ...ev.detail.value };
     // The location picker yields one { latitude, longitude } value; the config keeps two plain options.
-    if (config.location) {
+    // ha-form returns the whole data: an untouched default (home) location must not be written.
+    const home = this.hass?.config || {};
+    const isHome = config.location
+      && this._config.latitude === undefined && this._config.longitude === undefined
+      && Math.abs(config.location.latitude - Number(home.latitude ?? 0)) < 1e-4
+      && Math.abs(config.location.longitude - Number(home.longitude ?? 0)) < 1e-4;
+    if (config.location && !isHome) {
       config.latitude = Math.round(config.location.latitude * 1e4) / 1e4;
       config.longitude = Math.round(config.location.longitude * 1e4) / 1e4;
     }
