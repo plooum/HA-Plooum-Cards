@@ -2,7 +2,7 @@
 
 Lu en premier par le pilote suivant (voir le skill `pilot`). Commité directement sur `main`, sans PR. À tenir à jour.
 
-_Dernière mise à jour : 2026-10-13, session pilote 6 (Opus 5.5, fixe) : poste fixe configuré pour claude-pilot + agent-board. Avant : fin de la session 5 (portable) : #51–#55 mergées ; agent board → plooum/agent-board, workflow du pilote → plooum/claude-pilot (skills globaux `pilot`, `pilot-subagent`, `agent-board`, tous installés sur le portable dans `~/.local/opt/`). Rien en cours._
+_Dernière mise à jour : 2026-10-15, session pilote 7 (Opus 5.5, portable) : S1 partie 1 lancée (prompt 32)._
 
 Protection de `main` : l'utilisateur a désactivé « Lock branch » le 2026-10-11 (elle bloquait aussi les merges de PR) ; le pilote pousse `.claude/pilot/` directement sur `main`. Le pilote reste sur `main` dans le checkout principal (HA sur 8123) et y commite la passation ; les sous-agents travaillent dans leurs propres worktrees avec leur propre HA (voir le skill `pilot`).
 
@@ -80,6 +80,7 @@ L'utilisateur travaille sur deux PC ; le pilote peut démarrer sur l'un ou l'aut
 | Traduction du handoff et du backlog (prompt 30, checkout principal, sans PR) | — | fait le 2026-10-14 (1,6 min, 8 appels) |
 | agent-board : bandeau limites 5 h / hebdo + contexte du pilote (prompt 31, fait par le pilote lui-même pour économiser des tokens ; la status line ne tourne pas dans l'app de bureau, source = outil `get_usage`) | `feature/usage`, [plooum/agent-board#4](https://github.com/plooum/agent-board/pull/4) | mergée le 2026-10-14 (+ skill et AGENTS.md en français, bouton « Archive inactive ») ; install à jour, board redémarré, premier relevé envoyé |
 | agent-board : ligne d'état du pilote par projet (busy / waiting / idle + contexte), bouton « Clear idle pilots » (fait par le pilote) | `feature/pilot-strip`, [plooum/agent-board#5](https://github.com/plooum/agent-board/pull/5) | mergée le 2026-10-14 ; install à jour, board redémarré. Le pilote tient sa ligne : `board.py pilot --status ...` (skill agent-board) |
+| **Carte ciel S1, partie 1** : dôme + `time_control: rotate` (prompt 32, Sonnet, worktree `agent-ae768090058fd9b81`) ; partie 2 = bandeau prochain événement, prompt suivant | `feature/sky-card` | sous-agent au travail (2026-10-15) |
 | Ce dépôt : `pilot` → `pilot-ha-plooum` (spécificités uniquement), `pr-workflow` allégé, CLAUDE.md (prompt 25) | `feature/pilot-skills-split`, [#55](https://github.com/plooum/HA-Plooum-Cards/pull/55) | mergée le 2026-10-12 |
 
 ## Décisions (utilisateur)

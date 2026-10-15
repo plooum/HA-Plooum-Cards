@@ -4,7 +4,7 @@ Le suivi par l'utilisateur de ce qui est prévu, tenu par le pilote (demande de 
 
 Statuts : `à faire`, `suivant` (le prochain lancement du pilote), `en cours`, `en relecture` (PR qui attend l'utilisateur), `fait`, `en attente` (attend une décision de l'utilisateur).
 
-_Dernière mise à jour : 2026-10-14._
+_Dernière mise à jour : 2026-10-15._
 
 ## Carte horloge de Berlin
 
@@ -19,7 +19,7 @@ Décidé le 2026-10-14 : un dôme (zénith au centre, horizon au bord, points ca
 
 | # | Étape | Statut |
 | :--- | :--- | :--- |
-| S1 | V1 : le dôme (étoiles brillantes, lignes et noms des constellations, planètes, Lune avec sa phase, points cardinaux, couleur du ciel selon le crépuscule / la nuit), `time_control: rotate`, et un bandeau **prochain événement** calculé localement : éclipses, conjonctions, oppositions, pleines lunes / super-lunes, équinoxes / solstices, pluies d'étoiles filantes (table embarquée, avec la phase de la Lune) ; un tap amène le dôme sur l'événement quand il tombe dans les ±6 h | suivant |
+| S1 | V1 : le dôme (étoiles brillantes, lignes et noms des constellations, planètes, Lune avec sa phase, points cardinaux, couleur du ciel selon le crépuscule / la nuit), `time_control: rotate`, et un bandeau **prochain événement** calculé localement : éclipses, conjonctions, oppositions, pleines lunes / super-lunes, équinoxes / solstices, pluies d'étoiles filantes (table embarquée, avec la phase de la Lune) ; un tap amène le dôme sur l'événement quand il tombe dans les ±6 h | en cours : partie 1 (dôme + `rotate`, prompt 32), puis partie 2 (bandeau prochain événement) |
 | S2 | `time_control: strip` | à faire |
 | S3 | `time_control: ring` | à faire |
 | S4 | `time_control: wheel` | à faire |
