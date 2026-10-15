@@ -86,6 +86,8 @@ L'utilisateur travaille sur deux PC ; le pilote peut démarrer sur l'un ou l'aut
 
 ## Décisions (utilisateur)
 
+- 2026-10-15 : **les sous-agents ne déroulent plus toute la suite de non-régression**, seulement les tests qui les concernent (`--only <carte>:` + la suite de la fonctionnalité) ; la suite complète seulement sur demande. PR [#63](https://github.com/plooum/HA-Plooum-Cards/pull/63) et [plooum/claude-pilot#4](https://github.com/plooum/claude-pilot/pull/4). Et : le pilote envoie un relevé `get_usage` au board à **chaque** étape (oublié en début de session 7).
+
 - 2026-10-15 : quand l'utilisateur écrit seulement **« maj board »**, le pilote met à jour le board tout de suite : relevé `get_usage` → `board.py usage --file`, sa ligne `board.py pilot --status ...`, les statuts des sous-agents, puis recharge l'onglet du board et répond en une ou deux lignes.
 
 - 2026-10-14 : **tout en français sauf le code et la documentation utilisateur** (README.md, docs/) : chat, fichiers du pilote, prompts, PR, commits, CLAUDE.md, skills du projet et skills globaux de claude-pilot (prompts 28–30). **Montrer à l'utilisateur chaque prompt** envoyé à un sous-agent (et les relances). Carte ciel : dôme, option `time_control` (rotate d'abord), astronomy-engine, bandeau « prochain événement » ; suivi dans [ROADMAP.md](ROADMAP.md).
