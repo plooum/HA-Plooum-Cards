@@ -109,7 +109,7 @@ dev/.venv/bin/python dev/shot.py /plooum-test/multistatus -e ha-plooum-multi-sta
 
 **En direct dans le panneau navigateur.** Les étapes sont exécutées par [dev/ui_runner.js](dev/ui_runner.js), que `ui_test.py` charge sans interface et que le panneau peut aussi ouvrir : `http://127.0.0.1:<port>/plooum_dev/runner.html?suite=<name>[&only=<substring>][&pause=<ms>]` (servi par `plooum_dev`, suites prises dans `dev/tests/`). Il exécute chaque test dans une iframe de même origine à la taille d'écran du test (réduite pour tenir dans le panneau), affiche PASS / FAIL en direct, et finit par `window.uiResult` (`{ passed, failed, errors, summary, tests }`, aussi dans le titre de la page). Quand l'utilisateur regarde, lance les suites là (`pause=300` pour suivre) ; les étapes `shot` y sont ignorées.
 
-**Suite de fumée, à lancer après toute modification de carte** (environ 5 s, les neuf cartes : chacune s'affiche, réagit une fois et son éditeur s'affiche) : `dev/.venv/bin/python dev/ui_test.py dev/tests/cards-smoke.json`. Un test par carte, sur sa propre `/plooum-test/<view>` ; elle restaure les états qu'elle change.
+**Suite de fumée** (environ 10 s, toutes les cartes : chacune s'affiche, réagit une fois et son éditeur s'affiche) : `dev/.venv/bin/python dev/ui_test.py dev/tests/cards-smoke.json`. Un test par carte, sur sa propre `/plooum-test/<view>` ; elle restaure les états qu'elle change. **Après une modification, ne lance que les tests de ce qui a changé** : le test de la carte touchée (`--only <carte>:`, par exemple `--only sky:`) et la suite de la fonctionnalité ; la suite complète, seulement sur demande de l'utilisateur (décision du 2026-10-15).
 
 ### Entités de test (toutes dans [configuration.yaml](dev/ha-config/configuration.yaml))
 

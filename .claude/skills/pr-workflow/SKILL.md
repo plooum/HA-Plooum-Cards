@@ -27,5 +27,6 @@ La branche, la PR, le format du rapport et les pièges du bac à sable sont dans
 - **Jamais le panneau navigateur intégré** : suites avec `dev/ui_test.py`, vérifications à la main avec `dev/shot.py --js ...`, les deux sans interface. Ils diffusent vers le tableau des agents (http://127.0.0.1:8120).
 - Fichiers temporaires, scripts jetables et captures dans `dev/shots/` (gitignored), **pas dans le dossier scratchpad** : son chemin contient `-git-` (le dépôt est sous `~/git`), et le bac à sable refuse comme « trop complexe » une commande où un chemin ou une URL contient `git`.
 - Une carte qui dépend de l'heure (ciel, horloge) : les tests tournent à l'heure réelle, souvent en plein jour ; une assertion sur ce qui est dessiné doit tenir à toute heure (prompt 32 : étoiles à opacité 0 le jour, mais présentes dans le DOM).
+- **Ne lance que les tests de ce que tu changes** : le test de ta carte dans la suite de fumée (`--only <carte>:`) et la suite de ta fonctionnalité. Jamais toute la suite de fumée ni les suites des autres cartes, sauf si le prompt le demande.
 - La suite est commitée avec la PR sous `dev/tests/<feature>.json` ; la section **Tested** du rapport est sa sortie collée en entier, avec ce chemin.
 - CI = Build + Validate.
