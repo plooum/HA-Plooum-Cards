@@ -1174,3 +1174,16 @@ export const CONSTELLATION_NAMES = [
 ["Flying Fish",111,-73],
 ["Little Fox",295.5,21]
 ];
+
+// Major meteor showers: [name, solar longitude of the peak (degrees), ZHR at the peak].
+// Source: IMO, International Meteor Organization, Working List of Meteor Showers.
+export const METEOR_SHOWERS = [
+  ['Quadrantids', 283.15, 110],
+  ['Lyrids', 32.32, 18],
+  ['Eta Aquariids', 45.5, 50],
+  ['Perseids', 140.0, 100],
+  ['Orionids', 208, 20],
+  ['Leonids', 235.27, 15],
+  ['Geminids', 262.2, 150],
+  ['Ursids', 270.7, 10],
+];

@@ -65,7 +65,7 @@ A compact card to follow several boolean entities (light, pump, CO2...) around a
 ![Multi Status preview](docs/previews/multistatus.png)
 
 ### Ha Plooum Sky Card
-The sky above the house as a dome: bright stars, constellations, planets, the Moon with its phase and the Sun, on a background that follows day, twilight and night. Drag the sky sideways to move the time by up to 6 hours.
+The sky above the house as a dome: bright stars, constellations, planets, the Moon with its phase and the Sun, on a background that follows day, twilight and night. Drag the sky sideways to move the time by up to 6 hours. A line under the dome announces the next sky event (eclipse, conjunction, opposition, full Moon or supermoon, equinox or solstice, meteor shower); tap it to jump to the event when it is within 6 hours.
 
 ![Sky preview](docs/previews/sky.png)
 

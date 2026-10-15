@@ -1,10 +1,12 @@
 import { LitElement, html, css, nothing, svg } from "lit";
 import * as Astronomy from "astronomy-engine";
-import { STARS, CONSTELLATION_LINES, CONSTELLATION_NAMES } from "./sky-data.js";
+import { STARS, CONSTELLATION_LINES, CONSTELLATION_NAMES, METEOR_SHOWERS } from "./sky-data.js";
 
 const CARD_VERSION = '1.0.1';
 
 const MAX_OFFSET = 360; // minutes
+const EVENT_WINDOW_MIN = 360; // an event stays reachable from the dome this long around its date
+const SUPERMOON_KM = 361500;
 const TIME_CONTROL_OPTIONS = [
   { value: 'rotate', label: 'Rotate (drag the sky sideways)' },
 ];
@@ -53,6 +55,16 @@ const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 // Blends two [r, g, b] colors; t = 1 gives the night color, t = 0 the day one.
 const blend = (day, night, t) => `rgb(${day.map((v, k) => Math.round(v + (night[k] - v) * t)).join(',')})`;
 const pad2 = (n) => String(n).padStart(2, '0');
+
+// "in 3 days", "in 5 h", "in 40 min", "2 h ago" from a difference in milliseconds.
+function relativeTime(diff) {
+  const min = Math.round(Math.abs(diff) / 60000);
+  let text;
+  if (min < 60) text = `${min} min`;
+  else if (min < 48 * 60) text = `${Math.round(min / 60)} h`;
+  else text = `${Math.round(min / 1440)} days`;
+  return diff >= 0 ? `in ${text}` : `${text} ago`;
+}
 
 /* ==========================================================================
    MAIN CARD : ha-plooum-sky-card
@@ -142,6 +154,123 @@ class HaPlooumSkyCard extends LitElement {
     return sky;
   }
 
+  // The sky events visible from (lat, lon) between two dates, sorted by date:
+  // { type, name, date, ...details } with `name` the text shown on the card.
+  static eventsBetween(start, end, lat, lon) {
+    const observer = new Astronomy.Observer(lat, lon, 0);
+    const t0 = Astronomy.MakeTime(start);
+    const t1 = Astronomy.MakeTime(end);
+    const events = [];
+    const add = (type, time, name, details) => {
+      if (time && time.ut >= t0.ut && time.ut <= t1.ut) events.push({ type, name, date: time.date, ...details });
+    };
+
+    // Solar eclipses seen from the place, with the Sun up at the peak.
+    let sol = Astronomy.SearchLocalSolarEclipse(t0, observer);
+    while (sol.peak.time.ut <= t1.ut) {
+      if (sol.peak.altitude > 0) {
+        const kind = sol.kind;
+        const label = `${kind[0].toUpperCase()}${kind.slice(1)} solar eclipse`;
+        const obscuration = sol.obscuration;
+        add('solar_eclipse', sol.peak.time, kind === 'partial' ? `${label} (${Math.round(obscuration * 100)} %)` : label, { kind, obscuration });
+      }
+      sol = Astronomy.NextLocalSolarEclipse(sol.peak.time, observer);
+    }
+
+    // Lunar eclipses (not the penumbral ones) with the Moon up at the peak.
+    let lun = Astronomy.SearchLunarEclipse(t0);
+    while (lun.peak.ut <= t1.ut) {
+      if (lun.kind !== 'penumbral') {
+        const eq = Astronomy.Equator('Moon', lun.peak, observer, true, true);
+        if (Astronomy.Horizon(lun.peak, observer, eq.ra, eq.dec, 'normal').altitude > 0) {
+          add('lunar_eclipse', lun.peak, `${lun.kind[0].toUpperCase()}${lun.kind.slice(1)} lunar eclipse`, { kind: lun.kind });
+        }
+      }
+      lun = Astronomy.NextLunarEclipse(lun.peak);
+    }
+
+    // Full Moons, flagged supermoon when the Moon is close enough.
+    let q = Astronomy.SearchMoonQuarter(t0);
+    while (q.time.ut <= t1.ut) {
+      if (q.quarter === 2) {
+        const distance = Astronomy.GeoVector('Moon', q.time, false).Length() * Astronomy.KM_PER_AU;
+        const supermoon = distance < SUPERMOON_KM;
+        add('full_moon', q.time, supermoon ? 'Supermoon' : 'Full Moon', { supermoon, distance });
+      }
+      q = Astronomy.NextMoonQuarter(q);
+    }
+
+    // Equinoxes and solstices.
+    for (let year = t0.date.getUTCFullYear(); year <= t1.date.getUTCFullYear(); year++) {
+      const s = Astronomy.Seasons(year);
+      add('equinox', s.mar_equinox, 'March equinox', {});
+      add('solstice', s.jun_solstice, 'June solstice', {});
+      add('equinox', s.sep_equinox, 'September equinox', {});
+      add('solstice', s.dec_solstice, 'December solstice', {});
+    }
+
+    // Meteor showers, at the peak of the table.
+    for (const [shower, solarLon, zhr] of METEOR_SHOWERS) {
+      // The search starts 30 days early: it misses a longitude reached within hours of its start.
+      let t = Astronomy.SearchSunLongitude(solarLon, t0.AddDays(-30), 366);
+      while (t && t.ut <= t1.ut) {
+        if (t.ut >= t0.ut) {
+          const moon = Math.round(Astronomy.Illumination('Moon', t).phase_fraction * 100);
+          add('meteor_shower', t, `${shower} meteor shower`, { zhr, moon });
+        }
+        t = Astronomy.SearchSunLongitude(solarLon, t.AddDays(1), 366);
+      }
+    }
+
+    // Oppositions of the outer planets (same heliocentric longitude as the Earth).
+    for (const body of ['Mars', 'Jupiter', 'Saturn']) {
+      let t = Astronomy.SearchRelativeLongitude(body, 0, t0.AddDays(-30));
+      while (t && t.ut <= t1.ut) {
+        add('opposition', t, `${body} at opposition`, { body });
+        t = Astronomy.SearchRelativeLongitude(body, 0, t.AddDays(1));
+      }
+    }
+
+    // Conjunctions of two planets: a daily sweep for a minimum of the angular separation,
+    // refined by the hour.
+    const names = PLANETS.map((p) => p.name);
+    const days = Math.ceil(t1.ut - t0.ut) + 2;
+    const vec = (name, t) => Astronomy.GeoVector(name, t, true);
+    const daily = names.map((name) => Array.from({ length: days }, (_, i) => vec(name, t0.AddDays(i - 1))));
+    for (let a = 0; a < names.length; a++) {
+      for (let b = a + 1; b < names.length; b++) {
+        const sep = daily[a].map((v, i) => Astronomy.AngleBetween(v, daily[b][i]));
+        for (let i = 1; i < days - 1; i++) {
+          if (!(sep[i] < 6 && sep[i] < sep[i - 1] && sep[i] <= sep[i + 1])) continue;
+          let best = { sep: Infinity };
+          const from = t0.AddDays(i - 2);
+          for (let h = 0; h <= 48; h++) {
+            const t = from.AddDays(h / 24);
+            const s = Astronomy.AngleBetween(vec(names[a], t), vec(names[b], t));
+            if (s < best.sep) best = { sep: s, t };
+          }
+          const sunVec = vec('Sun', best.t);
+          const elongation = Math.min(
+            Astronomy.AngleBetween(vec(names[a], best.t), sunVec),
+            Astronomy.AngleBetween(vec(names[b], best.t), sunVec),
+          );
+          if (best.sep < 2 && elongation > 15) {
+            add('conjunction', best.t, `${names[a]}–${names[b]} conjunction (${best.sep.toFixed(1)}°)`, { bodies: [names[a], names[b]], separation: best.sep });
+          }
+        }
+      }
+    }
+
+    return events.sort((x, y) => x.date - y.date);
+  }
+
+  // The first event from 6 hours before `now` (it can still be reached from the dome) on.
+  static nextEvent(now, lat, lon) {
+    const start = new Date(now.getTime() - EVENT_WINDOW_MIN * 60000);
+    const end = new Date(now.getTime() + 400 * 86400000);
+    return HaPlooumSkyCard.eventsBetween(start, end, lat, lon)[0] || null;
+  }
+
   constructor() {
     super();
     this._now = new Date();
@@ -151,7 +280,7 @@ class HaPlooumSkyCard extends LitElement {
   }
 
   setConfig(config) {
-    this.config = { time_control: 'rotate', show_constellations: true, ...(config || {}) };
+    this.config = { time_control: 'rotate', show_constellations: true, show_next_event: true, ...(config || {}) };
   }
 
   getCardSize() {
@@ -334,12 +463,53 @@ class HaPlooumSkyCard extends LitElement {
           <span class="time">${pad2(when.getHours())}:${pad2(when.getMinutes())}</span>
           ${this._offset !== 0 ? html`<span class="offset">${this._offsetText()}</span>` : nothing}
         </div>
+        ${this._eventBanner(lat, lon)}
       </ha-card>
     `;
   }
 
+  // The cached next event, recomputed when the position changes or the event is more than
+  // 6 hours behind.
+  _nextEvent(lat, lon) {
+    const c = this._eventCache;
+    const now = this._now.getTime();
+    if (!c || c.lat !== lat || c.lon !== lon || now < c.at || (c.event && now > c.event.date.getTime() + EVENT_WINDOW_MIN * 60000)) {
+      this._eventCache = { lat, lon, at: now, event: HaPlooumSkyCard.nextEvent(this._now, lat, lon) };
+    }
+    return this._eventCache.event;
+  }
+
+  _eventBanner(lat, lon) {
+    if (this.config.show_next_event === false) return nothing;
+    const ev = this._nextEvent(lat, lon);
+    if (!ev) return nothing;
+    const diff = ev.date.getTime() - this._now.getTime();
+    const reachable = Math.abs(diff) <= EVENT_WINDOW_MIN * 60000;
+    const date = new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(ev.date);
+    const parts = [ev.name, date, relativeTime(diff)];
+    if (ev.type === 'meteor_shower') parts.push(`Moon ${ev.moon} %`);
+    return html`<div class="event ${reachable ? 'reachable' : ''}" @click=${() => this._goToEvent(ev)}>${parts.join(' · ')}</div>`;
+  }
+
+  // Brings the dome to the event when it is within the reach of the time offset.
+  _goToEvent(ev) {
+    const diff = ev.date.getTime() - this._now.getTime();
+    if (Math.abs(diff) <= EVENT_WINDOW_MIN * 60000) this._setOffset(diff / 60000);
+  }
+
   static get styles() {
     return css`
+      .event {
+        text-align: center;
+        padding-top: 6px;
+        font-size: 0.9em;
+        color: var(--secondary-text-color);
+      }
+      .event.reachable {
+        color: var(--primary-color);
+        font-weight: 500;
+        cursor: pointer;
+      }
       ha-card {
         padding: 12px;
       }
@@ -409,6 +579,7 @@ const SCHEMA = [
   { name: 'longitude', selector: { number: { mode: 'box', min: -180, max: 180, step: 'any' } } },
   { name: 'time_control', selector: { select: { mode: 'dropdown', options: TIME_CONTROL_OPTIONS } } },
   { name: 'show_constellations', selector: { boolean: {} } },
+  { name: 'show_next_event', selector: { boolean: {} } },
 ];
 const LABELS = {
   title: 'Title',
@@ -416,6 +587,7 @@ const LABELS = {
   longitude: 'Longitude (degrees)',
   time_control: 'Time control',
   show_constellations: 'Show the constellations',
+  show_next_event: 'Show the next sky event',
 };
 
 class HaPlooumSkyCardEditor extends LitElement {
@@ -446,7 +618,7 @@ class HaPlooumSkyCardEditor extends LitElement {
 
   render() {
     if (!this.hass || !this._config) return nothing;
-    const data = { time_control: 'rotate', show_constellations: true, ...this._config };
+    const data = { time_control: 'rotate', show_constellations: true, show_next_event: true, ...this._config };
     return html`
       <div class="editor">
         <ha-form
