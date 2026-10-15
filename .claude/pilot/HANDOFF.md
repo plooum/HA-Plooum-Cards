@@ -86,7 +86,7 @@ L'utilisateur travaille sur deux PC ; le pilote peut démarrer sur l'un ou l'aut
 
 ## Décisions (utilisateur)
 
-- 2026-10-15 : **les sous-agents ne déroulent plus toute la suite de non-régression**, seulement les tests qui les concernent (`--only <carte>:` + la suite de la fonctionnalité) ; la suite complète seulement sur demande. PR [#63](https://github.com/plooum/HA-Plooum-Cards/pull/63) et [plooum/claude-pilot#4](https://github.com/plooum/claude-pilot/pull/4). Et : le pilote envoie un relevé `get_usage` au board à **chaque** étape (oublié en début de session 7).
+- 2026-10-15 : **les sous-agents ne déroulent plus toute la suite de non-régression**, seulement les tests qui les concernent (`--only <carte>:` + la suite de la fonctionnalité) ; la suite complète seulement sur demande. [#63](https://github.com/plooum/HA-Plooum-Cards/pull/63) et [plooum/claude-pilot#4](https://github.com/plooum/claude-pilot/pull/4) mergées le 2026-10-15, installation de claude-pilot mise à jour. Et : le pilote envoie un relevé `get_usage` au board à **chaque** étape (oublié en début de session 7).
 
 - 2026-10-15 : quand l'utilisateur écrit seulement **« maj board »**, le pilote met à jour le board tout de suite : relevé `get_usage` → `board.py usage --file`, sa ligne `board.py pilot --status ...`, les statuts des sous-agents, puis recharge l'onglet du board et répond en une ou deux lignes.
 
