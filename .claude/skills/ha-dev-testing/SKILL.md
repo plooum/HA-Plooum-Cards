@@ -72,4 +72,5 @@ Sortie : une ligne `PASS  1.8s  <name>` / `FAIL` par test, puis pour chaque éch
 - Une carte dont `setConfig` échoue est une `hui-error-card` invisible hors du mode édition : cherche-la dans le DOM.
 - Actions : vérifie l'entité ou le compteur sous-jacent avec `dev/api.sh GET states/<entity>`.
 - `dev/shot.py -e` prend un sélecteur Playwright, donc `-e ".view3d >> nth=1"` recadre sur la deuxième vue 3D ; `--js` s'exécute une fois cet élément présent (règle-y la configuration d'une carte ou `_orbit`).
+- `dev/shot.py --js` n'a pas les helpers `T` / `deep` de `dev/ui_helpers.js` : écris du JS autonome. Une étape `shot` de `ui_test.py` capture la page sans la boîte de dialogue de l'éditeur : pour une capture de l'éditeur ouvert, `dev/shot.py --js` avec un JS qui ouvre la boîte et attend son contenu (prompt 35).
 - Donne les chemins des captures dans ton rapport. Garde-les dans `dev/shots/` (gitignored), ne les commite jamais.
