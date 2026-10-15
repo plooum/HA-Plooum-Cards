@@ -485,7 +485,7 @@ class HaPlooumSkyCard extends LitElement {
     if (!ev) return nothing;
     const diff = ev.date.getTime() - this._now.getTime();
     const reachable = Math.abs(diff) <= EVENT_WINDOW_MIN * 60000;
-    const date = new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(ev.date);
+    const date = new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(ev.date);
     const parts = [ev.name, date, relativeTime(diff)];
     if (ev.type === 'meteor_shower') parts.push(`Moon ${ev.moon} %`);
     return html`<div class="event ${reachable ? 'reachable' : ''}" @click=${() => this._goToEvent(ev)}>${parts.join(' · ')}</div>`;
