@@ -26,6 +26,7 @@ La branche, la PR, le format du rapport et les pièges du bac à sable sont dans
 ## Tests
 
 - **Le navigateur intégré de Claude** (`mcp__Claude_Browser__*`, utilisateur, 2026-11-07) : ouvre **ton propre onglet** (`tabs_create`, puis `navigate` avec son `tabId`) sur ton port et n'agis que sur lui ; suites dans `runner.html` (voir `ha-dev-testing`). `dev/ui_test.py` / `dev/shot.py` sans interface seulement si ces outils ne te sont pas accessibles (dis-le dans ton rapport).
+- Un script créé avec `Write` n'est pas exécutable : `chmod +x` et commite le mode (prompt 36 : `dev/make_videos.sh` échouait en silence derrière `|| true`).
 - Fichiers temporaires, scripts jetables et captures dans `dev/shots/` (gitignored), **pas dans le dossier scratchpad** : son chemin contient `-git-` (le dépôt est sous `~/git`), et le bac à sable refuse comme « trop complexe » une commande où un chemin ou une URL contient `git`.
 - Une carte qui dépend de l'heure (ciel, horloge) : les tests tournent à l'heure réelle, souvent en plein jour ; une assertion sur ce qui est dessiné doit tenir à toute heure (prompt 32 : étoiles à opacité 0 le jour, mais présentes dans le DOM).
 - **Ne lance que les tests de ce que tu changes** : le test de ta carte dans la suite de fumée (`--only <carte>:`) et la suite de ta fonctionnalité. Jamais toute la suite de fumée ni les suites des autres cartes, sauf si le prompt le demande.
