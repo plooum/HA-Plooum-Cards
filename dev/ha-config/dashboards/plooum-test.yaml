@@ -747,3 +747,6 @@ views:
       # Recordings made by dev/make_videos.sh: today 3, D-1 empty, D-2 2 (+ notes.txt), D-5 1.
       - type: custom:ha-plooum-gallery-card
         media_source: media-source://media_source/rec_cam_entree/videos
+      # Flat files named <start epoch>-<end epoch>.mp4: today 08:15 + 14:30, D-3 22:50 (crosses midnight).
+      - type: custom:ha-plooum-gallery-card
+        media_source: media-source://media_source/rec_cam_entree/epoch

@@ -6,12 +6,23 @@ Browses the videos a camera recorded into a Home Assistant media folder (`media_
 
 ## File layout
 
-The card expects one folder per day, holding one file per recording, both named after their date and time:
+The card accepts two organizations of the recordings, and a mix of both.
+
+1. One folder per day, holding one file per recording, both named after their date and time:
 
 ```
 <media_source>/<YYYY-MM-DD>/<HH:MM:SS>-<HH:MM:SS>.<ext>
 e.g. rec_cam_entree/videos/2026-07-11/10:32:20-10:35:20.mp4
 ```
+
+2. Flat files named after the start and the end of the clip as Unix timestamps (seconds), directly in `media_source` (or inside a day folder):
+
+```
+<media_source>/<start epoch>-<end epoch>.<ext>
+e.g. rec_cam_entree/videos/1794032417-1794032495.mp4
+```
+
+This is what `path_datetime_format: X` of camera-gallery-card produces. A clip belongs to the day of its start, in Home Assistant's time zone when your profile follows the server time zone, otherwise in the browser's. A clip that runs past midnight stops at 24 h on the timeline. An epoch clip inside a day folder stays in that day.
 
 The file name gives the start and the end of the clip. Folders and files that do not match are ignored. The card is meant for a few videos per day (about ten): there are no favorites, no grouping and no continuous playback.
 

@@ -4,6 +4,7 @@ const CARD_VERSION = '1.0.0';
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const CLIP_RE = /^(\d{2}):(\d{2}):(\d{2})-(\d{2}):(\d{2}):(\d{2})(?:\.[A-Za-z0-9]+)?$/;
+const EPOCH_RE = /^(\d{9,11})-(\d{9,11})(?:\.[A-Za-z0-9]+)?$/;
 const DAY_SECONDS = 86400;
 const MAX_THUMB_JOBS = 2;
 const THUMB_TIMEOUT_MS = 15000;
@@ -38,13 +39,42 @@ class HaPlooumGalleryCard extends LitElement {
     return { media_source: 'media-source://media_source/local' };
   }
 
-  // Seconds since midnight of "HH:MM:SS" parts, or null when the title is not a clip name.
-  static parseClip(title) {
-    const m = CLIP_RE.exec(String(title || '').trim());
-    if (!m) return null;
-    const start = +m[1] * 3600 + +m[2] * 60 + +m[3];
-    const end = +m[4] * 3600 + +m[5] * 60 + +m[6];
-    return { start, end: Math.max(end, start), label: `${m[1]}:${m[2]}:${m[3]} – ${m[4]}:${m[5]}:${m[6]}`, time: `${m[1]}:${m[2]}` };
+  // Parses a clip name: "HH:MM:SS-HH:MM:SS.ext" or "<start epoch>-<end epoch>.ext" (Unix seconds, read in
+  // `timeZone`, undefined = browser). Returns { start, end (seconds since midnight), label, time, date? }
+  // (date = local day of the start, epoch names only), or null when the title is not a clip name.
+  static parseClip(title, timeZone) {
+    const name = String(title || '').trim();
+    const m = CLIP_RE.exec(name);
+    if (m) {
+      const start = +m[1] * 3600 + +m[2] * 60 + +m[3];
+      const end = +m[4] * 3600 + +m[5] * 60 + +m[6];
+      return { start, end: Math.max(end, start), label: `${m[1]}:${m[2]}:${m[3]} – ${m[4]}:${m[5]}:${m[6]}`, time: `${m[1]}:${m[2]}` };
+    }
+    const e = EPOCH_RE.exec(name);
+    if (!e) return null;
+    const s0 = +e[1];
+    const e0 = Math.max(+e[2], s0);
+    const opts = { hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+    let fmt;
+    try {
+      fmt = new Intl.DateTimeFormat('en-CA', { ...opts, timeZone });
+    } catch (err) {
+      fmt = new Intl.DateTimeFormat('en-CA', opts);
+    }
+    const local = (t) => {
+      const o = {};
+      for (const p of fmt.formatToParts(new Date(t * 1000))) o[p.type] = p.value;
+      const hh = o.hour === '24' ? '00' : o.hour;
+      return { date: `${o.year}-${o.month}-${o.day}`, hms: `${hh}:${o.minute}:${o.second}`, secs: +hh * 3600 + +o.minute * 60 + +o.second };
+    };
+    const a = local(s0);
+    const b = local(e0);
+    return { date: a.date, start: a.secs, end: a.secs + (e0 - s0), label: `${a.hms} – ${b.hms}`, time: a.hms.slice(0, 5) };
+  }
+
+  // Time zone clip names are read in: HA's when the user's profile follows the server, else the browser's.
+  _timeZone() {
+    return this.hass?.locale?.time_zone === 'server' ? this.hass?.config?.time_zone : undefined;
   }
 
   constructor() {
@@ -116,10 +146,22 @@ class HaPlooumGalleryCard extends LitElement {
     try {
       const root = await this._browse(this.config.media_source);
       if (nav !== this._nav) return;
-      this._days = (root.children || [])
-        .filter((c) => DAY_RE.test(String(c.title || '').trim()))
-        .map((c) => ({ date: c.title.trim(), id: c.media_content_id }))
-        .sort((a, b) => (a.date < b.date ? -1 : 1));
+      const tz = this._timeZone();
+      const byDate = new Map();
+      const entry = (date) => {
+        if (!byDate.has(date)) byDate.set(date, { date, id: null, flat: [] });
+        return byDate.get(date);
+      };
+      for (const c of root.children || []) {
+        const title = String(c.title || '').trim();
+        if (DAY_RE.test(title)) {
+          entry(title).id = c.media_content_id;
+        } else if (c.can_play) {
+          const p = HaPlooumGalleryCard.parseClip(title, tz);
+          if (p?.date) entry(p.date).flat.push({ id: c.media_content_id, ...p });
+        }
+      }
+      this._days = [...byDate.values()].sort((a, b) => (a.date < b.date ? -1 : 1));
       const idx = await this._scan(this._days.length, -1);
       if (nav !== this._nav) return;
       if (idx < 0) {
@@ -141,13 +183,15 @@ class HaPlooumGalleryCard extends LitElement {
   async _dayClips(idx) {
     const day = this._days[idx];
     if (this._dayCache.has(day.date)) return this._dayCache.get(day.date);
-    const res = await this._browse(day.id);
+    const tz = this._timeZone();
+    const res = day.id ? await this._browse(day.id) : { children: [] };
     const clips = (res.children || [])
       .filter((c) => c.can_play)
-      .map((c) => ({ c, p: HaPlooumGalleryCard.parseClip(c.title) }))
+      .map((c) => ({ c, p: HaPlooumGalleryCard.parseClip(c.title, tz) }))
       .filter((x) => x.p)
       .map((x) => ({ id: x.c.media_content_id, ...x.p }))
-      .sort((a, b) => a.start - b.start);
+      .concat(day.flat)
+      .sort((a, b) => a.start - b.start || a.end - b.end);
     this._dayCache.set(day.date, clips);
     return clips;
   }
@@ -298,7 +342,7 @@ class HaPlooumGalleryCard extends LitElement {
         <div class="track">
           ${this._clips.map((c) => html`
             <div class="seg ${this._sel === c ? 'sel' : ''}"
-                 style="left: ${(c.start / DAY_SECONDS) * 100}%; width: ${((c.end - c.start) / DAY_SECONDS) * 100}%"
+                 style="left: ${(c.start / DAY_SECONDS) * 100}%; width: ${((Math.min(c.end, DAY_SECONDS) - c.start) / DAY_SECONDS) * 100}%"
                  title=${c.label}
                  @click=${() => this._select(c)}></div>
           `)}
