@@ -2,7 +2,7 @@
 
 Lu en premier par le pilote suivant (voir le skill `pilot`). Commité directement sur `main`, sans PR. À tenir à jour.
 
-_Dernière mise à jour : 2026-11-07, session pilote 8 (Opus 5.5, fixe) : carte **galerie** mergée ([#71](https://github.com/plooum/HA-Plooum-Cards/pull/71)), sous-agents dans le navigateur intégré ([#70](https://github.com/plooum/HA-Plooum-Cards/pull/70)). Pas encore de release. Le HA de 8123 a besoin de `dev/ha.sh reset` + `start` (nouveau `media_dirs`, vue `gallery` absente de `/plooum-edit`)._
+_Dernière mise à jour : 2026-11-07, session pilote 8 (Opus 5.5, fixe) : carte **galerie** mergée ([#71](https://github.com/plooum/HA-Plooum-Cards/pull/71)), sous-agents dans le navigateur intégré ([#70](https://github.com/plooum/HA-Plooum-Cards/pull/70)). [Release V1.7.0](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.7.0) publiée (galerie 1.0.0, deux assets attachés). Rien en cours. Le HA de 8123 a besoin de `dev/ha.sh reset` + `start` (nouveau `media_dirs`, vue `gallery` absente de `/plooum-edit`)._
 
 Protection de `main` : l'utilisateur a désactivé « Lock branch » le 2026-10-11 (elle bloquait aussi les merges de PR) ; le pilote pousse `.claude/pilot/` directement sur `main`. Le pilote reste sur `main` dans le checkout principal (HA sur 8123) et y commite la passation ; les sous-agents travaillent dans leurs propres worktrees avec leur propre HA (voir le skill `pilot`).
 
