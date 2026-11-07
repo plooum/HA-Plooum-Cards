@@ -23,9 +23,13 @@ clip() { # <days ago> <name without extension>
   mkdir -p "$dir"
   [[ -s "$dir/$f" ]] && return 0
   local src="testsrc=size=320x180:rate=15:duration=5"
-  # drawtext needs a font build of ffmpeg; fall back to the bare test pattern without it.
+  # The ":" of the time separate the filter options: escape them. Font from fontconfig when present.
+  local text="${2%%-*}" font=""
+  text="${text//:/\\:}"
+  command -v fc-match >/dev/null && font="fontfile=$(fc-match -f '%{file}' sans):"
+  # Fall back to the bare test pattern if drawtext is unavailable.
   ffmpeg -loglevel error -y -f lavfi -i "$src" \
-    -vf "drawtext=text='${2%%-*}':x=(w-tw)/2:y=h-40:fontsize=28:fontcolor=white:box=1:boxcolor=black@0.6" \
+    -vf "drawtext=${font}text='${text}':x=(w-tw)/2:y=h-40:fontsize=28:fontcolor=white:box=1:boxcolor=black@0.6" \
     -c:v libx264 -pix_fmt yuv420p -movflags +faststart "$dir/$f" 2>/dev/null \
   || ffmpeg -loglevel error -y -f lavfi -i "$src" \
     -c:v libx264 -pix_fmt yuv420p -movflags +faststart "$dir/$f"
