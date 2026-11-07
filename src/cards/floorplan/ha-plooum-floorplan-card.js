@@ -84,6 +84,9 @@ const STRIP_HEIGHT = 44; // px kept free at the bottom of the 3D view for the ca
 const PROJ_PX = 640; // picture width (px) assumed by the editor until the picture has loaded
 const PICTURE_PX = 1024; // max width of a camera picture projected in 3D (texture)
 const PROJ_REACH = 25; // projected pictures stop this far from their camera (grid units)
+// A surface the camera sees at a grazing angle (degrees between its line of sight and the surface)
+// gets no projected picture: hidden below the first angle, fading in up to the second.
+const PROJ_GRAZING = [10, 20];
 const REFRESH_INTERVAL = 3; // s between two snapshots of a camera
 const THUMB_INTERVAL = 300; // s between two snapshots of the thumbnails always shown in 2D (`camera_previews: always`)
 const THUMB_CHECK = 30; // s between two checks for thumbnails older than THUMB_INTERVAL
@@ -1365,7 +1368,7 @@ const MODE = {
   texture: 2, // the color times the texture at uv
   stripes: 3, // the color, darkened by uv.w where fract(uv.y) > uv.z
   lens: 4, // a camera lens drawn over the color, centered on uv (0, 0)
-  picture: 5, // the camera picture that `proj` casts onto the mesh
+  picture: 5, // the camera picture that `proj` casts onto the mesh; uv.xyz: the surface normal (set by poly())
 };
 
 const GL_VERTEX = `
@@ -1458,6 +1461,9 @@ void main() {
     }
     c *= texture2D(uTex, p);
     c.a *= 0.92 * clamp((uReach - z) / (0.3 * uReach), 0.0, 1.0);
+    // Faded out on a surface seen at a grazing angle, where the picture would be stretched.
+    float graze = abs(dot(normalize(vUV.xyz), normalize(vPos - uC)));
+    c.a *= smoothstep(${Math.sin((PROJ_GRAZING[0] * Math.PI) / 180).toFixed(4)}, ${Math.sin((PROJ_GRAZING[1] * Math.PI) / 180).toFixed(4)}, graze);
   }
   if (c.a < 0.004) discard;
   gl_FragColor = vec4(c.rgb * c.a, c.a);
@@ -1532,6 +1538,12 @@ class Mesh {
   // A convex polygon (a fan of triangles). `color`: one RGBA color, or one per corner; `uvs`: one per corner.
   poly(pts, color, uvs = null) {
     const each = Array.isArray(color[0]);
+    // A projected picture needs the surface's normal (Newell's method: any convex polygon).
+    if (!uvs && this.mode === MODE.picture) {
+      const n = pts.reduce((sum, a, i) => add3(sum, cross3(a, pts[(i + 1) % pts.length])), [0, 0, 0]);
+      const normal = len3(n) > 1e-9 ? norm3(n) : [0, 0, 1];
+      uvs = pts.map(() => [...normal, 0]);
+    }
     for (let i = 1; i + 1 < pts.length; i++) {
       for (const j of [0, i, i + 1]) {
         const p = pts[j];
