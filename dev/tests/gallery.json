@@ -1,0 +1,52 @@
+{
+  "path": "/plooum-test/gallery",
+  "tests": [
+    {
+      "name": "today: 3 thumbnails newest first, 3 timeline segments, player has a src",
+      "steps": [
+        { "js": "S.cards = await T.card.rendered('ha-plooum-gallery-card', 1); S.root = () => S.cards[0].shadowRoot; S.times = () => deep(S.root(), '.thumb .time').map((e) => e.textContent.trim()).join();" },
+        { "js": "await waitFor(() => deep(S.root(), '.thumb').length === 3 && deep(S.root(), 'video').length === 1, 10000, 'today loaded');" },
+        { "assert": "S.times() === '18:40,12:05,07:20'", "msg": "thumbnails newest first", "show": "S.times()" },
+        { "assert": "deep(S.root(), '.seg').length === 3", "msg": "3 timeline segments" },
+        { "assert": "deep(S.root(), '.seg').every((e) => e.getBoundingClientRect().width >= 3.9)", "msg": "segments are at least 4 px wide" },
+        { "assert": "deep(S.root(), '.seg.sel').length === 1 && deep(S.root(), '.thumb.sel .time')[0].textContent.trim() === '18:40'", "msg": "the most recent clip is selected" },
+        { "js": "await waitFor(() => deep(S.root(), 'video')[0]?.getAttribute('src'), 8000, 'video src');" },
+        { "assert": "!!deep(S.root(), 'video')[0].getAttribute('src')", "msg": "the player has a src" },
+        { "assert": "deep(S.root(), '.date')[0].textContent.trim().includes(String(new Date().getDate()))", "msg": "the date label shows today's day number", "show": "deep(S.root(), '.date')[0].textContent" }
+      ]
+    },
+    {
+      "name": "previous day skips the empty folder; Today comes back",
+      "steps": [
+        { "js": "S.cards = await T.card.rendered('ha-plooum-gallery-card', 1); S.root = () => S.cards[0].shadowRoot; S.btn = (c) => deep(S.root(), c)[0]; S.times = () => deep(S.root(), '.thumb .time').map((e) => e.textContent.trim()).join(); await waitFor(() => deep(S.root(), '.thumb').length === 3 && !S.btn('.prev').disabled, 10000, 'ready');" },
+        { "assert": "S.btn('.next').disabled === true", "msg": "next is disabled on the most recent day" },
+        { "js": "S.btn('.prev').click(); await waitFor(() => S.times() === '21:15,09:00', 8000, 'day -2');" },
+        { "assert": "deep(S.root(), '.thumb').length === 2", "msg": "D-2 shows 2 thumbnails (notes.txt ignored)", "show": "S.times()" },
+        { "assert": "S.cards[0]._days[S.cards[0]._dayIdx].date === (() => { const d = new Date(); d.setDate(d.getDate() - 2); return d.toLocaleDateString('en-CA'); })()", "msg": "the displayed day is D-2, D-1 skipped" },
+        { "js": "await waitFor(() => !S.btn('.prev').disabled, 8000, 'prev enabled'); S.btn('.prev').click(); await waitFor(() => S.times() === '03:10', 8000, 'day -5');" },
+        { "js": "await waitFor(() => S.btn('.prev').disabled, 8000, 'prev disabled');" },
+        { "assert": "S.btn('.prev').disabled === true && S.btn('.next').disabled === false", "msg": "previous is disabled on the oldest day" },
+        { "js": "S.btn('.today').click(); await waitFor(() => S.times() === '18:40,12:05,07:20', 8000, 'back to today');" },
+        { "assert": "S.btn('.next').disabled === true", "msg": "Today is the most recent day again" }
+      ]
+    },
+    {
+      "name": "clicking a thumbnail or a timeline segment selects the clip",
+      "steps": [
+        { "js": "S.cards = await T.card.rendered('ha-plooum-gallery-card', 1); S.root = () => S.cards[0].shadowRoot; S.src = () => deep(S.root(), 'video')[0]?.getAttribute('src'); await waitFor(() => deep(S.root(), '.thumb').length === 3 && S.src(), 10000, 'ready'); S.src0 = S.src();" },
+        { "js": "deep(S.root(), '.thumb')[2].click(); await waitFor(() => deep(S.root(), '.thumb')[2].classList.contains('sel') && S.src() && S.src() !== S.src0, 8000, 'third thumbnail selected');" },
+        { "assert": "deep(S.root(), '.thumb.sel .time')[0].textContent.trim() === '07:20' && deep(S.root(), '.seg.sel').length === 1", "msg": "07:20 selected in the grid and the timeline" },
+        { "js": "S.src1 = S.src(); deep(S.root(), '.seg').find((e) => e.getAttribute('title').startsWith('12:05:10')).click(); await waitFor(() => deep(S.root(), '.thumb.sel .time')[0]?.textContent.trim() === '12:05' && S.src() && S.src() !== S.src1, 8000, 'segment click');" },
+        { "assert": "deep(S.root(), '.seg.sel')[0].getAttribute('title') === '12:05:10 – 12:08:10'", "msg": "the clicked segment is the selected one", "show": "deep(S.root(), '.seg.sel')[0]?.getAttribute('title')" }
+      ]
+    },
+    {
+      "name": "thumbnails are extracted as JPEG data URLs",
+      "steps": [
+        { "js": "S.cards = await T.card.rendered('ha-plooum-gallery-card', 1); S.root = () => S.cards[0].shadowRoot;" },
+        { "js": "await waitFor(() => deep(S.root(), '.thumb').some((e) => (e.getAttribute('style') || '').includes('data:image/jpeg')), 10000, 'a thumbnail image');" },
+        { "assert": "deep(S.root(), '.thumb').some((e) => (e.getAttribute('style') || '').includes('data:image/jpeg'))", "msg": "at least one thumbnail has an extracted image" }
+      ]
+    }
+  ]
+}

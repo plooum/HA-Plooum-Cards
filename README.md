@@ -16,6 +16,7 @@ A collection of custom Lovelace cards for Home Assistant, packaged as **a single
 | Ha Plooum Cover Card | `custom:ha-plooum-cover-card` | [docs/cover.md](docs/cover.md) |
 | Ha Plooum D-Pad Card | `custom:ha-plooum-dpad-card` | [docs/dpad.md](docs/dpad.md) |
 | Ha Plooum Floorplan Card | `custom:ha-plooum-floorplan-card` | [docs/floorplan.md](docs/floorplan.md) |
+| Ha Plooum Gallery Card | `custom:ha-plooum-gallery-card` | [docs/gallery.md](docs/gallery.md) |
 | HA Plooum GridIcons Card | `custom:ha-plooum-gridicons-card` | [docs/gridicons.md](docs/gridicons.md) |
 | HA Plooum Multi Status Card | `custom:ha-plooum-multi-status-card` | [docs/multistatus.md](docs/multistatus.md) |
 | Ha Plooum Sky Card | `custom:ha-plooum-sky-card` | [docs/sky.md](docs/sky.md) |
@@ -53,6 +54,11 @@ In **3D**, the same plan becomes a model of the house and garden, with an automa
 ![Floorplan preview](docs/previews/floorplan.png)
 
 ![3D view preview](docs/previews/floorplan-3d.png)
+
+### Ha Plooum Gallery Card
+Browse the videos a camera recorded into a media folder: player, 24 h timeline and thumbnails, day by day.
+
+![Gallery preview](docs/previews/gallery.png)
 
 ### HA Plooum GridIcons Card
 A compact row of entity icons in a pill container, with state colors and tap/hold actions.
@@ -123,6 +129,7 @@ src/
     ├── cover/
     ├── dpad/
     ├── floorplan/
+    ├── gallery/
     ├── gridicons/
     ├── multistatus/
     ├── sky/

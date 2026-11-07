@@ -136,6 +136,8 @@ dev/.venv/bin/python dev/shot.py /plooum-test/multistatus -e ha-plooum-multi-sta
 | `switch.terrarium_heat_lamp` / `switch.terrarium_mister` / `switch.terrarium_uvb` | actionneurs de la carte vivarium ; `switch.terrarium_uvb` **devient `unavailable`** | `input_boolean.terrarium_*`, disponibilité : `input_boolean.terrarium_uvb_available` |
 | `sensor.pond_temperature` / `switch.pond_uv` | mesure et actionneur du bassin | `input_number.pond_temperature` / `input_boolean.pond_uv` |
 
+**Vidéos de test** (carte galerie) : `media_source:` et `homeassistant: media_dirs: rec_cam_entree` (chemin donné par `!env_var PLOOUM_MEDIA_DIR`, exporté par `dev/ha.sh start`, donc HA doit être lancé par `dev/ha.sh`). `dev/make_videos.sh` (appelé par `dev/ha.sh start`, ffmpeg requis) génère dans `dev/ha-config/media/rec_cam_entree/videos/` (gitignoré) des clips de 5 s aux dates relatives à aujourd'hui : aujourd'hui 3 clips, J-1 dossier vide, J-2 2 clips + `notes.txt` (ignoré), J-5 1 clip. À relancer à la main si la date a changé sans redémarrage de HA. Vue `/plooum-test/gallery`, suite `dev/tests/gallery.json`.
+
 `switch.does_not_exist` et `camera.does_not_exist` sont référencées exprès mais n'existent pas (cas de l'entité manquante).
 
 `dev/bootstrap.py` range aussi ces entités dans des étages et des zones (Ground Floor : Living Room, Kitchen, Hallway ; Upstairs : Bedroom, Bathroom — vide exprès), pour les cartes qui lisent le registre des zones (le plan généré de la carte floorplan). Modifie `AREAS` dedans et lance `dev/.venv/bin/python dev/bootstrap.py` pour les changer ; il ne fait qu'ajouter et réaffecter, donc supprime des zones par l'interface ou avec `dev/ha.sh reset`.
