@@ -1,6 +1,6 @@
 import { LitElement, html, css, nothing } from "lit";
 
-const CARD_VERSION = '1.0.0';
+const CARD_VERSION = '1.1.0';
 
 const DAY_SECONDS = 86400;
 
