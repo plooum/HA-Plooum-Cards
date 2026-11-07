@@ -2,7 +2,7 @@
 
 Lu en premier par le pilote suivant (voir le skill `pilot`). Commité directement sur `main`, sans PR. À tenir à jour.
 
-_Dernière mise à jour : 2026-10-15, session pilote 7 (Opus 5.5, portable) : V1.5.0 (carte ciel) et V1.5.1 (ciel de jour) publiées ; S1 partie 2 (bandeau prochain événement, #64) mergée ; [release V1.6.0](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.6.0) publiée (ciel 1.1.0 : prochain événement + position sur une carte ; volets 1.0.1), [#69](https://github.com/plooum/HA-Plooum-Cards/pull/69). Rien en cours ; demander la suite à l'utilisateur._
+_Dernière mise à jour : 2026-11-07, session pilote 8 (Opus 5.5, fixe) : nouvelle carte **galerie de vidéos** (`ha-plooum-gallery-card`), prompt 36, sous-agent Sonnet au travail sur `feature/gallery-card`._
 
 Protection de `main` : l'utilisateur a désactivé « Lock branch » le 2026-10-11 (elle bloquait aussi les merges de PR) ; le pilote pousse `.claude/pilot/` directement sur `main`. Le pilote reste sur `main` dans le checkout principal (HA sur 8123) et y commite la passation ; les sous-agents travaillent dans leurs propres worktrees avec leur propre HA (voir le skill `pilot`).
 
@@ -85,8 +85,11 @@ L'utilisateur travaille sur deux PC ; le pilote peut démarrer sur l'un ou l'aut
 | **Carte ciel S1, partie 2** : bandeau prochain événement (prompt 34, Sonnet, worktree) | `feature/sky-next-event`, [#64](https://github.com/plooum/HA-Plooum-Cards/pull/64) ; skills [#65](https://github.com/plooum/HA-Plooum-Cards/pull/65) (nouveau skill `sky-card`, worktree `../HA-Plooum-Cards-skills`) | mergées le 2026-10-15 (worktrees, branches et HA nettoyés), pas encore publiées : `CARD_VERSION` 1.1.0 + release V1.6.0 sur accord de l'utilisateur (relue ; 1 aller-retour : date du bandeau en 24 h). Sous-agent 4,8 + ~1 min, 55 + 6 appels. HA du sous-agent sur 8124. Un premier lancement parti avec un prompt vide a été arrêté aussitôt, sans reste : vérifier le champ `prompt` avant d'envoyer |
 | Carte ciel : position choisie sur une carte (`ha-selector-location`, maison par défaut, sans géocodage externe : décision de l'utilisateur) (prompt 35, Sonnet, worktree) | `feature/sky-location-picker`, [#66](https://github.com/plooum/HA-Plooum-Cards/pull/66) ; skills [#67](https://github.com/plooum/HA-Plooum-Cards/pull/67) (worktree `../HA-Plooum-Cards-skills`) | mergées le 2026-10-15 avec #68 et agent-board#6 (worktrees, branches, HA nettoyés ; agent-board#7 ouverte : busy à la reprise) (relue ; 1 aller-retour : `ha-form` renvoyait la position de la maison dans la config au moindre changement). 3,3 + ~1 min, 42 + 7 appels. HA du sous-agent sur 8124. Correctif cover `mwc-button` → `ha-button` fait par le pilote avant le merge (demande de l'utilisateur) : [#68](https://github.com/plooum/HA-Plooum-Cards/pull/68), worktree `../HA-Plooum-Cards-cover`. Aussi [plooum/agent-board#6](https://github.com/plooum/agent-board/pull/6) (bandeau d'usage) |
 | Ce dépôt : `pilot` → `pilot-ha-plooum` (spécificités uniquement), `pr-workflow` allégé, CLAUDE.md (prompt 25) | `feature/pilot-skills-split`, [#55](https://github.com/plooum/HA-Plooum-Cards/pull/55) | mergée le 2026-10-12 |
+| Carte galerie de vidéos (prompt 36) | `feature/gallery-card` | sous-agent au travail (2026-11-07) |
 
 ## Décisions (utilisateur)
+
+- 2026-11-07 : **carte galerie** `ha-plooum-gallery-card` (dossier `gallery/`) : vidéos media_source rangées `YYYY-MM-DD/HH:MM:SS-HH:MM:SS.ext`, ~10 par jour au plus ; s'ouvre sur le dernier jour avec vidéos ; Today / ‹ › (jours avec vidéos) ; **frise de 24 h** avec segments colorés ; vignettes extraites dans le navigateur. **Pas** de favoris, de regroupement ni de lecture continue.
 
 - 2026-10-15 : **réponses courtes**, ne jamais afficher un prompt dans le chat (seulement son fichier). Rafraîchir le bandeau d'usage du board à la fin de chaque tâche.
 - 2026-10-15 : carte ciel : **seul `time_control: rotate`** (strip / ring / wheel / filmstrip retirés de la feuille de route) ; la position se choisit sur une carte dans l'éditeur, maison par défaut, **sans service de géocodage externe**.
