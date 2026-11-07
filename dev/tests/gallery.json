@@ -4,7 +4,7 @@
     {
       "name": "today: 3 thumbnails newest first, 3 timeline segments, player has a src",
       "steps": [
-        { "js": "S.cards = await T.card.rendered('ha-plooum-gallery-card', 1); S.root = () => S.cards[0].shadowRoot; S.times = () => deep(S.root(), '.thumb .time').map((e) => e.textContent.trim()).join();" },
+        { "js": "S.cards = await T.card.rendered('ha-plooum-gallery-card', 3); S.root = () => S.cards[0].shadowRoot; S.times = () => deep(S.root(), '.thumb .time').map((e) => e.textContent.trim()).join();" },
         { "js": "await waitFor(() => deep(S.root(), '.thumb').length === 3 && deep(S.root(), 'video').length === 1, 10000, 'today loaded');" },
         { "assert": "S.times() === '18:40,12:05,07:20'", "msg": "thumbnails newest first", "show": "S.times()" },
         { "assert": "deep(S.root(), '.seg').length === 3", "msg": "3 timeline segments" },
@@ -18,7 +18,7 @@
     {
       "name": "previous day skips the empty folder; Today comes back",
       "steps": [
-        { "js": "S.cards = await T.card.rendered('ha-plooum-gallery-card', 1); S.root = () => S.cards[0].shadowRoot; S.btn = (c) => deep(S.root(), c)[0]; S.times = () => deep(S.root(), '.thumb .time').map((e) => e.textContent.trim()).join(); await waitFor(() => deep(S.root(), '.thumb').length === 3 && !S.btn('.prev').disabled, 10000, 'ready');" },
+        { "js": "S.cards = await T.card.rendered('ha-plooum-gallery-card', 3); S.root = () => S.cards[0].shadowRoot; S.btn = (c) => deep(S.root(), c)[0]; S.times = () => deep(S.root(), '.thumb .time').map((e) => e.textContent.trim()).join(); await waitFor(() => deep(S.root(), '.thumb').length === 3 && !S.btn('.prev').disabled, 10000, 'ready');" },
         { "assert": "S.btn('.next').disabled === true", "msg": "next is disabled on the most recent day" },
         { "js": "S.btn('.prev').click(); await waitFor(() => S.times() === '21:15,09:00', 8000, 'day -2');" },
         { "assert": "deep(S.root(), '.thumb').length === 2", "msg": "D-2 shows 2 thumbnails (notes.txt ignored)", "show": "S.times()" },
@@ -33,7 +33,7 @@
     {
       "name": "clicking a thumbnail or a timeline segment selects the clip",
       "steps": [
-        { "js": "S.cards = await T.card.rendered('ha-plooum-gallery-card', 1); S.root = () => S.cards[0].shadowRoot; S.src = () => deep(S.root(), 'video')[0]?.getAttribute('src'); await waitFor(() => deep(S.root(), '.thumb').length === 3 && S.src(), 10000, 'ready'); S.src0 = S.src();" },
+        { "js": "S.cards = await T.card.rendered('ha-plooum-gallery-card', 3); S.root = () => S.cards[0].shadowRoot; S.src = () => deep(S.root(), 'video')[0]?.getAttribute('src'); await waitFor(() => deep(S.root(), '.thumb').length === 3 && S.src(), 10000, 'ready'); S.src0 = S.src();" },
         { "js": "deep(S.root(), '.thumb')[2].click(); await waitFor(() => deep(S.root(), '.thumb')[2].classList.contains('sel') && S.src() && S.src() !== S.src0, 8000, 'third thumbnail selected');" },
         { "assert": "deep(S.root(), '.thumb.sel .time')[0].textContent.trim() === '07:20' && deep(S.root(), '.seg.sel').length === 1", "msg": "07:20 selected in the grid and the timeline" },
         { "js": "S.src1 = S.src(); deep(S.root(), '.seg').find((e) => e.getAttribute('title').startsWith('12:05:10')).click(); await waitFor(() => deep(S.root(), '.thumb.sel .time')[0]?.textContent.trim() === '12:05' && S.src() && S.src() !== S.src1, 8000, 'segment click');" },
@@ -43,9 +43,42 @@
     {
       "name": "thumbnails are extracted as JPEG data URLs",
       "steps": [
-        { "js": "S.cards = await T.card.rendered('ha-plooum-gallery-card', 1); S.root = () => S.cards[0].shadowRoot;" },
+        { "js": "S.cards = await T.card.rendered('ha-plooum-gallery-card', 3); S.root = () => S.cards[0].shadowRoot;" },
         { "js": "await waitFor(() => deep(S.root(), '.thumb').some((e) => (e.getAttribute('style') || '').includes('data:image/jpeg')), 10000, 'a thumbnail image');" },
         { "assert": "deep(S.root(), '.thumb').some((e) => (e.getAttribute('style') || '').includes('data:image/jpeg'))", "msg": "at least one thumbnail has an extracted image" }
+      ]
+    },
+    {
+      "name": "epoch-named flat files: today 2 clips newest first, D-3 has 22:50, previous then disabled",
+      "steps": [
+        { "js": "S.cards = await T.card.rendered('ha-plooum-gallery-card', 3); S.root = () => S.cards[1].shadowRoot; S.btn = (c) => deep(S.root(), c)[0]; S.times = () => deep(S.root(), '.thumb .time').map((e) => e.textContent.trim()).join(); await waitFor(() => S.times() === '14:30,08:15' && !S.btn('.prev').disabled, 10000, 'epoch today loaded');" },
+        { "assert": "S.times() === '14:30,08:15'", "msg": "thumbnails newest first", "show": "S.times()" },
+        { "assert": "deep(S.root(), '.seg').length === 2", "msg": "2 timeline segments" },
+        { "assert": "S.btn('.next').disabled === true", "msg": "next is disabled on the most recent day" },
+        { "js": "S.btn('.prev').click(); await waitFor(() => S.times() === '22:50', 8000, 'day -3');" },
+        { "assert": "deep(S.root(), '.thumb').length === 1 && deep(S.root(), '.seg').length === 1", "msg": "D-3 shows one clip" },
+        { "assert": "deep(S.root(), '.seg')[0].getBoundingClientRect().right <= deep(S.root(), '.track')[0].getBoundingClientRect().right + 0.5", "msg": "the midnight-crossing segment stops at 24 h" },
+        { "js": "await waitFor(() => S.btn('.prev').disabled, 8000, 'prev disabled');" },
+        { "assert": "S.btn('.prev').disabled === true && S.btn('.next').disabled === false", "msg": "previous is disabled on the oldest day" }
+      ]
+    },
+    {
+      "name": "filename_format: parsing of the 3 documented examples, invalid pattern throws",
+      "steps": [
+        { "js": "S.P = customElements.get('ha-plooum-gallery-card').parseClip; S.a = S.P('1794032417-1794032495.mp4', 'Europe/Paris', '{start:X}-{end:X}'); S.b = S.P('07:20:17-07:23:00.mp4', undefined, '{start:HH:mm:ss}-{end:HH:mm:ss}'); S.c = S.P('rec_20261107_072017.mp4', undefined, 'rec_{start:YYYYMMDD_HHmmss}');" },
+        { "assert": "S.a.time === '07:20' && S.a.date === '2026-11-07' && S.a.label === '07:20:17 – 07:21:35'", "msg": "{start:X}-{end:X}", "show": "JSON.stringify(S.a)" },
+        { "assert": "S.b.start === 26417 && S.b.end === 26580 && S.b.date === null && S.b.label === '07:20:17 – 07:23:00'", "msg": "{start:HH:mm:ss}-{end:HH:mm:ss}", "show": "JSON.stringify(S.b)" },
+        { "assert": "S.c.time === '07:20' && S.c.date === '2026-11-07' && S.c.start === 26417 && S.c.end === S.c.start && S.c.label === '07:20:17'", "msg": "rec_{start:YYYYMMDD_HHmmss}", "show": "JSON.stringify(S.c)" },
+        { "assert": "S.P('1794032417-1794032495.mp4', 'Europe/Paris', 'rec_{start:YYYYMMDD_HHmmss}') === null && S.P('1794032417-1794032495.mp4', 'Europe/Paris').time === '07:20'", "msg": "non matching name is null; auto reads the epoch format" },
+        { "js": "S.err = ''; try { document.createElement('ha-plooum-gallery-card').setConfig({ media_source: 'media-source://x', filename_format: '{end:X}' }); } catch (e) { S.err = e.message; }" },
+        { "assert": "S.err.includes('{start:FMT} is required')", "msg": "a pattern without {start:…} makes setConfig throw", "show": "S.err" }
+      ]
+    },
+    {
+      "name": "explicit filename_format {start:X}-{end:X}: 2 thumbnails today",
+      "steps": [
+        { "js": "S.cards = await T.card.rendered('ha-plooum-gallery-card', 3); S.root = () => S.cards[2].shadowRoot; S.times = () => deep(S.root(), '.thumb .time').map((e) => e.textContent.trim()).join(); await waitFor(() => S.times() === '14:30,08:15', 10000, 'explicit format loaded');" },
+        { "assert": "S.times() === '14:30,08:15'", "msg": "2 thumbnails today", "show": "S.times()" }
       ]
     }
   ]

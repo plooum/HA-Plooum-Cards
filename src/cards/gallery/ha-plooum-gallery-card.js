@@ -2,9 +2,104 @@ import { LitElement, html, css, nothing } from "lit";
 
 const CARD_VERSION = '1.0.0';
 
-const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
-const CLIP_RE = /^(\d{2}):(\d{2}):(\d{2})-(\d{2}):(\d{2}):(\d{2})(?:\.[A-Za-z0-9]+)?$/;
 const DAY_SECONDS = 86400;
+
+// File name / folder name formats. A pattern holds {start:FMT} (required) and {end:FMT}; the rest is
+// literal. FMT tokens: X (Unix s), x (Unix ms), YYYY MM DD HH mm ss. The extension is ignored.
+const FMT_TOKEN_RE = /X|x|YYYY|MM|DD|HH|mm|ss/g;
+const FMT_DIGITS = { X: '\\d{9,11}', x: '\\d{12,14}', YYYY: '\\d{4}', MM: '\\d{2}', DD: '\\d{2}', HH: '\\d{2}', mm: '\\d{2}', ss: '\\d{2}' };
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const DEFAULT_FILE_FORMAT = 'auto';
+const DEFAULT_FOLDER_FORMAT = 'YYYY-MM-DD';
+const AUTO_FORMATS = ['{start:HH:mm:ss}-{end:HH:mm:ss}', '{start:X}-{end:X}'];
+
+// Pattern -> { re, groups: [{ role: 'start' | 'end', tok }] } (throws on an invalid pattern).
+function compileFormat(pattern) {
+  const groups = [];
+  const seen = new Set();
+  let src = '';
+  let last = 0;
+  const place = /\{(start|end):([^{}]*)\}/g;
+  const literal = (s) => {
+    if (/[{}]/.test(s)) throw new Error(`Invalid format "${pattern}": unknown placeholder (use {start:FMT} and {end:FMT})`);
+    return escapeRe(s);
+  };
+  let m;
+  while ((m = place.exec(pattern))) {
+    src += literal(pattern.slice(last, m.index));
+    last = m.index + m[0].length;
+    const role = m[1];
+    if (seen.has(role)) throw new Error(`Invalid format "${pattern}": {${role}:…} appears twice`);
+    seen.add(role);
+    let pos = 0;
+    let tok;
+    FMT_TOKEN_RE.lastIndex = 0;
+    while ((tok = FMT_TOKEN_RE.exec(m[2]))) {
+      const lit = m[2].slice(pos, tok.index);
+      if (/[A-Za-z]/.test(lit)) throw new Error(`Invalid format "${pattern}": unknown token "${lit}" (use X x YYYY MM DD HH mm ss)`);
+      src += escapeRe(lit) + `(${FMT_DIGITS[tok[0]]})`;
+      groups.push({ role, tok: tok[0] });
+      pos = tok.index + tok[0].length;
+    }
+    const rest = m[2].slice(pos);
+    if (/[A-Za-z]/.test(rest)) throw new Error(`Invalid format "${pattern}": unknown token "${rest}" (use X x YYYY MM DD HH mm ss)`);
+    src += escapeRe(rest);
+    if (!groups.some((g) => g.role === role)) throw new Error(`Invalid format "${pattern}": {${role}:…} has no token`);
+  }
+  src += literal(pattern.slice(last));
+  if (!seen.has('start')) throw new Error(`Invalid format "${pattern}": {start:FMT} is required`);
+  return { re: new RegExp(`^${src}(?:\\.[A-Za-z0-9]+)?$`), groups };
+}
+
+// Filename format option -> list of compiled patterns ('' / 'auto' = both built-in ones).
+function compileFileFormats(format) {
+  const f = String(format || '').trim();
+  return (!f || f === DEFAULT_FILE_FORMAT ? AUTO_FORMATS : [f]).map(compileFormat);
+}
+
+// Day folder format option -> compiled pattern (must give the year, month and day).
+function compileFolderFormat(format) {
+  const f = String(format || '').trim() || DEFAULT_FOLDER_FORMAT;
+  const c = compileFormat(`{start:${f}}`);
+  const toks = c.groups.map((g) => g.tok);
+  if (!['YYYY', 'MM', 'DD'].every((t) => toks.includes(t))) throw new Error(`Invalid folder_format "${f}": YYYY, MM and DD are required`);
+  return c;
+}
+
+// Values captured for one role: { epoch } (seconds) or { date?, secs } of a wall clock.
+function readRole(match, groups, role) {
+  const f = {};
+  groups.forEach((g, i) => { if (g.role === role) f[g.tok] = match[i + 1]; });
+  if (f.X !== undefined) return { epoch: +f.X };
+  if (f.x !== undefined) return { epoch: Math.floor(+f.x / 1000) };
+  const n = (k) => (f[k] === undefined ? 0 : +f[k]);
+  return {
+    date: f.YYYY !== undefined && f.MM !== undefined && f.DD !== undefined ? `${f.YYYY}-${f.MM}-${f.DD}` : null,
+    secs: n('HH') * 3600 + n('mm') * 60 + n('ss'),
+  };
+}
+
+const pad2 = (n) => String(n).padStart(2, '0');
+const hmsOf = (secs) => `${pad2(Math.floor(secs / 3600) % 24)}:${pad2(Math.floor(secs / 60) % 60)}:${pad2(secs % 60)}`;
+
+function dayDiff(a, b) { // whole days from date a to date b ("YYYY-MM-DD")
+  return Math.round((Date.parse(b) - Date.parse(a)) / (DAY_SECONDS * 1000));
+}
+
+// Unix seconds -> { date, secs } on the wall clock of `timeZone` (undefined = browser).
+function localClock(t, timeZone) {
+  const opts = { hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+  let fmt;
+  try {
+    fmt = new Intl.DateTimeFormat('en-CA', { ...opts, timeZone });
+  } catch (err) {
+    fmt = new Intl.DateTimeFormat('en-CA', opts);
+  }
+  const o = {};
+  for (const p of fmt.formatToParts(new Date(t * 1000))) o[p.type] = p.value;
+  const hh = o.hour === '24' ? '00' : o.hour;
+  return { date: `${o.year}-${o.month}-${o.day}`, secs: +hh * 3600 + +o.minute * 60 + +o.second };
+}
 const MAX_THUMB_JOBS = 2;
 const THUMB_TIMEOUT_MS = 15000;
 
@@ -38,13 +133,52 @@ class HaPlooumGalleryCard extends LitElement {
     return { media_source: 'media-source://media_source/local' };
   }
 
-  // Seconds since midnight of "HH:MM:SS" parts, or null when the title is not a clip name.
-  static parseClip(title) {
-    const m = CLIP_RE.exec(String(title || '').trim());
-    if (!m) return null;
-    const start = +m[1] * 3600 + +m[2] * 60 + +m[3];
-    const end = +m[4] * 3600 + +m[5] * 60 + +m[6];
-    return { start, end: Math.max(end, start), label: `${m[1]}:${m[2]}:${m[3]} – ${m[4]}:${m[5]}:${m[6]}`, time: `${m[1]}:${m[2]}` };
+  // Parses a clip name with a `filename_format` option ('' / 'auto' = both built-in formats; a compiled
+  // list from compileFileFormats is accepted too). Unix times are read in `timeZone` (undefined =
+  // browser), wall-clock tokens as they are. Returns { start, end (seconds since midnight, may pass
+  // 86400), label, time, date } (date = day of the start, null when the name does not give it), or null
+  // when the title is not a clip name.
+  static parseClip(title, timeZone, format) {
+    const name = String(title || '').trim();
+    const formats = Array.isArray(format) ? format : compileFileFormats(format);
+    for (const { re, groups } of formats) {
+      const m = re.exec(name);
+      if (!m) continue;
+      const s = readRole(m, groups, 'start');
+      const e = groups.some((g) => g.role === 'end') ? readRole(m, groups, 'end') : null;
+      let date;
+      let start;
+      let end;
+      let startLabel;
+      let endLabel;
+      if (s.epoch !== undefined) {
+        const a = localClock(s.epoch, timeZone);
+        const dur = e ? Math.max((e.epoch !== undefined ? e.epoch : s.epoch) - s.epoch, 0) : 0;
+        ({ date, secs: start } = a);
+        end = start + dur;
+        startLabel = hmsOf(start);
+        endLabel = hmsOf(localClock(s.epoch + dur, timeZone).secs);
+      } else {
+        ({ date, secs: start } = s);
+        end = e ? (e.epoch !== undefined ? localClock(e.epoch, timeZone).secs : e.secs + (e.date && date ? dayDiff(date, e.date) * DAY_SECONDS : 0)) : start;
+        end = Math.max(end, start);
+        startLabel = hmsOf(start);
+        endLabel = hmsOf(end);
+      }
+      return { start, end, label: e ? `${startLabel} – ${endLabel}` : startLabel, time: startLabel.slice(0, 5), date };
+    }
+    return null;
+  }
+
+  // Day of a folder name given the `folder_format` option (compiled by compileFolderFormat), or null.
+  static parseFolder(title, compiled) {
+    const m = compiled.re.exec(String(title || '').trim());
+    return m ? readRole(m, compiled.groups, 'start').date : null;
+  }
+
+  // Time zone clip names are read in: HA's when the user's profile follows the server, else the browser's.
+  _timeZone() {
+    return this.hass?.locale?.time_zone === 'server' ? this.hass?.config?.time_zone : undefined;
   }
 
   constructor() {
@@ -73,8 +207,12 @@ class HaPlooumGalleryCard extends LitElement {
     if (!config || !config.media_source) {
       throw new Error('media_source is required');
     }
+    const fileFormats = compileFileFormats(config.filename_format);
+    const folderFormat = compileFolderFormat(config.folder_format);
     const first = !this.config;
-    const changed = this.config && this.config.media_source !== config.media_source;
+    const changed = this.config && ['media_source', 'filename_format', 'folder_format'].some((k) => this.config[k] !== config[k]);
+    this._fileFormats = fileFormats;
+    this._folderFormat = folderFormat;
     this.config = { autoplay: false, muted: true, thumb_size: 140, show_timeline: true, ...config };
     if (changed) {
       this._dayCache.clear();
@@ -116,10 +254,23 @@ class HaPlooumGalleryCard extends LitElement {
     try {
       const root = await this._browse(this.config.media_source);
       if (nav !== this._nav) return;
-      this._days = (root.children || [])
-        .filter((c) => DAY_RE.test(String(c.title || '').trim()))
-        .map((c) => ({ date: c.title.trim(), id: c.media_content_id }))
-        .sort((a, b) => (a.date < b.date ? -1 : 1));
+      const tz = this._timeZone();
+      const byDate = new Map();
+      const entry = (date) => {
+        if (!byDate.has(date)) byDate.set(date, { date, id: null, flat: [] });
+        return byDate.get(date);
+      };
+      for (const c of root.children || []) {
+        const title = String(c.title || '').trim();
+        const folderDate = c.can_play ? null : HaPlooumGalleryCard.parseFolder(title, this._folderFormat);
+        if (folderDate) {
+          entry(folderDate).id = c.media_content_id;
+        } else if (c.can_play) {
+          const p = HaPlooumGalleryCard.parseClip(title, tz, this._fileFormats);
+          if (p?.date) entry(p.date).flat.push({ id: c.media_content_id, ...p });
+        }
+      }
+      this._days = [...byDate.values()].sort((a, b) => (a.date < b.date ? -1 : 1));
       const idx = await this._scan(this._days.length, -1);
       if (nav !== this._nav) return;
       if (idx < 0) {
@@ -141,13 +292,15 @@ class HaPlooumGalleryCard extends LitElement {
   async _dayClips(idx) {
     const day = this._days[idx];
     if (this._dayCache.has(day.date)) return this._dayCache.get(day.date);
-    const res = await this._browse(day.id);
+    const tz = this._timeZone();
+    const res = day.id ? await this._browse(day.id) : { children: [] };
     const clips = (res.children || [])
       .filter((c) => c.can_play)
-      .map((c) => ({ c, p: HaPlooumGalleryCard.parseClip(c.title) }))
+      .map((c) => ({ c, p: HaPlooumGalleryCard.parseClip(c.title, tz, this._fileFormats) }))
       .filter((x) => x.p)
       .map((x) => ({ id: x.c.media_content_id, ...x.p }))
-      .sort((a, b) => a.start - b.start);
+      .concat(day.flat)
+      .sort((a, b) => a.start - b.start || a.end - b.end);
     this._dayCache.set(day.date, clips);
     return clips;
   }
@@ -298,7 +451,7 @@ class HaPlooumGalleryCard extends LitElement {
         <div class="track">
           ${this._clips.map((c) => html`
             <div class="seg ${this._sel === c ? 'sel' : ''}"
-                 style="left: ${(c.start / DAY_SECONDS) * 100}%; width: ${((c.end - c.start) / DAY_SECONDS) * 100}%"
+                 style="left: ${(c.start / DAY_SECONDS) * 100}%; width: ${((Math.min(c.end, DAY_SECONDS) - c.start) / DAY_SECONDS) * 100}%"
                  title=${c.label}
                  @click=${() => this._select(c)}></div>
           `)}
@@ -401,6 +554,8 @@ class HaPlooumGalleryCard extends LitElement {
    ========================================================================== */
 const SCHEMA = [
   { name: 'media_source', selector: { text: {} } },
+  { name: 'filename_format', selector: { text: {} } },
+  { name: 'folder_format', selector: { text: {} } },
   { name: 'autoplay', selector: { boolean: {} } },
   { name: 'muted', selector: { boolean: {} } },
   { name: 'show_timeline', selector: { boolean: {} } },
@@ -408,6 +563,8 @@ const SCHEMA = [
 ];
 const LABELS = {
   media_source: 'Media source folder (media-source://…)',
+  filename_format: 'File name format (blank = auto)',
+  folder_format: 'Day folder format',
   autoplay: 'Play the selected clip when the card opens',
   muted: 'Muted',
   show_timeline: 'Show the 24 h timeline',
@@ -454,7 +611,7 @@ class HaPlooumGalleryCardEditor extends LitElement {
 
   render() {
     if (!this.hass || !this._config) return nothing;
-    const data = { autoplay: false, muted: true, thumb_size: 140, show_timeline: true, ...this._config };
+    const data = { folder_format: DEFAULT_FOLDER_FORMAT, autoplay: false, muted: true, thumb_size: 140, show_timeline: true, ...this._config };
     return html`
       <div class="editor">
         <ha-form

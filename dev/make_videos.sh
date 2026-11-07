@@ -43,3 +43,35 @@ clip 2 "09:00:00-09:03:00"
 clip 2 "21:15:30-21:18:30"
 echo "Not a recording." > "$ROOT/$(day 2)/notes.txt"
 clip 5 "03:10:00-03:13:00"
+
+# Flat files named <start epoch>-<end epoch>.mp4 in rec_cam_entree/epoch/ (start in local time).
+#   today: 08:15:00 + 90 s and 14:30:00 + 6 s; D-3: 22:50:00 + 1200 s (crosses midnight).
+EROOT="$(dirname "$ROOT")/epoch"
+mkdir -p "$EROOT"
+OLDEST_EPOCH="$(date -d "$OLDEST 00:00:00" +%s)"
+for f in "$EROOT"/*.mp4; do
+  [[ -f "$f" ]] || continue
+  n="$(basename "$f")"
+  (( ${n%%-*} < OLDEST_EPOCH )) && rm -f "$f"
+done
+
+epoch_clip() { # <days ago> <HH:MM:SS> <duration in s>
+  local s e f text
+  s="$(date -d "$(day "$1") $2" +%s)"
+  e=$((s + $3))
+  f="$EROOT/$s-$e.mp4"
+  [[ -s "$f" ]] && return 0
+  text="${2%:*}"
+  text="${text//:/\\:}"
+  local src="testsrc=size=320x180:rate=15:duration=5" font=""
+  command -v fc-match >/dev/null && font="fontfile=$(fc-match -f '%{file}' sans):"
+  ffmpeg -loglevel error -y -f lavfi -i "$src" \
+    -vf "drawtext=${font}text='${text}':x=(w-tw)/2:y=h-40:fontsize=28:fontcolor=white:box=1:boxcolor=black@0.6" \
+    -c:v libx264 -pix_fmt yuv420p -movflags +faststart "$f" 2>/dev/null \
+  || ffmpeg -loglevel error -y -f lavfi -i "$src" \
+    -c:v libx264 -pix_fmt yuv420p -movflags +faststart "$f"
+}
+
+epoch_clip 0 "08:15:00" 90
+epoch_clip 0 "14:30:00" 6
+epoch_clip 3 "22:50:00" 1200
