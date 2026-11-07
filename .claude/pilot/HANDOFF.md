@@ -2,7 +2,7 @@
 
 Lu en premier par le pilote suivant (voir le skill `pilot`). Commité directement sur `main`, sans PR. À tenir à jour.
 
-_Dernière mise à jour : 2026-11-07, session pilote 8 (Opus 5.5, fixe) : carte **galerie** mergée ([#71](https://github.com/plooum/HA-Plooum-Cards/pull/71)), sous-agents dans le navigateur intégré ([#70](https://github.com/plooum/HA-Plooum-Cards/pull/70)). [Release V1.7.0](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.7.0) publiée (galerie 1.0.0, deux assets attachés). Rien en cours. Le HA de 8123 a besoin de `dev/ha.sh reset` + `start` (nouveau `media_dirs`, vue `gallery` absente de `/plooum-edit`)._
+_Dernière mise à jour : 2026-11-07, session pilote 8 (Opus 5.5, fixe) : carte **galerie** (#71, V1.7.0) puis noms en timestamps Unix + `filename_format` / `folder_format` (#72, galerie 1.1.0, [V1.8.0](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.8.0)) ; sous-agents dans le navigateur intégré (#70). Rien en cours ; reste à confirmer la galerie sur le vrai HA de l'utilisateur. Le HA de 8123 a besoin de `dev/ha.sh reset` + `start`._
 
 Protection de `main` : l'utilisateur a désactivé « Lock branch » le 2026-10-11 (elle bloquait aussi les merges de PR) ; le pilote pousse `.claude/pilot/` directement sur `main`. Le pilote reste sur `main` dans le checkout principal (HA sur 8123) et y commite la passation ; les sous-agents travaillent dans leurs propres worktrees avec leur propre HA (voir le skill `pilot`).
 
@@ -87,7 +87,7 @@ L'utilisateur travaille sur deux PC ; le pilote peut démarrer sur l'un ou l'aut
 | Ce dépôt : `pilot` → `pilot-ha-plooum` (spécificités uniquement), `pr-workflow` allégé, CLAUDE.md (prompt 25) | `feature/pilot-skills-split`, [#55](https://github.com/plooum/HA-Plooum-Cards/pull/55) | mergée le 2026-10-12 |
 | Carte galerie de vidéos (prompt 36, Sonnet, worktree, HA 8124) | `feature/gallery-card`, [#71](https://github.com/plooum/HA-Plooum-Cards/pull/71) | mergée le 2026-11-07 (worktree, branches, HA nettoyés ; pas de release). 5,4 + 0,6 min, 45 + 6 appels, 1 aller-retour (`drawtext` : `:` non échappés) |
 | Skills : sous-agents dans le navigateur intégré + frictions du prompt 36 | [#70](https://github.com/plooum/HA-Plooum-Cards/pull/70) | mergée le 2026-11-07 |
-| Galerie : clips à plat nommés en timestamps Unix (le vrai format de l'utilisateur ; prompt 37) | `feature/gallery-epoch-files`, [#72](https://github.com/plooum/HA-Plooum-Cards/pull/72) ; skills [#73](https://github.com/plooum/HA-Plooum-Cards/pull/73) (worktree `../HA-Plooum-Cards-skills`) | relues, CI verte, en attente d'approbation (+ `filename_format` / `folder_format`). 2,4 + 2,3 min, 34 + 22 appels. Ensuite : PR `CARD_VERSION` 1.1.0 + release V1.8.0 (nouvelles options) |
+| Galerie : clips à plat nommés en timestamps Unix (le vrai format de l'utilisateur ; prompt 37) | `feature/gallery-epoch-files`, [#72](https://github.com/plooum/HA-Plooum-Cards/pull/72) ; skills [#73](https://github.com/plooum/HA-Plooum-Cards/pull/73) (worktree `../HA-Plooum-Cards-skills`) | mergées le 2026-11-07 (+ `filename_format` / `folder_format`), galerie 1.1.0 [#74](https://github.com/plooum/HA-Plooum-Cards/pull/74), [release V1.8.0](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.8.0) publiée (2 assets). 2,4 + 2,3 min, 34 + 22 appels |
 
 ## Décisions (utilisateur)
 
