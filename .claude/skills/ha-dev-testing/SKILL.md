@@ -21,15 +21,16 @@ Le tableau est `plooum/agent-board`, installé dans `~/.local/opt/agent-board` (
 
 ## Quel navigateur
 
-- **Les sous-agents n'utilisent jamais le panneau navigateur intégré** (`mcp__Claude_Browser__*` ; utilisateur, 2026-10-12) : il ne peut pas être répliqué sur le tableau, et l'utilisateur regarde là-bas ton Chrome sans interface (http://127.0.0.1:8120). Le panneau est pour le pilote et l'utilisateur (`runner.html`, plus bas).
-- Tout ce que tu fais dans un navigateur passe par Chrome sans interface via Playwright, qui diffuse vers le tableau :
-  - `dev/shot.py` pour une page ou une carte, et pour les vérifications à la main : `--js` évalue une expression après le chargement, `-e` recadre sur un élément (code de sortie 1 en cas d'erreurs de console) ;
-  - `dev/ui_test.py` pour tout le reste : tous les cas de test d'une fonctionnalité en une **suite**, avec des assertions (voir plus bas).
+- **Les sous-agents utilisent le navigateur intégré de Claude** (`mcp__Claude_Browser__*` ; utilisateur, 2026-11-07, remplace la décision du 2026-10-12) : l'utilisateur les regarde dans le panneau.
+  - Ouvre **ton propre onglet** : `tabs_create`, puis `navigate` avec son `tabId` vers `http://127.0.0.1:<ton port>/...` (`dev/ha.sh status`). N'agis jamais sur l'onglet d'un autre (le pilote, un autre sous-agent).
+  - Suites : `runner.html?suite=<name>[&only=<substring>]` dans ton onglet, puis lis `window.uiResult` avec `javascript_tool` (attends que `document.title` porte le résumé). Vérifications à la main : `javascript_tool`, `find` / `read_page`, `computer`. Captures : `computer` screenshot (ou `zoom`) de ton onglet.
+  - Erreurs de console : `read_console_messages` (onlyErrors) ; le tampon garde les messages des chargements précédents.
+  - Repli sans interface (Chrome via Playwright, diffusé vers le tableau), **seulement si les outils du navigateur intégré ne te sont pas accessibles** : `dev/shot.py` (`--js`, `-e`, code de sortie 1 en cas d'erreurs de console) et `dev/ui_test.py` (les suites, plus bas). Dis-le dans ton rapport.
 - Disposition téléphone : `--width 420 --height 900`. HA 2026.10 **empile alors l'aperçu de la boîte de dialogue de l'éditeur sous l'éditeur** (rendu, ~2900 px plus bas, hors de vue), il ne le cache pas : « rendu avec une taille non nulle » ne dit pas si la boîte est étroite. Vérifie plutôt si l'aperçu est *à côté* de l'éditeur (pas de chevauchement horizontal).
 
-## Suites : sans interface, suivies sur le tableau
+## Suites
 
-Lance chaque suite avec `dev/.venv/bin/python dev/ui_test.py dev/tests/<name>.json [--only <substring>]` ; fais les vérifications à la main (clics, éditeur, états) avec `dev/shot.py ... --js`, ou comme une suite d'un seul test. L'utilisateur suit le flux sur le tableau, toi tu lis la sortie PASS / FAIL. Exactement les mêmes étapes tournent dans le panneau par `runner.html?suite=<name>[&only=<substring>][&pause=<ms>]` (une iframe de même origine par test, réduite pour le panneau ; lis `window.uiResult`), mais **cette page est pour le pilote et l'utilisateur, pas pour les sous-agents**. Les étapes `shot` y sont ignorées. La langue de l'utilisateur de dev est l'anglais (réglée par `dev/bootstrap.py`, relance-le sur une instance plus ancienne). `dev/runner.html`, `dev/ui_runner.js`, `dev/ui_helpers.js` et les suites sont servis par l'intégration `plooum_dev` (redémarre HA une fois après avoir mis à jour un checkout antérieur à cette fonctionnalité).
+En repli sans interface, lance chaque suite avec `dev/.venv/bin/python dev/ui_test.py dev/tests/<name>.json [--only <substring>]` ; fais les vérifications à la main (clics, éditeur, états) avec `dev/shot.py ... --js`, ou comme une suite d'un seul test. Tu lis la sortie PASS / FAIL. Exactement les mêmes étapes tournent dans le panneau par `runner.html?suite=<name>[&only=<substring>][&pause=<ms>]` (une iframe de même origine par test, réduite pour le panneau ; lis `window.uiResult`), c'est la voie normale des sous-agents (voir « Quel navigateur »). Les étapes `shot` y sont ignorées. La langue de l'utilisateur de dev est l'anglais (réglée par `dev/bootstrap.py`, relance-le sur une instance plus ancienne). `dev/runner.html`, `dev/ui_runner.js`, `dev/ui_helpers.js` et les suites sont servis par l'intégration `plooum_dev` (redémarre HA une fois après avoir mis à jour un checkout antérieur à cette fonctionnalité).
 
 ## Tester une fonctionnalité avec une suite, pas avec une exécution par vérification
 
