@@ -64,6 +64,16 @@
       ]
     },
     {
+      "name": "gallery: renders, lists the clips, editor",
+      "path": "/plooum-test/gallery",
+      "steps": [
+        { "js": "S.cards = await T.card.rendered('ha-plooum-gallery-card', 1);" },
+        { "js": "await waitFor(() => deep(S.cards[0].shadowRoot, '.thumb').length > 0, 10000, 'thumbnails listed');" },
+        { "assert": "deep(S.cards[0].shadowRoot, 'video').length === 1", "msg": "a player is shown" },
+        { "js": "await T.card.editorRenders(S.cards[0]);" }
+      ]
+    },
+    {
       "name": "sky: renders, computes the sky, drags the time, next event, editor",
       "path": "/plooum-test/sky",
       "steps": [

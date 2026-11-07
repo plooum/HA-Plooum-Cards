@@ -11,6 +11,9 @@ homeassistant:
   country: FR
   language: en
   currency: EUR
+  # Recordings of the gallery card, made by dev/make_videos.sh; dev/ha.sh exports the path.
+  media_dirs:
+    rec_cam_entree: !env_var PLOOUM_MEDIA_DIR
   latitude: 48.8566
   longitude: 2.3522
   elevation: 35
@@ -28,6 +31,7 @@ homeassistant:
 # No `http:` block here: since HA 2026.x it is migrated into a "pending" config that
 # must be confirmed in the UI. dev/ha.sh seeds .storage/http (listens on 127.0.0.1:8123).
 
+media_source:
 frontend:
 # Lets the floorplan editor capture a camera's reference picture (/api/image/upload).
 image_upload:

@@ -97,6 +97,8 @@ views:
           - counter.script_runs
       - type: custom:ha-plooum-berlin-clock-card
       - type: custom:ha-plooum-sky-card
+      - type: custom:ha-plooum-gallery-card
+        media_source: media-source://media_source/rec_cam_entree/videos
 
   - title: D-Pad
     path: dpad
@@ -738,3 +740,10 @@ views:
         latitude: -33.87
         longitude: 151.21
         show_constellations: false
+
+  - title: Gallery
+    path: gallery
+    cards:
+      # Recordings made by dev/make_videos.sh: today 3, D-1 empty, D-2 2 (+ notes.txt), D-5 1.
+      - type: custom:ha-plooum-gallery-card
+        media_source: media-source://media_source/rec_cam_entree/videos

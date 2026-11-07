@@ -126,6 +126,10 @@ cmd_start() {
   if is_running; then echo "HA already running (pid $(cat "$PIDFILE")) — $URL"; return 0; fi
   [[ -x "$VENV/bin/hass" ]] || cmd_install
   cmd_setup
+  # Gallery card test recordings. HA validates media_dirs at startup: the folder must exist.
+  export PLOOUM_MEDIA_DIR="$CONF/media/rec_cam_entree"
+  mkdir -p "$PLOOUM_MEDIA_DIR"
+  "$DEV/make_videos.sh" || true
   local t0=$SECONDS
   # Port choice and launch under one lock, so two worktrees starting together don't pick the same port.
   (
