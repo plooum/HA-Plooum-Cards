@@ -14,6 +14,7 @@ La branche, la PR, le format du rapport et les pièges du bac à sable sont dans
 - Jamais `tags/` dans un nom de branche : HACS le retire et sa validation échoue.
 - Le bundle (`ha-plooum-cards.js`, `.map`) est gitignored : `npm run build` pour tester, ne le commite jamais.
 - Ne change pas `CARD_VERSION` : PR séparée.
+- Le bac à sable refuse les heredocs (`python3 - <<EOF`, `cat <<EOF`) et un `export PATH=...` mêlé à `git` / `dev/ha.sh` : écris les fichiers avec `Write` / `Edit`, le message de commit avec `git commit -F <fichier>` ou `printf`, et appelle les outils par leur chemin complet (prompts 36, 37).
 - `node`, `npm`, `gh`, `uv` introuvables : ils sont dans `~/.local/bin` sur le portable (chemin complet).
 
 ## Conventions de code (CLAUDE.md)
