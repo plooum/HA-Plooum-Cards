@@ -87,6 +87,7 @@ L'utilisateur travaille sur deux PC ; le pilote peut démarrer sur l'un ou l'aut
 | Ce dépôt : `pilot` → `pilot-ha-plooum` (spécificités uniquement), `pr-workflow` allégé, CLAUDE.md (prompt 25) | `feature/pilot-skills-split`, [#55](https://github.com/plooum/HA-Plooum-Cards/pull/55) | mergée le 2026-10-12 |
 | Carte galerie de vidéos (prompt 36, Sonnet, worktree, HA 8124) | `feature/gallery-card`, [#71](https://github.com/plooum/HA-Plooum-Cards/pull/71) | mergée le 2026-11-07 (worktree, branches, HA nettoyés ; pas de release). 5,4 + 0,6 min, 45 + 6 appels, 1 aller-retour (`drawtext` : `:` non échappés) |
 | Skills : sous-agents dans le navigateur intégré + frictions du prompt 36 | [#70](https://github.com/plooum/HA-Plooum-Cards/pull/70) | mergée le 2026-11-07 |
+| Galerie : clips à plat nommés en timestamps Unix (le vrai format de l'utilisateur ; prompt 37) | `feature/gallery-epoch-files` | sous-agent au travail (2026-11-07) ; ensuite PR `CARD_VERSION` 1.0.1 + release V1.7.1 |
 
 ## Décisions (utilisateur)
 
