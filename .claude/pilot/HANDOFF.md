@@ -91,6 +91,8 @@ L'utilisateur travaille sur deux PC ; le pilote peut démarrer sur l'un ou l'aut
 
 ## Décisions (utilisateur)
 
+- 2026-11-07 : galerie : **documenter le format des noms de fichiers et pouvoir le changer** → options `filename_format` (`{start:FMT}` / `{end:FMT}`, jetons `X x YYYY MM DD HH mm ss`, absente = auto) et `folder_format` (défaut `YYYY-MM-DD`), ajoutées à #72. Le vrai format de l'utilisateur : fichiers à plat `<epoch>-<epoch>.mp4`.
+
 - 2026-11-07 : **les sous-agents Sonnet utilisent le navigateur intégré de Claude**, chacun dans son propre onglet (`runner.html` pour les suites) ; headless seulement en repli. Remplace la décision du 2026-10-12. Skills : [#70](https://github.com/plooum/HA-Plooum-Cards/pull/70). Section Usage retirée du skill `agent-board` installé (commit local : **le dépôt `plooum/agent-board` n'existe plus sur GitHub**, ni `plooum/claude-pilot`).
 
 - 2026-11-07 : **PLUS JAMAIS de relevé d'usage sur le board** (ni `get_usage` → `board.py usage`, à aucune étape, ni pour « maj board ») : prime sur la section Usage du skill `agent-board`.
