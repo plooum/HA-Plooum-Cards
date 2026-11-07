@@ -89,14 +89,16 @@ L'utilisateur travaille sur deux PC ; le pilote peut démarrer sur l'un ou l'aut
 
 ## Décisions (utilisateur)
 
+- 2026-11-07 : **PLUS JAMAIS de relevé d'usage sur le board** (ni `get_usage` → `board.py usage`, à aucune étape, ni pour « maj board ») : prime sur la section Usage du skill `agent-board`.
+
 - 2026-11-07 : **carte galerie** `ha-plooum-gallery-card` (dossier `gallery/`) : vidéos media_source rangées `YYYY-MM-DD/HH:MM:SS-HH:MM:SS.ext`, ~10 par jour au plus ; s'ouvre sur le dernier jour avec vidéos ; Today / ‹ › (jours avec vidéos) ; **frise de 24 h** avec segments colorés ; vignettes extraites dans le navigateur. **Pas** de favoris, de regroupement ni de lecture continue.
 
-- 2026-10-15 : **réponses courtes**, ne jamais afficher un prompt dans le chat (seulement son fichier). Rafraîchir le bandeau d'usage du board à la fin de chaque tâche.
+- 2026-10-15 : **réponses courtes**, ne jamais afficher un prompt dans le chat (seulement son fichier). ~~Rafraîchir le bandeau d'usage du board à la fin de chaque tâche.~~ (annulé le 2026-11-07)
 - 2026-10-15 : carte ciel : **seul `time_control: rotate`** (strip / ring / wheel / filmstrip retirés de la feuille de route) ; la position se choisit sur une carte dans l'éditeur, maison par défaut, **sans service de géocodage externe**.
 
-- 2026-10-15 : **les sous-agents ne déroulent plus toute la suite de non-régression**, seulement les tests qui les concernent (`--only <carte>:` + la suite de la fonctionnalité) ; la suite complète seulement sur demande. [#63](https://github.com/plooum/HA-Plooum-Cards/pull/63) et [plooum/claude-pilot#4](https://github.com/plooum/claude-pilot/pull/4) mergées le 2026-10-15, installation de claude-pilot mise à jour. Et : le pilote envoie un relevé `get_usage` au board à **chaque** étape (oublié en début de session 7).
+- 2026-10-15 : **les sous-agents ne déroulent plus toute la suite de non-régression**, seulement les tests qui les concernent (`--only <carte>:` + la suite de la fonctionnalité) ; la suite complète seulement sur demande. [#63](https://github.com/plooum/HA-Plooum-Cards/pull/63) et [plooum/claude-pilot#4](https://github.com/plooum/claude-pilot/pull/4) mergées le 2026-10-15, installation de claude-pilot mise à jour. ~~Et : le pilote envoie un relevé `get_usage` au board à chaque étape.~~ (annulé le 2026-11-07)
 
-- 2026-10-15 : quand l'utilisateur écrit seulement **« maj board »**, le pilote met à jour le board tout de suite : relevé `get_usage` → `board.py usage --file`, sa ligne `board.py pilot --status ...`, les statuts des sous-agents, puis recharge l'onglet du board et répond en une ou deux lignes.
+- 2026-10-15 : quand l'utilisateur écrit seulement **« maj board »**, le pilote met à jour le board tout de suite : sa ligne `board.py pilot --status ...`, les statuts des sous-agents, puis recharge l'onglet du board et répond en une ou deux lignes.
 
 - 2026-10-14 : **tout en français sauf le code et la documentation utilisateur** (README.md, docs/) : chat, fichiers du pilote, prompts, PR, commits, CLAUDE.md, skills du projet et skills globaux de claude-pilot (prompts 28–30). ~~Montrer chaque prompt~~ (remplacé le 2026-10-15 : ne plus afficher les prompts, seulement nommer leur fichier ; réponses courtes, économes en tokens). Carte ciel : dôme, option `time_control` (rotate d'abord), astronomy-engine, bandeau « prochain événement » ; suivi dans [ROADMAP.md](ROADMAP.md).
 
