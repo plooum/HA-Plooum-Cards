@@ -1,0 +1,45 @@
+// Floorplan card: day and night in 3D (`lighting`), the lamps of the lights and the windows of lit rooms.
+// dev/.venv/bin/python dev/ui_test.py dev/tests/floorplan-lighting.json
+{
+  "path": "/plooum-test/floorplan",
+  "viewport": [1700, 1050],
+  "tests": [
+    {
+      "name": "the scene's brightness follows lighting and the sun",
+      "steps": [
+        { "js": "S.card = await waitFor(() => T.card.all('ha-plooum-floorplan-card').find((c) => c.config.title === 'Home in 3D' && c._frame3d), 15000, 'the 3D card'); S.cfg = JSON.parse(JSON.stringify(S.card.config)); S.h = S.card.hass; S.sun = (state, elevation) => { S.card.hass = { ...S.h, states: { ...S.h.states, 'sun.sun': { entity_id: 'sun.sun', state, attributes: elevation === undefined ? {} : { elevation } } } }; return S.card._ambient(); };" },
+        { "assert": "S.card._ambient() === 1", "msg": "no sun.sun: daylight" },
+        { "assert": "S.sun('below_horizon', -20) === 0.3 && Math.abs(S.sun('above_horizon', 0) - 0.65) < 1e-9 && S.sun('above_horizon', 30) === 1 && S.sun('below_horizon') === 0.3", "msg": "night below -6°, twilight in between, day above 6° (by its state without an elevation)" },
+        { "js": "S.card.hass = S.h; S.card.setConfig({ ...S.cfg, lighting: 'night' });" },
+        { "assert": "S.card._ambient() === 0.3", "msg": "lighting: night" },
+        { "js": "S.card.setConfig({ ...S.cfg, lighting: 'day' });" },
+        { "assert": "S.card._ambient() === 1", "msg": "lighting: day" },
+        { "assert": "(() => { try { S.card.setConfig({ ...S.cfg, lighting: 'dusk' }); return false; } catch (e) { return /lighting must be one of/.test(e.message); } })()", "msg": "an invalid value throws" },
+        { "js": "S.card.setConfig(S.cfg); S.card.requestUpdate();" }
+      ]
+    },
+    {
+      "name": "lamps and windows show which lights are on",
+      "steps": [
+        { "js": "S.card = await waitFor(() => T.card.all('ha-plooum-floorplan-card').find((c) => c.config.title === 'Home in 3D' && c._frame3d), 15000, 'the 3D card'); S.was = ['living_room_light', 'kitchen_light'].map((k) => T.hass().states['input_boolean.' + k].state); S.card._orbit = { az: 180, tilt: 70, dist: 1800, target: [5, 2.5, 1] }; S.card._orbitAnim = null; S.card.requestUpdate(); await S.card.updateComplete; S.ms = () => S.card._frame3d.meshes; S.lamp = () => S.ms().find((m) => m.kind === 'lamp' && Math.abs(m.data[0] - 3) < 0.3 && Math.abs(m.data[1] - 2.5) < 0.3); S.litGlass = () => S.ms().flatMap((m) => m.overlays).filter((o) => o.emissive).length; await T.card.call('input_boolean', 'turn_off', { entity_id: ['input_boolean.living_room_light', 'input_boolean.kitchen_light'] }); await waitFor(() => S.lamp() && !S.lamp().on, 8000, 'the living room lamp off');" },
+        { "assert": "S.ms().filter((m) => m.kind === 'lamp').length >= 4 && !S.ms().some((m) => m.kind === 'halo') && !S.lamp().emissive && S.lamp().xray", "msg": "a lamp per light, off: grey, no halo, seen through the roof" },
+        { "assert": "S.litGlass() === 0", "msg": "no window lit" },
+        { "js": "await T.card.call('input_boolean', 'turn_on', { entity_id: 'input_boolean.living_room_light' }); await waitFor(() => S.lamp().on, 8000, 'the living room lamp on');" },
+        { "assert": "S.lamp().emissive && S.lamp().ghost === 0.8 && S.ms().filter((m) => m.kind === 'halo').length === 1", "msg": "on: it glows, with its halo, clearer through the roof" },
+        { "assert": "S.litGlass() >= 1", "msg": "the living room's bay window is lit" }
+      ],
+      "finally": [
+        { "js": "for (const [i, k] of ['living_room_light', 'kitchen_light'].entries()) await T.card.call('input_boolean', S.was[i] === 'on' ? 'turn_on' : 'turn_off', { entity_id: 'input_boolean.' + k }); S.card._orbit = null; S.card.requestUpdate();" }
+      ]
+    },
+    {
+      "name": "the editor shows the field",
+      "path": "/plooum-edit/floorplan?edit=1",
+      "steps": [
+        { "js": "S.ed = await T.openEditor(2);" },
+        { "assert": "T.deep(S.ed.shadowRoot, 'ha-form').some((f) => JSON.stringify(f.schema).includes('\"lighting\"'))", "msg": "a lighting field in the card settings" },
+        { "js": "await T.cancelDialog();" }
+      ]
+    }
+  ]
+}
