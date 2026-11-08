@@ -19,6 +19,7 @@ A collection of custom Lovelace cards for Home Assistant, packaged as **a single
 | Ha Plooum Floorplan Card | `custom:ha-plooum-floorplan-card` | [docs/floorplan.md](docs/floorplan.md) |
 | Ha Plooum Gallery Card | `custom:ha-plooum-gallery-card` | [docs/gallery.md](docs/gallery.md) |
 | HA Plooum GridIcons Card | `custom:ha-plooum-gridicons-card` | [docs/gridicons.md](docs/gridicons.md) |
+| Ha Plooum Group Card | `custom:ha-plooum-group-card` | [docs/group.md](docs/group.md) |
 | HA Plooum Multi Status Card | `custom:ha-plooum-multi-status-card` | [docs/multistatus.md](docs/multistatus.md) |
 | Ha Plooum PC Card | `custom:ha-plooum-pc-card` | [docs/pc.md](docs/pc.md) |
 | Ha Plooum Sky Card | `custom:ha-plooum-sky-card` | [docs/sky.md](docs/sky.md) |
@@ -71,6 +72,11 @@ Browse the videos a camera recorded into a media folder: player, 24 h timeline a
 A compact row of entity icons in a pill container, with state colors and tap/hold actions.
 
 ![GridIcons preview](docs/previews/gridicons.png)
+
+### Ha Plooum Group Card
+A group of cards on a pane of frosted glass: a title, then any cards (Plooum's or Home Assistant's) in a grid, over a blurred and tinted background. Comes with a matching dark teal theme, Plooum Lagon.
+
+![Group preview](docs/previews/group.png)
 
 ### HA Plooum Multi Status Card
 A compact card to follow several boolean entities (light, pump, CO2...) around a main value (e.g. temperature).
@@ -144,6 +150,7 @@ src/
     ├── floorplan/
     ├── gallery/
     ├── gridicons/
+    ├── group/
     ├── multistatus/
     ├── pc/
     ├── sky/

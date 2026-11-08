@@ -385,7 +385,7 @@ class HaPlooumPcCard extends LitElement {
         height: 100%;
         box-sizing: border-box;
         padding: 6px 8px;
-        background: rgba(0, 0, 0, 0.35);
+        background: var(--plooum-tile-background, rgba(0, 0, 0, 0.35));
         border: none;
         border-radius: 20px;
         box-shadow: none;

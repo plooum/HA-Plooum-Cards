@@ -382,7 +382,7 @@ class HaPlooumGridIconsCard extends LitElement {
   static get styles() {
     return css`
       .plooum-grid-card {
-        background: rgba(0, 0, 0, 0.35);
+        background: var(--plooum-tile-background, rgba(0, 0, 0, 0.35));
         border-radius: 20px;
         box-sizing: border-box;
         box-shadow: none;
