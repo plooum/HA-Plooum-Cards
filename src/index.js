@@ -14,6 +14,7 @@ import './cards/dpad/ha-plooum-dpad-card.js';
 import './cards/floorplan/ha-plooum-floorplan-card.js';
 import './cards/gallery/ha-plooum-gallery-card.js';
 import './cards/gridicons/ha-plooum-gridicons-card.js';
+import './cards/group/ha-plooum-group-card.js';
 import './cards/vivarium/ha-plooum-vivarium-card.js';
 import './cards/pc/ha-plooum-pc-card.js';
 import './cards/multistatus/ha-plooum-multi-status-card.js';

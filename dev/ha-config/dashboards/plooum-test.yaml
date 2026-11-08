@@ -103,6 +103,16 @@ views:
         entity: binary_sensor.bureau_en_ligne
         mac: "02:00:00:00:00:01"
         broadcast_address: 127.0.0.1
+      - type: custom:ha-plooum-group-card
+        title: Group
+        cards:
+          - type: button
+            entity: light.living_room_light
+          - type: custom:ha-plooum-buttonbadge-card
+            entity: input_boolean.mower
+            name: Mower
+            icon: mdi:robot-mower
+            tap_action_type: toggle
       - type: custom:ha-plooum-climate-band-card
         rooms:
           - name: Outside
@@ -892,6 +902,134 @@ views:
           - input_number.bedroom_temperature
           - input_number.bedroom_humidity
           - input_number.kitchen_humidity
+
+  # Group: frosted glass groups over the Plooum Lagon theme (dev/ha-config/themes/plooum-lagon.yaml), laid
+  # out like a real dashboard: the climate band on top, then groups of Plooum and Home Assistant cards.
+  - title: Group
+    path: group
+    theme: Plooum Lagon
+    type: sections
+    max_columns: 2
+    sections:
+      - type: grid
+        column_span: 2
+        cards:
+          - type: custom:ha-plooum-climate-band-card
+            rooms:
+              - name: Outside
+                temperature: sensor.outdoor_temperature
+                humidity: sensor.outdoor_humidity
+              - name: Living
+                temperature: sensor.living_room_temperature
+                humidity: sensor.living_room_humidity
+              - name: Kitchen
+                temperature: sensor.kitchen_temperature
+                humidity: sensor.kitchen_humidity
+              - name: Bedroom
+                temperature: sensor.bedroom_temperature
+                humidity: sensor.bedroom_humidity
+      - type: grid
+        cards:
+          # Plooum cards: their tiles take the group's lighter background.
+          - type: custom:ha-plooum-group-card
+            title: Outside
+            cards:
+              - type: custom:ha-plooum-buttonbadge-card
+                entity: input_boolean.mower
+                name: Mower
+                icon: mdi:robot-mower
+                tap_action_type: toggle
+              - type: custom:ha-plooum-buttonbadge-card
+                entity: switch.tv_plug
+                name: Plug
+                icon: mdi:power-socket-eu
+                tap_action_type: toggle
+              - type: custom:ha-plooum-gridicons-card
+                icons:
+                  - entity: binary_sensor.car_plugged
+                    icon: mdi:car-electric
+                  - entity: switch.pellet_stove
+                    icon: mdi:fire
+                    tap_action: { action: toggle }
+              - type: custom:ha-plooum-multi-status-card
+                title: Pond
+                condensed: true
+                show_temp: true
+                temp_entity: sensor.pond_temperature
+                temp_unit: °C
+                tap_action_type: none
+                status_items:
+                  - entity: switch.pond_uv
+          # Four columns.
+          - type: custom:ha-plooum-group-card
+            title: Aquariums
+            columns: 4
+            cards:
+              - type: custom:ha-plooum-multi-status-card
+                title: 150L
+                tap_action_type: none
+                temp_entity: sensor.aquarium_temperature
+                temp_unit: °C
+                status_items:
+                  - input_boolean.aquarium_pump
+                  - input_boolean.aquarium_co2
+              - type: custom:ha-plooum-multi-status-card
+                title: 60L
+                tap_action_type: none
+                temp_entity: sensor.aquarium_60l_temperature
+                temp_unit: °C
+                status_items:
+                  - input_boolean.aquarium_60_air
+              - type: custom:ha-plooum-multi-status-card
+                title: UV
+                tap_action_type: none
+                show_temp: false
+                status_items:
+                  - input_boolean.aquarium_uv
+      - type: grid
+        cards:
+          # Home Assistant's own cards: they take the group's background through --ha-card-background.
+          - type: custom:ha-plooum-group-card
+            title: Lights
+            cards:
+              - type: button
+                entity: light.living_room_light
+                name: Living
+              - type: button
+                entity: light.kitchen_light
+                name: Kitchen
+              - type: button
+                entity: light.bedroom_light
+                name: Bedroom
+          - type: custom:ha-plooum-group-card
+            title: PC
+            columns: 2
+            cards:
+              - type: custom:ha-plooum-pc-card
+                entity: binary_sensor.bureau_en_ligne
+                mac: "02:00:00:00:00:01"
+                broadcast_address: 127.0.0.1
+                show_name: true
+              - type: custom:ha-plooum-pc-card
+                entity: binary_sensor.nas_en_ligne
+                wol_entity: button.nas_wake_on_lan
+                name: NAS
+                icon: mdi:nas
+                show_name: true
+          # Own glass color, no blur, no title.
+          - type: custom:ha-plooum-group-card
+            glass_color: "#3c3489"
+            glass_opacity: 40
+            blur: 0
+            cards:
+              - type: custom:ha-plooum-buttonbadge-card
+                entity: input_boolean.aquarium_pump
+                name: Pump
+                icon: mdi:pump
+                tap_action_type: toggle
+          # No cards yet.
+          - type: custom:ha-plooum-group-card
+            title: Empty
 
   # Fake PC agents (plooum_dev/pc.py): bureau starts on and wakes with wake_on_lan.send_magic_packet on its
   # MAC (sent to 127.0.0.1), nas starts off and wakes with button.nas_wake_on_lan. Shutdown takes 3 s,

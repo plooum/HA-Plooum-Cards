@@ -240,7 +240,7 @@ class HaPlooumMultiStatusCard extends LitElement {
       .card {
         padding: 8px 12px;
         border-radius: 20px;
-        background-color: rgba(0, 0, 0, 0.35);
+        background-color: var(--plooum-tile-background, rgba(0, 0, 0, 0.35));
         box-shadow: none;
         border: none;
         display: grid;

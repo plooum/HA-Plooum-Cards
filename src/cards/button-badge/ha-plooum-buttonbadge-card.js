@@ -160,7 +160,7 @@ class HaPlooumButtonBadgeCard extends LitElement {
   static get styles() {
     return css`
       .plooum-card {
-        background: rgba(0, 0, 0, 0.35);
+        background: var(--plooum-tile-background, rgba(0, 0, 0, 0.35));
         border-radius: 20px;
         padding: 6px 8px;
         box-sizing: border-box;

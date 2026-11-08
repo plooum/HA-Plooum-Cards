@@ -156,6 +156,23 @@
       ]
     },
     {
+      "name": "group: renders its cards on glass, a card inside reacts, editor",
+      "path": "/plooum-test/group",
+      "steps": [
+        { "js": "S.cards = await T.card.rendered('ha-plooum-group-card', 6); S.g = S.cards.find((c) => c.config.title === 'Lights');" },
+        { "assert": "await waitFor(() => S.g._cards && S.g._cards.length === 3 && S.g._cards.every((el) => el.hass), 8000, '3 cards with hass')", "msg": "the group builds its cards and passes them hass" },
+        { "assert": "getComputedStyle(S.g.shadowRoot.querySelector('ha-card')).backdropFilter.includes('blur(20px)')", "msg": "the glass blurs what lies behind it" },
+        { "assert": "getComputedStyle(T.deep(document, 'ha-plooum-buttonbadge-card')[0].shadowRoot.querySelector('.plooum-card')).backgroundColor === 'rgba(255, 255, 255, 0.06)'", "msg": "a Plooum card inside takes the group's tile background" },
+        { "js": "S.v0 = T.hass().states['light.living_room_light'].state; S.g._cards[0].shadowRoot.querySelector('ha-card').click();" },
+        { "assert": "await waitFor(() => T.hass().states['light.living_room_light'].state !== S.v0, 8000, 'toggled')", "msg": "a tap on a card inside the group acts" },
+        { "js": "await T.card.editorRenders(S.g);" }
+      ],
+      "finally": [
+        { "js": "if (S.v0 && T.hass().states['light.living_room_light'].state !== S.v0) await T.card.call('light', 'toggle', { entity_id: 'light.living_room_light' });" },
+        { "assert": "await T.card.waitState('light.living_room_light', (s) => s.state === S.v0)", "msg": "light restored" }
+      ]
+    },
+    {
       "name": "climate-band: renders, alerts, history, editor",
       "path": "/plooum-test/climate-band",
       "steps": [

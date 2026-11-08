@@ -33,6 +33,8 @@ homeassistant:
 
 media_source:
 frontend:
+  # Plooum Lagon (themes/plooum-lagon.yaml), the theme of the group card's test view.
+  themes: !include_dir_merge_named themes
 # Lets the floorplan editor capture a camera's reference picture (/api/image/upload).
 image_upload:
 config:

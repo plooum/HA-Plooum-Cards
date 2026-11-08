@@ -1,0 +1,40 @@
+# Plooum Lagon: dark teal and turquoise halos, frosted glass groups (ha-plooum-group-card).
+# Copy this file into the themes/ folder of your Home Assistant configuration, with in configuration.yaml:
+#   frontend:
+#     themes: !include_dir_merge_named themes
+# then restart Home Assistant and pick "Plooum Lagon" in your profile (or `theme: Plooum Lagon` on a view).
+# A view's own background (view settings → Background) hides the theme's: set it to none.
+Plooum Lagon:
+  modes:
+    dark:
+      # Background: soft halos, no image to load.
+      lovelace-background: >-
+        fixed radial-gradient(60% 50% at 10% 10%, #0f6e56 0, transparent 70%),
+        fixed radial-gradient(55% 60% at 90% 40%, #185fa5 0, transparent 70%),
+        fixed radial-gradient(60% 50% at 40% 100%, #04342c 0, transparent 70%),
+        #06141a
+      primary-background-color: "#06141a"
+      secondary-background-color: "#0b2229"
+      app-header-background-color: "rgba(6, 20, 26, 0.6)"
+      app-header-text-color: "#e1f5ee"
+      sidebar-background-color: "#06141a"
+      sidebar-text-color: "#e1f5ee"
+      sidebar-icon-color: "#9fe1cb"
+      sidebar-selected-icon-color: "#5dcaa5"
+      sidebar-selected-text-color: "#5dcaa5"
+      primary-color: "#5dcaa5"
+      accent-color: "#fac775"
+      primary-text-color: "#e1f5ee"
+      secondary-text-color: "rgba(225, 245, 238, 0.6)"
+      disabled-text-color: "rgba(225, 245, 238, 0.35)"
+      divider-color: "rgba(159, 225, 203, 0.14)"
+      state-icon-color: "#9fe1cb"
+      state-active-color: "#fac775"
+      # Cards: translucent, in the theme's color.
+      card-background-color: "#0b2229"
+      ha-card-background: "rgba(4, 20, 26, 0.55)"
+      ha-card-border-radius: "20px"
+      ha-card-border-color: "rgba(159, 225, 203, 0.14)"
+      ha-card-box-shadow: "none"
+      # Glass of ha-plooum-group-card.
+      plooum-group-color: "#04141a"
