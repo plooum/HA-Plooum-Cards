@@ -471,6 +471,11 @@ views:
                   - { entity: camera.kitchen_camera, x: 10.75, y: 2.75 }
                   # Missing camera entity.
                   - { entity: camera.does_not_exist, x: 13, y: 5, direction: 225 }
+                  # 3D models: an aquarium with its light, CO2 and air pump; a pellet stove that
+                  # heats while switch.pellet_stove is on; a car shown only while sensor.car_location is home.
+                  - { entity: sensor.aquarium_temperature, x: 2, y: 4.6, model: aquarium, direction: 0, length: 1.2, light_entity: light.aquarium_light, co2_entity: input_boolean.aquarium_co2, air_entity: input_boolean.aquarium_60_air }
+                  - { entity: switch.pellet_stove, x: 0.35, y: 2.5, model: pellet_stove, direction: 90 }
+                  - { entity: sensor.car_battery, x: 14, y: 2.5, model: car, direction: 0, location_entity: sensor.car_location }
               - name: Upstairs
                 rooms:
                   # A room sensor that isn't placed on the plan (room `humidity`).
@@ -495,6 +500,26 @@ views:
             title: Home in 3D
             view: 3d
             floors: *home_floors
+          - type: custom:ha-plooum-floorplan-card
+            title: 3D models
+            # Every model and variant, in a garage and a lounge with no roof.
+            view: 3d
+            roof: false
+            floors:
+              - name: Ground floor
+                rooms:
+                  - { name: Garage, icon: "mdi:garage", x: 0, y: 0, w: 12, h: 6 }
+                  - { name: Lounge, icon: "mdi:sofa", x: 12, y: 0, w: 6, h: 6 }
+                entities:
+                  - { entity: sensor.car_battery, x: 1.5, y: 3, model: car, variant: dacia_spring, color: "#e8eaec" }
+                  - { entity: sensor.car_battery, x: 4.25, y: 3, model: car, variant: city, color: [200, 40, 40] }
+                  - { entity: sensor.car_battery, x: 7.25, y: 3, model: car, variant: sedan, color: "#2b4a7a" }
+                  - { entity: sensor.car_battery, x: 10.25, y: 3, model: car, variant: suv, color: "#3a3d40" }
+                  - { entity: switch.pellet_stove, x: 13, y: 0.5, model: pellet_stove, variant: slim }
+                  - { entity: switch.pellet_stove, x: 14.5, y: 0.5, model: pellet_stove, variant: cylinder }
+                  - { entity: switch.pellet_stove, x: 16.5, y: 0.5, model: pellet_stove, variant: classic }
+                  - { entity: sensor.aquarium_temperature, x: 14, y: 5.6, model: aquarium, direction: 0, length: 1.2, light_entity: light.aquarium_light, co2_entity: input_boolean.aquarium_co2, air_entity: input_boolean.aquarium_60_air }
+                  - { entity: sensor.aquarium_60l_temperature, x: 16.5, y: 5.6, model: aquarium, direction: 0, length: 0.6 }
           - type: custom:ha-plooum-floorplan-card
             title: Home, drawn roof
             view: 3d

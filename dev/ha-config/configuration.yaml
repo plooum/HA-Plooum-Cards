@@ -126,6 +126,13 @@ input_boolean:
   pond_uv:
     name: Pond UV (backing)
     initial: true
+  # Floorplan 3D models: the car is home when on, the pellet stove heats when on.
+  car_home:
+    name: Car home
+    initial: true
+  pellet_stove:
+    name: Pellet stove (backing)
+    initial: true
 
 input_number:
   living_room_temperature:
@@ -226,6 +233,13 @@ input_number:
     max: 35
     step: 0.1
     initial: 17.8
+
+  car_battery:
+    name: Car battery
+    min: 0
+    max: 100
+    step: 1
+    initial: 72
 
 counter:
   ptz_presses:
@@ -556,3 +570,25 @@ template:
           - action: counter.increment
             target:
               entity_id: counter.ptz_presses
+  # Floorplan 3D models.
+  - sensor:
+      - name: Car Battery
+        unique_id: plooum_dev_car_battery
+        state: "{{ states('input_number.car_battery') | int(0) }}"
+        unit_of_measurement: "%"
+        device_class: battery
+      - name: Car Location
+        unique_id: plooum_dev_car_location
+        state: "{{ 'home' if is_state('input_boolean.car_home', 'on') else 'not_home' }}"
+    switch:
+      - name: Pellet Stove
+        unique_id: plooum_dev_pellet_stove
+        state: "{{ is_state('input_boolean.pellet_stove', 'on') }}"
+        turn_on:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.pellet_stove
+        turn_off:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.pellet_stove

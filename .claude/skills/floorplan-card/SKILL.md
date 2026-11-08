@@ -32,6 +32,7 @@ Un seul fichier, [src/cards/floorplan/ha-plooum-floorplan-card.js](../../../src/
 - État de la vue 3D : `_view` ('2d' / '3d'), `_level3d` (étages affichés, null = tous + toit), `_focus`. `_scene3dState` contient `vp` (`{ w, h, p }` : zone d'affichage et distance de perspective), `home`, `screens`, `cameras`.
 - `facadeCorners(plan.indoor, wallHeight, pose, aspect, hidden)` renvoie les 4 coins de la façade qu'une caméra extérieure voit le mieux : celle que l'éditeur propose d'épingler. Une caméra intérieure utilise sa propre pièce : `plan.indoor[roomAt(plan.indoor, x, y)]`.
 
+- **Modèles 3D** (`model` d'une entité : `aquarium`, `car`, `pellet_stove`) : `// --- 3D models` (`MODELS`, `modelMeshes()`, construits avec `box` / `hexa` / `tube` dans le repère local de `modelFrame`), placés dans `_buildScene` avant les toits. Un mesh `xray` est dessiné par `GlScene` après le reste des opaques, et d'abord en fantôme (`uGhost`, `depthFunc(GREATER)`) là où le reste le cache (`see_through`). Les modes animés (`MODE.flame`, `MODE.bubbles`, uniforme `uTime`) marquent leur mesh `animated` : `_animate3d()` redessine alors la même image (`GlScene.redraw`) à ~30 i/s sans reconstruire la scène. Dans GLSL, `half` est un mot réservé. Suite : `dev/tests/floorplan-models.json`.
 - Inspecter la scène 3D depuis un test : `card._plans3d(card._floors(), 99)` donne les étages empilés `s` (`s.all`, `s.shown`, `s.H`) ; appuie-toi sur de telles méthodes plutôt que sur des fonctions de niveau module, que les tests ne peuvent pas appeler.
 
 ## Pièges de l'éditeur
