@@ -1,6 +1,6 @@
 import { LitElement, html, css, nothing, render as litRender } from "lit";
 
-const CARD_VERSION = '1.0.0';
+const CARD_VERSION = '1.0.1';
 
 /*
  * A single button for a computer run by the Plooum PC agent (SiteWeb, pcagent): a tap opens a dialog
