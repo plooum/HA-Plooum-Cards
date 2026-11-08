@@ -130,6 +130,12 @@ input_boolean:
   car_home:
     name: Car home
     initial: true
+  car_plugged:
+    name: Car plugged in
+    initial: true
+  car_charging:
+    name: Car charging
+    initial: true
   pellet_stove:
     name: Pellet stove (backing)
     initial: true
@@ -580,6 +586,15 @@ template:
       - name: Car Location
         unique_id: plooum_dev_car_location
         state: "{{ 'home' if is_state('input_boolean.car_home', 'on') else 'not_home' }}"
+    binary_sensor:
+      - name: Car Plugged
+        unique_id: plooum_dev_car_plugged
+        state: "{{ is_state('input_boolean.car_plugged', 'on') }}"
+        device_class: plug
+      - name: Car Charging
+        unique_id: plooum_dev_car_charging
+        state: "{{ is_state('input_boolean.car_charging', 'on') and is_state('input_boolean.car_plugged', 'on') }}"
+        device_class: battery_charging
     switch:
       - name: Pellet Stove
         unique_id: plooum_dev_pellet_stove

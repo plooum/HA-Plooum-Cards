@@ -50,14 +50,14 @@ Give an entity of the plan a `model` and it stands in the 3D view as that object
   - `light_entity`: a light ramp on top; while on, the water lights up under it.
   - `air_entity`: an air pump beside the stand and an air stone in the tank; while on, bubbles rise from it.
   - `co2_entity`: a CO2 bottle beside the stand and a diffuser in the tank; while on, a mist of fine bubbles rises from the diffuser and the drop checker on the glass turns green (blue without CO2).
-- **Car** (`model: car`), `variant` `dacia_spring` (default), `city`, `sedan` or `suv`, in its `color`. With a location (`location_entity`, or the entity itself when it is a `device_tracker` or a `person`), the car only shows at its place when that location is `home`.
+- **Car** (`model: car`), `variant` `dacia_spring` (default), `city`, `sedan` or `suv`, in its `color`. With a location (`location_entity`, or the entity itself when it is a `device_tracker` or a `person`), the car only shows at its place when that location is `home`. An electric car shows its battery on a badge floating over its roof: its level (`battery_entity`, or the car's own entity when it is a battery or a percentage), in red below 20 %, orange below 50 %, green above, with a bolt while it charges (`charging_entity`) or a plug while it is plugged in (`plug_entity`). Plugged in, a cable hangs from its charge port (in the front grille of a Dacia Spring, on the rear left wing of the others), with a light pulsing green while it charges, steady blue otherwise. Both entities can be binary sensors (`on`) or the charge and plug states of a car integration (`charging` / `charge_in_progress`, `plugged`…).
 - **Pellet stove** (`model: pellet_stove`), `variant` `slim` (default: flat and tall), `cylinder` or `classic` (boxy, with a stone top), with its flue pipe up to the ceiling. While its entity heats, flames dance behind its glass and its glow warms the floor: a thermostat (`climate`) while its `hvac_action` is `heating` (or when it isn't off, without one), a sensor (its power) above `0`, anything else when on.
 
 ```yaml
 entities:
   - { entity: light.aquarium, x: 2, y: 4.6, model: aquarium, variant: large, direction: 0, temperature_entity: sensor.aquarium_temperature, light_entity: light.aquarium, co2_entity: switch.aquarium_co2, air_entity: switch.aquarium_air }
   - { entity: climate.pellet_stove, x: 0.4, y: 2.5, model: pellet_stove, variant: cylinder, direction: 90 }
-  - { entity: sensor.spring_battery, x: 14, y: 2.5, model: car, variant: dacia_spring, color: "#e8eaec", location_entity: device_tracker.spring }
+  - { entity: sensor.spring_battery, x: 14, y: 2.5, model: car, variant: dacia_spring, color: "#e8eaec", location_entity: device_tracker.spring, charging_entity: binary_sensor.spring_charging, plug_entity: binary_sensor.spring_plugged }
 ```
 
 In the editor, select the entity and choose its **3D model**: its options follow.
@@ -178,6 +178,8 @@ Walls shared by two rooms are drawn thin; outer walls are drawn thick.
 | `variant` | string | Models: `medium`, `nano`, `small` or `large` for an aquarium; `dacia_spring`, `city`, `sedan` or `suv` for a car; `slim`, `cylinder` or `classic` for a pellet stove. Default: the first one. |
 | `color` | string or list | Cars only: body color, a CSS color (`"#2b4a7a"`) or `[r, g, b]`. Default light grey. |
 | `location_entity` | string | Cars only: where the car is (a `device_tracker`, a `person`…): it only shows when its state is `home`. |
+| `battery_entity` | string | Cars only: its battery level (%), shown on a badge over its roof. Default: its own entity, when it is a battery or a percentage. |
+| `charging_entity`, `plug_entity` | string | Cars only: whether it charges / is plugged in: `on`, or a charge / plug state (`charging`, `charge_in_progress`, `plugged`, `plugged_in`…). |
 | `temperature_entity` | string | Aquariums only: the temperature its thermometer shows on the glass. Default: its own entity, when it is a temperature sensor. |
 | `light_entity`, `co2_entity`, `air_entity` | string | Aquariums only: its light, CO2 and air pump, each shown and animated while on. |
 | `floor_length` | boolean | Covers only: the window goes down to the floor (French window, bay window), in 3D. Default `false`. |
