@@ -1,9 +1,6 @@
 # Plooum Lagon: dark teal and turquoise halos, frosted glass groups (ha-plooum-group-card).
-# Copy this file into the themes/ folder of your Home Assistant configuration, with in configuration.yaml:
-#   frontend:
-#     themes: !include_dir_merge_named themes
-# then restart Home Assistant and pick "Plooum Lagon" in your profile (or `theme: Plooum Lagon` on a view).
-# A view's own background (view settings → Background) hides the theme's: set it to none.
+# Copy, for the development Home Assistant, of the theme published by https://github.com/plooum/HA-Plooum-Themes
+# (themes/plooum.yaml, installed with HACS): change it there first, then copy it here.
 Plooum Lagon:
   modes:
     dark:

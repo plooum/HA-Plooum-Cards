@@ -74,7 +74,7 @@ A compact row of entity icons in a pill container, with state colors and tap/hol
 ![GridIcons preview](docs/previews/gridicons.png)
 
 ### Ha Plooum Group Card
-A group of cards on a pane of frosted glass: a title, then any cards (Plooum's or Home Assistant's) in a grid, over a blurred and tinted background. Comes with a matching dark teal theme, Plooum Lagon.
+A group of cards on a pane of frosted glass: a title, then any cards (Plooum's or Home Assistant's) in a grid, over a blurred and tinted background. Goes with the dark teal theme Plooum Lagon, installed with HACS from [HA Plooum Themes](https://github.com/plooum/HA-Plooum-Themes).
 
 ![Group preview](docs/previews/group.png)
 

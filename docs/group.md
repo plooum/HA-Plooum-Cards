@@ -62,11 +62,4 @@ The card has a visual editor: title, columns and glass settings, then the list o
 
 ## A theme for it: Plooum Lagon
 
-[dev/ha-config/themes/plooum-lagon.yaml](../dev/ha-config/themes/plooum-lagon.yaml) is a dark teal theme made for the group card: soft colored halos as the background (no image to load), translucent cards and a `plooum-group-color` for the glass. To use it, copy the file into the `themes/` folder of your Home Assistant configuration, enable themes in `configuration.yaml`:
-
-```yaml
-frontend:
-  themes: !include_dir_merge_named themes
-```
-
-then restart Home Assistant and pick **Plooum Lagon** in your profile, or on a single view with `theme: Plooum Lagon`. A view's own background (view settings → Background) hides the theme's: set it to none.
+**Plooum Lagon** is a dark teal theme made for the group card: soft colored halos as the background (no image to load), translucent cards and a `plooum-group-color` for the glass. It is installed with HACS from its own repository, [HA Plooum Themes](https://github.com/plooum/HA-Plooum-Themes) (category **Theme**), whose README gives the steps: enable themes in `configuration.yaml` once, then pick **Plooum Lagon** in your profile, or on a single view with `theme: Plooum Lagon`. A view's own background (view settings → Background) hides the theme's: set it to none.

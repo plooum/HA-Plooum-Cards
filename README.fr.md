@@ -74,7 +74,7 @@ Rangée compacte d'icônes d'entités dans un pill container, avec couleurs d'é
 ![GridIcons preview](docs/previews/gridicons.png)
 
 ### Ha Plooum Group Card
-Un groupe de cartes sur un panneau de verre dépoli : un titre, puis n'importe quelles cartes (Plooum ou de Home Assistant) en grille, sur un fond flouté et teinté. Livrée avec un thème bleu canard assorti, Plooum Lagon.
+Un groupe de cartes sur un panneau de verre dépoli : un titre, puis n'importe quelles cartes (Plooum ou de Home Assistant) en grille, sur un fond flouté et teinté. Va avec le thème bleu canard Plooum Lagon, à installer avec HACS depuis [HA Plooum Themes](https://github.com/plooum/HA-Plooum-Themes).
 
 ![Group preview](docs/previews/group.png)
 
