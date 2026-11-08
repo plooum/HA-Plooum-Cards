@@ -356,7 +356,7 @@ class HaPlooumPcCard extends LitElement {
     const busy = status === 'starting' || status === 'stopping' || status === 'restarting';
     return html`
       <ha-card
-        class="pc ${status}"
+        class="pc ${status} ${this.config.show_name ? 'has-name' : ''}"
         tabindex="0"
         role="button"
         aria-label=${`${this._name}: ${STATUS_LABELS[status]}`}
@@ -380,14 +380,14 @@ class HaPlooumPcCard extends LitElement {
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 2px;
-        min-height: 72px;
+        gap: 0;
+        min-height: 56px;
         height: 100%;
         box-sizing: border-box;
-        padding: 8px;
+        padding: 6px 8px;
         background: rgba(0, 0, 0, 0.35);
         border: none;
-        border-radius: 24px;
+        border-radius: 20px;
         box-shadow: none;
         cursor: pointer;
         user-select: none;
@@ -399,10 +399,15 @@ class HaPlooumPcCard extends LitElement {
         outline: 2px solid var(--primary-color);
       }
       .icon {
-        --mdc-icon-size: 44px;
-        width: 44px;
-        height: 44px;
+        --mdc-icon-size: 40px;
+        width: 40px;
+        height: 40px;
         display: flex;
+      }
+      .pc.has-name .icon {
+        --mdc-icon-size: 26px;
+        width: 26px;
+        height: 26px;
       }
       .pc.unavailable .icon,
       .pc.missing .icon {
