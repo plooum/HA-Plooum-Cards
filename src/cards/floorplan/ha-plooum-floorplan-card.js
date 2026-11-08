@@ -65,7 +65,7 @@ const PALETTE_FILTERS = [
 ];
 
 // Card options shown in the editor with their default value, and left out of the config when unchanged.
-const CARD_DEFAULTS = { view: '2d', camera_view: 'snapshot', camera_previews: 'hover', projection_picture: 'frozen', projected_windows: 'overlay', screen_mode: 'world', roof: true };
+const CARD_DEFAULTS = { view: '2d', camera_view: 'snapshot', camera_previews: 'hover', projection_picture: 'frozen', projected_windows: 'overlay', screen_mode: 'world', roof: true, see_through: true };
 // Where camera screens are shown in 3D: in the scene in front of their camera, floating flat on the
 // view next to it, or nowhere (the camera bar still flies to them).
 const SCREEN_MODES = ['world', 'billboard', 'none'];
@@ -87,6 +87,7 @@ const PROJ_REACH = 25; // projected pictures stop this far from their camera (gr
 // A surface the camera sees at a grazing angle (degrees between its line of sight and the surface)
 // gets no projected picture: hidden below the first angle, fading in up to the second.
 const PROJ_GRAZING = [10, 20];
+const XRAY_ALPHA = 0.35; // opacity of the models seen through walls and roofs (`see_through`)
 const REFRESH_INTERVAL = 3; // s between two snapshots of a camera
 const THUMB_INTERVAL = 300; // s between two snapshots of the thumbnails always shown in 2D (`camera_previews: always`)
 const THUMB_CHECK = 30; // s between two checks for thumbnails older than THUMB_INTERVAL
@@ -138,6 +139,7 @@ const TILT_MAX = 88;
 // -------------------------------------------------------------------------
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const fract = (v) => v - Math.floor(v);
 const snap = (v, step) => Math.round(v / step) * step;
 const round2 = (v) => Math.round(v * 100) / 100;
 const num = (v, fallback = 0) => {
@@ -552,7 +554,8 @@ function resolveFloor(hass, floor) {
     if (item.room < 0) continue;
     const room = rooms[item.room];
     room.items.push(item);
-    if (isUnavailable(item.st)) continue;
+    // A model's entity (an aquarium's temperature, a car's battery) says nothing of its room.
+    if (isUnavailable(item.st) || item.conf.model in MODELS) continue;
     const value = parseFloat(item.st.state);
     if (item.role === 'temperature' && Number.isFinite(value)) room.temps.push(item);
     if (item.role === 'humidity' && Number.isFinite(value)) room.hums.push(item);
@@ -1154,6 +1157,282 @@ function segmentsCross(p1, p2, q1, q2) {
   return orient(p1, p2, q1) * orient(p1, p2, q2) < 0 && orient(q1, q2, p1) * orient(q1, q2, p2) < 0;
 }
 
+// --- 3D models ---------------------------------------------------------------
+// Low-poly furniture and vehicles that an entity can stand for in 3D (its `model`), built from
+// boxes and tubes in the model's own frame, then placed on the plan.
+
+// Models and their variants (`variant`; the first one by default).
+const MODELS = {
+  aquarium: [],
+  car: ['dacia_spring', 'city', 'sedan', 'suv'],
+  pellet_stove: ['slim', 'cylinder', 'classic'],
+};
+const MODEL_DIRECTION = 180; // where a model's front faces by default (degrees clockwise from the top of the plan): down the plan
+const AQUARIUM_LENGTH = 1; // default `length` of an aquarium (grid units)
+const CAR_COLOR = [0.86, 0.87, 0.88, 1];
+// Cars (grid units): length, width, height, wheel radius, cabin length at the roof and its shift
+// backwards, height of the bottom of the windows; black plastic cladding and roof rails.
+const CARS = {
+  dacia_spring: { l: 3.73, w: 1.58, h: 1.52, r: 0.3, cabin: 1.75, back: 0.3, belt: 0.95, cladding: true, rails: true },
+  city: { l: 3.95, w: 1.72, h: 1.47, r: 0.31, cabin: 1.85, back: 0.25, belt: 0.9 },
+  sedan: { l: 4.7, w: 1.84, h: 1.44, r: 0.33, cabin: 2.05, back: 0.2, belt: 0.88 },
+  suv: { l: 4.6, w: 1.88, h: 1.68, r: 0.36, cabin: 2.45, back: 0.3, belt: 1.05, cladding: true, rails: true },
+};
+// Pellet stoves (grid units): width, depth (or radius) and height.
+const STOVES = {
+  slim: { w: 0.52, d: 0.28, h: 1.12 },
+  cylinder: { r: 0.27, h: 1.05 },
+  classic: { w: 0.58, d: 0.52, h: 0.98 },
+};
+
+// Whether a pellet stove's fire burns: a thermostat by what it does (`hvac_action`), a sensor (its
+// power) above 0, anything else when active.
+function isHeating(st) {
+  if (!st || isUnavailable(st)) return false;
+  const action = st.attributes.hvac_action;
+  if (typeof action === 'string') return action === 'heating';
+  if (domainOf(st.entity_id) === 'sensor') return parseFloat(st.state) > 0;
+  return isActive(st);
+}
+
+// A model's color (`color`): a CSS color or [r, g, b] (0-255).
+function modelColor(value) {
+  if (Array.isArray(value)) return [...value.slice(0, 3).map((v) => clamp(num(v, 0), 0, 255) / 255), 1];
+  return parseColor(String(value), CAR_COLOR);
+}
+
+// Whether a car is away: its location (`location_entity`, or the entity itself when it is a
+// device tracker or a person) is known and isn't `home`.
+function isAway(hass, conf) {
+  const own = ['device_tracker', 'person'].includes(domainOf(conf.entity || ''));
+  const id = conf.location_entity || (own ? conf.entity : null);
+  const st = id && hass.states[id];
+  return !!st && !isUnavailable(st) && st.state !== 'home';
+}
+
+// A model's frame: its foot at (x, y, z), its front facing `direction` degrees clockwise from the
+// top of the plan. Local coordinates: x to its right, y forward, z up. `at` maps a local point to
+// the plan.
+function modelFrame(x, y, z, direction) {
+  const a = toRad(direction);
+  const fwd = [Math.sin(a), -Math.cos(a)];
+  const right = [Math.cos(a), Math.sin(a)];
+  return { at: ([lx, ly, lz]) => [x + right[0] * lx + fwd[0] * ly, y + right[1] * lx + fwd[1] * ly, z + lz] };
+}
+
+// Six faces between the corners `b` (bottom) and `t` (top), 4 each in the same order around, each
+// face shaded by how it faces the light.
+function hexa(mesh, F, b, t, color, { top = true, bottom = true } = {}) {
+  const B = b.map(F.at);
+  const T = t.map(F.at);
+  const face = (pts) => {
+    const n = norm3(cross3(sub3(pts[1], pts[0]), sub3(pts[2], pts[0])));
+    mesh.poly(pts, darken(color, shade(n)));
+  };
+  if (bottom) face(B);
+  if (top) face(T);
+  for (let i = 0; i < 4; i++) face([B[i], B[(i + 1) % 4], T[(i + 1) % 4], T[i]]);
+  return mesh;
+}
+
+// A box centered on (cx, cy) in the model's frame, `w` wide (x), `d` deep (y), from z0 up to z0 + h.
+function box(mesh, F, cx, cy, w, d, z0, h, color, opts) {
+  const rect = (z) => [[cx - w / 2, cy - d / 2, z], [cx + w / 2, cy - d / 2, z], [cx + w / 2, cy + d / 2, z], [cx - w / 2, cy + d / 2, z]];
+  return hexa(mesh, F, rect(z0), rect(z0 + h), color, opts);
+}
+
+// A tube of radius r from the local point p0 to p1, closed at both ends.
+function tube(mesh, F, p0, p1, r, color, n = 16) {
+  const axis = norm3(sub3(p1, p0));
+  const u = norm3(cross3(axis, Math.abs(axis[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0]));
+  const v = cross3(axis, u);
+  const ring = (p) => Array.from({ length: n }, (_, i) => {
+    const a = (i / n) * 2 * Math.PI;
+    return F.at(add3(p, add3(mul3(u, r * Math.cos(a)), mul3(v, r * Math.sin(a)))));
+  });
+  const A = ring(p0);
+  const B = ring(p1);
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    const pts = [A[i], A[j], B[j], B[i]];
+    mesh.poly(pts, darken(color, shade(norm3(cross3(sub3(pts[1], pts[0]), sub3(pts[3], pts[0]))))));
+  }
+  const capShade = (pts) => darken(color, shade(norm3(cross3(sub3(pts[1], pts[0]), sub3(pts[2], pts[0])))));
+  mesh.poly(A, capShade(A));
+  mesh.poly(B, capShade(B));
+  return mesh;
+}
+
+// Bubbles rising from the local point `p` up to `top`, `size` across (two crossed columns, so that
+// they show from every side).
+function bubbles(F, p, top, size, seed) {
+  const mesh = new Mesh(MODE.bubbles, { transparent: true, animated: true });
+  const h = top - p[2];
+  if (h <= 0) return mesh;
+  const uv = [[0, h, size, seed], [2 * size, h, size, seed], [2 * size, 0, size, seed], [0, 0, size, seed]];
+  for (const dir of [[1, 0, 0], [0, 1, 0]]) {
+    const o = add3(add3(p, mul3(dir, -size)), [0, 0, h]);
+    const pts = quad(o, mul3(dir, 2 * size), [0, 0, -h]).map(F.at);
+    mesh.poly(pts, [0.9, 0.97, 1, 0.9], uv);
+  }
+  return mesh;
+}
+
+// A flat window on the model's front (local plane y = `y`), `w` wide from z0 to z1: flames when
+// `fire`, dark glass otherwise.
+function fireWindow(F, x, y, w, z0, z1, fire) {
+  const pts = quad([x - w / 2, y, z1], [w, 0, 0], [0, 0, z0 - z1]).map(F.at);
+  if (!fire) return new Mesh().poly(pts, [[0.13, 0.13, 0.15, 1], [0.08, 0.08, 0.09, 1], [0.05, 0.05, 0.06, 1], [0.08, 0.08, 0.09, 1]]);
+  return new Mesh(MODE.flame, { animated: true }).poly(pts, [0.12, 0.05, 0.03, 1], [[0, 1, 0, 0], [1, 1, 0, 0], [1, 0, 0, 0], [0, 0, 0, 0]]);
+}
+
+// Meshes of a model (see MODELS) standing at (x, y, z), its front facing `direction`. `o`: its
+// options and state: `variant`, `color` (RGBA), `length`, `ceiling` (height of the ceiling above
+// z, for a stove's flue pipe), `heating`, and the aquarium's `light`, `co2` and `air` (true / false
+// when on / off, null without one). Each mesh is see-through (see GlScene.draw()) unless `solid`.
+function modelMeshes(model, x, y, z, direction, o) {
+  const F = modelFrame(x, y, z, direction);
+  const body = new Mesh();
+  const out = [body];
+  if (model === 'aquarium') {
+    const L = o.length;
+    const D = clamp(L * 0.4, 0.3, 0.6);
+    const T = clamp(L * 0.5, 0.35, 0.65);
+    const S = 0.75; // stand
+    const water = S + 0.03 + (T - 0.03) * 0.9;
+    box(body, F, 0, 0, L + 0.02, D + 0.02, 0, S, [0.33, 0.22, 0.14, 1]);
+    for (const side of [-1, 1]) box(body, F, (side * L) / 4, D / 2 + 0.012, 0.03, 0.01, S * 0.45, S * 0.15, [0.75, 0.75, 0.75, 1], { bottom: false });
+    box(body, F, 0, 0, L, D, S, 0.03, [0.1, 0.1, 0.1, 1]);
+    box(body, F, 0, 0, L - 0.02, D - 0.02, S + 0.03, 0.05, [0.84, 0.76, 0.58, 1], { bottom: false });
+    box(body, F, -L * 0.2, -D * 0.1, 0.16, 0.12, S + 0.08, 0.09, [0.5, 0.5, 0.48, 1], { bottom: false });
+    box(body, F, L * 0.28, -D * 0.2, 0.12, 0.1, S + 0.08, 0.06, [0.42, 0.41, 0.4, 1], { bottom: false });
+    // Plants along the back, and a few fish.
+    const n = Math.max(3, Math.round(L * 7));
+    for (let i = 0; i < n; i++) {
+      const r = fract(Math.sin(i * 78.233) * 43758.5453);
+      const px = -L / 2 + 0.06 + ((L - 0.12) * (i + 0.5)) / n;
+      const green = [0.15 + 0.15 * r, 0.45 + 0.25 * r, 0.15, 1];
+      box(body, F, px, -D * (0.1 + 0.25 * r), 0.025, 0.025, S + 0.08, (T - 0.1) * (0.45 + 0.45 * r), green, { bottom: false });
+    }
+    for (let i = 0; i < 3; i++) {
+      const fx = -L * 0.25 + i * L * 0.22;
+      box(body, F, fx, D * (0.1 - 0.08 * i), 0.06, 0.015, S + T * (0.35 + 0.15 * i), 0.03, i === 1 ? [0.2, 0.55, 0.95, 1] : [0.98, 0.5, 0.1, 1]);
+    }
+    const lit = o.light === true;
+    out.push(box(new Mesh(MODE.flat, { transparent: true }), F, 0, 0, L - 0.02, D - 0.02, S + 0.03, water - S - 0.03, lit ? [0.45, 0.78, 0.95, 0.32] : [0.2, 0.45, 0.65, 0.3]));
+    out.push(box(new Mesh(MODE.flat, { transparent: true }), F, 0, 0, L, D, S + 0.03, T - 0.03, [0.85, 0.95, 1, 0.12], { top: false, bottom: false }));
+    for (const [cx, cy, w, d] of [[0, -D / 2, L, 0.02], [0, D / 2, L, 0.02], [-L / 2, 0, 0.02, D], [L / 2, 0, 0.02, D]]) box(body, F, cx, cy, w, d, S + T - 0.02, 0.02, [0.1, 0.1, 0.1, 1]);
+    if (o.light !== null) {
+      box(body, F, 0, 0, L * 0.9, 0.12, S + T + 0.01, 0.03, [0.12, 0.12, 0.13, 1]);
+      for (const side of [-1, 1]) box(body, F, (side * L * 0.4), 0, 0.02, D, S + T, 0.01, [0.6, 0.6, 0.62, 1]);
+      if (lit) {
+        // The lit strip under the ramp, and its light falling through the water.
+        out.push(new Mesh().poly(quad([-L * 0.43, -0.05, S + T + 0.005], [L * 0.86, 0, 0], [0, 0.1, 0]).map(F.at), [1, 0.97, 0.85, 1]));
+        const beam = new Mesh(MODE.flat, { transparent: true });
+        hexa(beam, F, [[-L * 0.43, -0.05, S + T], [L * 0.43, -0.05, S + T], [L * 0.43, 0.05, S + T], [-L * 0.43, 0.05, S + T]],
+          [[-L / 2 + 0.02, -D / 2 + 0.02, S + 0.08], [L / 2 - 0.02, -D / 2 + 0.02, S + 0.08], [L / 2 - 0.02, D / 2 - 0.02, S + 0.08], [-L / 2 + 0.02, D / 2 - 0.02, S + 0.08]],
+          [1, 0.96, 0.8, 0.1], { top: false });
+        out.push(beam);
+      }
+    }
+    if (o.co2 !== null) {
+      // The bottle beside the stand, and its diffuser in the tank.
+      tube(body, F, [L / 2 + 0.13, 0, 0], [L / 2 + 0.13, 0, 0.48], 0.075, [0.62, 0.1, 0.1, 1]);
+      tube(body, F, [L / 2 + 0.13, 0, 0.48], [L / 2 + 0.13, 0, 0.56], 0.025, [0.6, 0.6, 0.6, 1], 10);
+      tube(body, F, [L / 2 - 0.12, 0, S + 0.08], [L / 2 - 0.12, 0, S + 0.16], 0.02, [0.85, 0.9, 0.9, 1], 10);
+      // The drop checker on the front glass: green while CO2 flows, blue without it.
+      tube(body, F, [L / 2 - 0.2, D / 2 - 0.035, S + T * 0.55], [L / 2 - 0.2, D / 2 - 0.035, S + T * 0.55 + 0.06], 0.022, o.co2 ? [0.35, 0.85, 0.3, 1] : [0.2, 0.45, 0.95, 1], 10);
+      // A mist of fine bubbles from the diffuser.
+      if (o.co2) for (let i = 0; i < 3; i++) out.push(bubbles(F, [L / 2 - 0.12 + (i - 1) * 0.015, (i - 1) * 0.012, S + 0.16], water, 0.007, 1 + i * 0.37));
+    }
+    if (o.air !== null) {
+      // The air pump on the floor, and the air stone in the tank.
+      box(body, F, -L / 2 - 0.12, 0, 0.12, 0.09, 0, 0.07, [0.2, 0.22, 0.25, 1]);
+      box(body, F, -L / 2 + 0.14, D * 0.15, 0.08, 0.04, S + 0.08, 0.03, [0.55, 0.55, 0.6, 1], { bottom: false });
+      if (o.air) out.push(bubbles(F, [-L / 2 + 0.14, D * 0.15, S + 0.11], water, 0.03, 2));
+    }
+  } else if (model === 'car') {
+    const c = CARS[o.variant] || CARS.dacia_spring;
+    const color = o.color || CAR_COLOR;
+    const dark = [0.12, 0.12, 0.13, 1];
+    const glass = [0.16, 0.2, 0.25, 1];
+    const low = c.r * 0.6; // bottom of the body
+    const axle = c.l / 2 - c.r - 0.42;
+    // Body up to the windows, then the cabin: its glass narrower than the body, its windscreen and
+    // rear window sloping in to the roof.
+    const hw = c.w / 2;
+    const bodyBox = (z0, z1) => [[-hw, -c.l / 2, z0], [hw, -c.l / 2, z0], [hw, c.l / 2, z0], [-hw, c.l / 2, z0]].map((p) => p.slice(0, 2).concat(z1 === undefined ? z0 : z1));
+    hexa(body, F, bodyBox(low), bodyBox(c.belt), color);
+    const cw = hw - 0.07;
+    const front = c.cabin / 2 - c.back;
+    const rear = -c.cabin / 2 - c.back;
+    const base = [[-cw, rear - 0.25, c.belt], [cw, rear - 0.25, c.belt], [cw, front + 0.75, c.belt], [-cw, front + 0.75, c.belt]];
+    const roof = [[-cw + 0.06, rear, c.h - 0.06], [cw - 0.06, rear, c.h - 0.06], [cw - 0.06, front, c.h - 0.06], [-cw + 0.06, front, c.h - 0.06]];
+    hexa(body, F, base, roof, glass, { bottom: false, top: false });
+    hexa(body, F, roof, roof.map(([px, py, pz]) => [px, py, pz + 0.06]), color);
+    // Pillars at the front and back of the side windows.
+    for (const sx of [-1, 1]) {
+      for (const [y0, y1] of [[front + 0.75, front], [rear - 0.25, rear]]) {
+        const b = [[sx * cw - 0.03, y0 - 0.05, c.belt], [sx * cw + 0.01, y0 - 0.05, c.belt], [sx * cw + 0.01, y0 + 0.05, c.belt], [sx * cw - 0.03, y0 + 0.05, c.belt]];
+        const t = b.map(([px, py]) => [px - sx * 0.06, py + (y1 - y0), c.h - 0.06]);
+        hexa(body, F, b, t, color, { bottom: false });
+      }
+    }
+    for (const sx of [-1, 1]) {
+      for (const sy of [-1, 1]) {
+        const wy = sy * axle + (sy > 0 ? 0.05 : -0.05);
+        tube(body, F, [sx * (hw - 0.24), wy, c.r], [sx * (hw + 0.01), wy, c.r], c.r, dark, 18);
+        tube(body, F, [sx * (hw + 0.01), wy, c.r], [sx * (hw + 0.02), wy, c.r], c.r * 0.55, [0.62, 0.64, 0.66, 1], 12);
+      }
+      // Lights and mirrors.
+      box(body, F, sx * (hw - 0.22), c.l / 2 + 0.005, 0.3, 0.02, c.belt - 0.2, 0.1, [0.95, 0.95, 0.88, 1], { bottom: false });
+      box(body, F, sx * (hw - 0.17), -c.l / 2 - 0.005, 0.22, 0.02, c.belt - 0.18, 0.1, [0.75, 0.08, 0.08, 1], { bottom: false });
+      box(body, F, sx * (hw + 0.07), front + 0.55, 0.14, 0.05, c.belt + 0.05, 0.1, color);
+    }
+    box(body, F, 0, c.l / 2 + 0.006, c.w * 0.5, 0.02, low + 0.12, 0.18, dark, { bottom: false });
+    if (c.cladding) {
+      box(body, F, 0, 0, c.w + 0.03, c.l + 0.03, low, 0.17, dark);
+      for (const sy of [-1, 1]) box(body, F, 0, sy * axle, c.w + 0.05, 2 * c.r + 0.12, low + 0.17, c.r * 0.55, dark, { bottom: false });
+    }
+    if (c.rails) for (const sx of [-1, 1]) box(body, F, sx * (cw - 0.12), (front + rear) / 2, 0.04, c.cabin - 0.1, c.h, 0.05, dark, { bottom: false });
+  } else if (model === 'pellet_stove') {
+    const v = o.variant in STOVES ? o.variant : 'slim';
+    const s = STOVES[v];
+    const steel = [0.2, 0.2, 0.22, 1];
+    let topZ = s.h;
+    let back = 0;
+    if (v === 'cylinder') {
+      tube(body, F, [0, 0, 0], [0, 0, 0.06], s.r + 0.02, [0.12, 0.12, 0.13, 1], 24);
+      tube(body, F, [0, 0, 0.06], [0, 0, s.h - 0.03], s.r, steel, 24);
+      tube(body, F, [0, 0, s.h - 0.03], [0, 0, s.h], s.r + 0.015, [0.3, 0.3, 0.32, 1], 24);
+      out.push(fireWindow(F, 0, s.r + 0.003, 0.24, 0.38, 0.8, o.heating));
+    } else if (v === 'classic') {
+      box(body, F, 0, 0, s.w, s.d, 0.06, s.h - 0.1, steel);
+      for (const sx of [-1, 1]) for (const sy of [-1, 1]) box(body, F, sx * (s.w / 2 - 0.05), sy * (s.d / 2 - 0.05), 0.05, 0.05, 0, 0.06, steel, { bottom: false });
+      box(body, F, 0, 0, s.w + 0.04, s.d + 0.04, s.h - 0.04, 0.04, [0.72, 0.67, 0.58, 1]);
+      box(body, F, 0, s.d / 2 + 0.005, s.w - 0.06, 0.01, 0.22, 0.52, [0.1, 0.1, 0.11, 1], { bottom: false });
+      out.push(fireWindow(F, 0, s.d / 2 + 0.012, 0.4, 0.28, 0.66, o.heating));
+      back = -s.d / 2 + 0.12;
+    } else {
+      box(body, F, 0, 0, s.w, s.d, 0, s.h, steel);
+      box(body, F, 0, 0, s.w + 0.02, s.d + 0.02, s.h - 0.02, 0.02, [0.32, 0.32, 0.34, 1]);
+      box(body, F, s.w * 0.28, s.d / 2 + 0.004, 0.1, 0.008, s.h - 0.16, 0.06, [0.05, 0.25, 0.4, 1], { bottom: false });
+      out.push(fireWindow(F, 0, s.d / 2 + 0.004, s.w - 0.18, 0.44, 0.86, o.heating));
+      back = -s.d / 2 + 0.08;
+    }
+    // The flue pipe, up to the ceiling.
+    if (o.ceiling > topZ + 0.1) tube(body, F, [0, back, topZ], [0, back, o.ceiling], 0.05, [0.28, 0.28, 0.3, 1], 12);
+    if (o.heating) {
+      // The warm glow of the fire on the floor in front of it.
+      const R = 1.3;
+      const c = [0, (s.d || s.r) / 2 + 0.6, 0.02];
+      const pts = quad(add3(c, [-R, -R, 0]), [2 * R, 0, 0], [0, 2 * R, 0]);
+      out.push(new Mesh(MODE.glow, { transparent: true, solid: true }).poly(pts.map(F.at), [1, 0.5, 0.15, 0.45], pts.map((P) => [(P[0] - c[0]) / R, (P[1] - c[1]) / R, 0, 0])));
+    }
+  }
+  return out;
+}
+
 // --- Camera model ------------------------------------------------------------
 // A pinhole camera, with an optional lens distortion and a correction of the plan. Picture coordinates
 // are in picture widths: the picture is 1 wide and 1 / aspect high, (0, 0) at its top-left corner,
@@ -1369,6 +1648,8 @@ const MODE = {
   stripes: 3, // the color, darkened by uv.w where fract(uv.y) > uv.z
   lens: 4, // a camera lens drawn over the color, centered on uv (0, 0)
   picture: 5, // the camera picture that `proj` casts onto the mesh; uv.xyz: the surface normal (set by poly())
+  flame: 6, // flames over the color, flickering (animated); uv.xy: across (0-1) and up (0-1) the fire
+  bubbles: 7, // bubbles rising (animated); uv: across and up the column (grid units), bubble size, seed
 };
 
 const GL_VERTEX = `
@@ -1415,6 +1696,8 @@ uniform vec2 uWarpW[${MAX_PINS}];
 uniform vec2 uWarpA0;
 uniform vec2 uWarpAx;
 uniform vec2 uWarpAy;
+uniform float uTime;
+uniform float uGhost;
 varying vec3 vPos;
 varying vec4 vColor;
 varying vec4 vUV;
@@ -1464,6 +1747,37 @@ void main() {
     // Faded out on a surface seen at a grazing angle, where the picture would be stretched.
     float graze = abs(dot(normalize(vUV.xyz), normalize(vPos - uC)));
     c.a *= smoothstep(${Math.sin((PROJ_GRAZING[0] * Math.PI) / 180).toFixed(4)}, ${Math.sin((PROJ_GRAZING[1] * Math.PI) / 180).toFixed(4)}, graze);
+  } else if (uMode == 6) {
+    // Three tongues of fire swaying and changing height, over glowing embers.
+    vec2 p = vUV.xy;
+    float fire = 0.0;
+    for (int i = 0; i < 3; i++) {
+      float fi = float(i);
+      float x = 0.27 + 0.23 * fi + 0.06 * sin(uTime * 3.1 + fi * 2.3 + p.y * 7.0);
+      float top = 0.55 + 0.22 * sin(uTime * (4.3 + fi * 1.3) + fi * 1.9) + 0.08 * sin(uTime * 11.0 + fi);
+      float hw = 0.17 * max(0.0, 1.0 - p.y / top);
+      fire = max(fire, clamp(1.0 - abs(p.x - x) / max(hw, 0.001), 0.0, 1.0) * step(p.y, top));
+    }
+    float embers = clamp(1.0 - p.y * 5.0, 0.0, 1.0) * (0.7 + 0.3 * sin(uTime * 2.0 + p.x * 9.0));
+    vec3 hot = mix(vec3(0.95, 0.25, 0.03), vec3(1.0, 0.85, 0.35), clamp(fire * 1.4 - p.y * 0.6, 0.0, 1.0));
+    c.rgb = mix(c.rgb, hot, max(fire, embers * 0.8));
+  } else if (uMode == 7) {
+    // A bubble in some of the cells of the column, each cell rising at 0.3 units a second.
+    float size = vUV.z;
+    float y = (vUV.y - uTime * 0.3) / size;
+    float cell = floor(y);
+    float r = fract(sin((cell + vUV.w * 17.0) * 12.9898) * 43758.5453);
+    if (r < 0.3) discard;
+    vec2 d = vec2(vUV.x - (0.5 + 0.6 * (r - 0.65)) * size * 2.0, (fract(y) - 0.5) * size);
+    float radius = size * (0.22 + 0.18 * r);
+    float l = length(d);
+    if (l > radius) discard;
+    c.a *= 0.35 + 0.6 * smoothstep(radius * 0.5, radius, l);
+  }
+  if (uGhost > 0.0) {
+    // Seen through what hides it (see GlScene.draw()): lighter and faint.
+    c.rgb = mix(c.rgb, vec3(1.0), 0.25);
+    c.a *= uGhost;
   }
   if (c.a < 0.004) discard;
   gl_FragColor = vec4(c.rgb * c.a, c.a);
@@ -1648,7 +1962,7 @@ class GlScene {
     this.depth = program(GL_DEPTH_VERTEX, GL_DEPTH_FRAGMENT, ['uView', 'uC', 'uFwd', 'uReach', 'uBase', 'uStretch', 'uShift']);
     this.u = program(GL_VERTEX, GL_FRAGMENT, [
       'uView', 'uMode', 'uTex', 'uC', 'uFwd', 'uRight', 'uUp', 'uF', 'uAspect', 'uReach', 'uK', 'uBase', 'uStretch', 'uShift', 'uShadow', 'uShadowOn', 'uShadowScale',
-      'uXScale', 'uWarpN', 'uWarpP', 'uWarpW', 'uWarpA0', 'uWarpAx', 'uWarpAy',
+      'uXScale', 'uWarpN', 'uWarpP', 'uWarpW', 'uWarpA0', 'uWarpAx', 'uWarpAy', 'uTime', 'uGhost',
     ]);
     gl.useProgram(this.u.prog);
     this.buffer = gl.createBuffer();
@@ -1762,10 +2076,13 @@ class GlScene {
     gl.deleteRenderbuffer(sm.rb);
   }
 
-  // Draws `meshes` (opaque ones in their order, then the transparent ones from the farthest from
-  // `eye`) on a canvas of `w` x `h` CSS px, with the `view` matrix. `occluders` (a mesh) hide
-  // from the cameras the parts of the scene their pictures don't reach.
-  draw(meshes, view, w, h, eye, occluders = null) {
+  // Draws `meshes` on a canvas of `w` x `h` CSS px, with the `view` matrix: the opaque ones in their
+  // order, then the transparent ones from the farthest from `eye`. Meshes with `xray` (the models)
+  // come after the rest of the opaque ones, and are first drawn faint wherever the rest hides
+  // them, so that they show through walls and roofs. `occluders` (a mesh) hide from the cameras
+  // the parts of the scene their pictures don't reach. `time` (s) drives the animated modes;
+  // redraw() draws the same frame again at another time.
+  draw(meshes, view, w, h, eye, occluders = null, time = 0) {
     const gl = this.gl;
     this.frame++;
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
@@ -1775,16 +2092,19 @@ class GlScene {
       this.canvas.width = cw;
       this.canvas.height = ch;
     }
-    const opaque = meshes.filter((m) => !m.transparent);
+    const opaque = meshes.filter((m) => !m.transparent && !m.xray);
+    const objects = meshes.filter((m) => !m.transparent && m.xray);
     const far = meshes
       .filter((m) => m.transparent)
       .map((m) => ({ m, d: len3(sub3(m.center(), eye)) }))
       .sort((a, b) => b.d - a.d)
       .map((x) => x.m);
     const list = [];
-    for (const m of [...opaque, ...far]) {
-      list.push({ m, over: false });
-      for (const o of m.overlays) list.push({ m: o, over: true, transparent: m.transparent });
+    for (const [stage, group] of [[0, opaque], [1, objects], [2, far]]) {
+      for (const m of group) {
+        list.push({ m, over: false, stage, xray: !!m.xray });
+        for (const o of m.overlays) list.push({ m: o, over: true, transparent: m.transparent, stage, xray: !!m.xray });
+      }
     }
     const occ = { m: occluders || new Mesh() };
     let total = occ.m.data.length;
@@ -1806,19 +2126,45 @@ class GlScene {
       const p = x.m.proj;
       if (p && p.shadow && occ.count && !shadows.has(p.key)) shadows.set(p.key, this._shadow(p, occ.first, occ.count));
     }
+    this._last = { list, view, cw, ch, shadows };
+    this._pass(time);
 
+    // Textures not used by this frame (an old snapshot, a label no longer shown) are freed.
+    for (const [key, t] of this.textures) {
+      if (t.frame !== this.frame) {
+        if (t.tex) gl.deleteTexture(t.tex);
+        this.textures.delete(key);
+      }
+    }
+    for (const [key, sm] of this.shadows) {
+      if (sm.frame !== this.frame) {
+        this._freeShadow(sm);
+        this.shadows.delete(key);
+      }
+    }
+  }
+
+  // The last frame drawn again, at `time` (s): for the animated modes.
+  redraw(time) {
+    if (this.ok && this._last) this._pass(time);
+  }
+
+  _pass(time) {
+    const gl = this.gl;
+    const { list, view, cw, ch, shadows } = this._last;
     gl.viewport(0, 0, cw, ch);
     gl.clearColor(0, 0, 0, 0);
     gl.depthMask(true);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.uniformMatrix4fv(this.u.uView, false, view);
-
-    for (const x of list) {
+    gl.uniform1f(this.u.uTime, time);
+    gl.uniform1f(this.u.uGhost, 0);
+    const drawOne = (x, ghost) => {
       const m = x.m;
-      if (!x.count) continue;
+      if (!x.count) return;
       if (m.tex) {
         const tex = this._texture(m.tex);
-        if (!tex) continue;
+        if (!tex) return;
         gl.bindTexture(gl.TEXTURE_2D, tex);
       }
       if (m.proj) {
@@ -1857,29 +2203,25 @@ class GlScene {
         }
       }
       gl.uniform1i(this.u.uMode, m.mode);
-      // Overlays and transparent meshes don't hide what is drawn after them.
-      gl.depthMask(!x.over && !m.transparent);
+      // Overlays, transparent meshes and ghosts don't hide what is drawn after them.
+      gl.depthMask(!ghost && !x.over && !m.transparent);
       if (x.over) gl.enable(gl.POLYGON_OFFSET_FILL);
       else gl.disable(gl.POLYGON_OFFSET_FILL);
       gl.drawArrays(gl.TRIANGLES, x.first, x.count);
+    };
+    for (const x of list) if (x.stage === 0) drawOne(x, false);
+    // Ghosts: the models where what is already drawn (the home without them) stands in front.
+    if (list.some((x) => x.xray)) {
+      gl.depthFunc(gl.GREATER);
+      gl.uniform1f(this.u.uGhost, XRAY_ALPHA);
+      for (const x of list) if (x.xray) drawOne(x, true);
+      gl.uniform1f(this.u.uGhost, 0);
+      gl.depthFunc(gl.LEQUAL);
     }
-
-    // Textures not used by this frame (an old snapshot, a label no longer shown) are freed.
-    for (const [key, t] of this.textures) {
-      if (t.frame !== this.frame) {
-        if (t.tex) gl.deleteTexture(t.tex);
-        this.textures.delete(key);
-      }
-    }
+    for (const x of list) if (x.stage > 0) drawOne(x, false);
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, null);
     gl.activeTexture(gl.TEXTURE0);
-    for (const [key, sm] of this.shadows) {
-      if (sm.frame !== this.frame) {
-        this._freeShadow(sm);
-        this.shadows.delete(key);
-      }
-    }
   }
 
   // Frees the context right away (browsers only keep a few of them).
@@ -3088,7 +3430,7 @@ class HaPlooumFloorplanCard extends LitElement {
   _renderItem(item, plan, { px, py, pw, ph }) {
     if (item.role === 'cover' && item.wall && item.st) return this._renderWindow(item, { px, py, pw, ph });
     // Temperature and humidity sensors inside a room are shown in its label.
-    if ((item.role === 'temperature' || item.role === 'humidity') && item.room >= 0 && item.st) return nothing;
+    if ((item.role === 'temperature' || item.role === 'humidity') && item.room >= 0 && item.st && !(item.conf.model in MODELS)) return nothing;
     const dim = this._selectedRoom !== null && item.room !== this._selectedRoom ? 'dim' : '';
     const pos = `left: ${px(item.x)}%; top: ${py(item.y)}%;`;
     const events = {
@@ -3611,7 +3953,7 @@ class HaPlooumFloorplanCard extends LitElement {
     const cameras = s.all.flatMap((p) => p.items.filter((it) => it.role === 'camera').map((it) => ({ id: it.id, item: it, k: p.k })));
     this._scene3dState = { vp, home, screens, cameras, floors: floors.length, orbit };
     const near = Math.max(1, orbit.dist * 0.01);
-    this._frame3d = { meshes, occluders, view: viewMatrix(orbit, vp, near, orbit.dist + 2 * radius * U3 + 100), vp, eye };
+    this._frame3d = { meshes, occluders, view: viewMatrix(orbit, vp, near, orbit.dist + 2 * radius * U3 + 100), vp, eye, animated: meshes.some((m) => m.animated) };
     // Billboards are laid out for where the view goes: they slide there (CSS transition).
     const boards = mode === 'billboard' && !this._focus ? this._layoutBillboards(screens, target, vp) : [];
     const focused = this._focus ? screens.find((sc) => sc.id === this._focus) : null;
@@ -3663,10 +4005,32 @@ class HaPlooumFloorplanCard extends LitElement {
       const failed = !this._gl || !this._gl.gl;
       if (failed !== !!this._glFailed) this._glFailed = failed;
     }
-    if (this._gl && this._gl.ok) this._gl.draw(frame.meshes, frame.view, frame.vp.w, frame.vp.h, frame.eye, frame.occluders);
+    if (this._gl && this._gl.ok) {
+      this._gl.draw(frame.meshes, frame.view, frame.vp.w, frame.vp.h, frame.eye, frame.occluders, performance.now() / 1000);
+      if (frame.animated) this._animate3d();
+    }
+  }
+
+  // Draws the frame again, about 30 times a second, while it has animated meshes (fire, bubbles).
+  _animate3d() {
+    if (this._animFrame) return;
+    let last = 0;
+    const step = (now) => {
+      this._animFrame = null;
+      const frame = this._frame3d;
+      if (!this.isConnected || this._view !== '3d' || !frame || !frame.animated || !this._gl || !this._gl.ok) return;
+      if (now - last >= 33) {
+        last = now;
+        this._gl.redraw(now / 1000);
+      }
+      this._animFrame = requestAnimationFrame(step);
+    };
+    this._animFrame = requestAnimationFrame(step);
   }
 
   _dropGl() {
+    cancelAnimationFrame(this._animFrame);
+    this._animFrame = null;
     if (this._gl) this._gl.destroy();
     this._gl = null;
   }
@@ -4057,6 +4421,34 @@ class HaPlooumFloorplanCard extends LitElement {
             side > 0 ? style : 'solid',
             (mesh, alpha) => project(mesh, shown, quadOf(side), alpha)
           );
+        }
+      }
+    }
+
+    // Models (`model`), on each floor shown, even under the roof: they show through it.
+    const seeThrough = this.config.see_through !== false;
+    for (const p of s.shown) {
+      for (const it of p.items) {
+        const model = it.conf.model;
+        if (!(model in MODELS) || (model === 'car' && isAway(this.hass, it.conf))) continue;
+        const sub = (id) => {
+          if (!id) return null;
+          const st = this.hass.states[id];
+          return !!st && isActive(st);
+        };
+        const opts = {
+          variant: it.conf.variant,
+          color: it.conf.color ? modelColor(it.conf.color) : null,
+          length: clamp(num(it.conf.length, AQUARIUM_LENGTH), 0.3, 3),
+          ceiling: H,
+          heating: isHeating(it.st),
+          light: sub(it.conf.light_entity),
+          co2: sub(it.conf.co2_entity),
+          air: sub(it.conf.air_entity),
+        };
+        for (const mesh of modelMeshes(model, it.x, it.y, p.z0 + 0.015, num(it.conf.direction, MODEL_DIRECTION), opts)) {
+          mesh.xray = seeThrough && !mesh.solid;
+          if (mesh.data.length) add(mesh);
         }
       }
     }
@@ -6131,6 +6523,7 @@ class HaPlooumFloorplanCardEditor extends LitElement {
         ],
       },
       { name: 'roof', label: 'Show the roof when the 3D view opens', selector: { boolean: {} } },
+      { name: 'see_through', label: 'See the 3D models through walls and roofs', selector: { boolean: {} } },
       {
         type: 'expandable',
         name: '',
@@ -6666,6 +7059,48 @@ class HaPlooumFloorplanCardEditor extends LitElement {
           { name: 'floor_length', label: 'Floor-length window (French window, bay window)', selector: { boolean: {} } }
         );
       }
+      const model = ent.model in MODELS ? ent.model : null;
+      if (!isCamera && !isCover) {
+        schema.push({
+          name: 'model',
+          label: '3D model (optional)',
+          selector: {
+            select: {
+              mode: 'dropdown',
+              options: [
+                { value: '', label: 'None' },
+                { value: 'aquarium', label: 'Aquarium' },
+                { value: 'car', label: 'Car' },
+                { value: 'pellet_stove', label: 'Pellet stove' },
+              ],
+            },
+          },
+        });
+      }
+      if (model) {
+        const variants = {
+          car: [['dacia_spring', 'Dacia Spring'], ['city', 'City car'], ['sedan', 'Sedan'], ['suv', 'SUV']],
+          pellet_stove: [['slim', 'Slim'], ['cylinder', 'Cylinder'], ['classic', 'Classic (stone top)']],
+        }[model];
+        if (variants) {
+          schema.push({ name: 'variant', label: 'Model', selector: { select: { mode: 'dropdown', options: variants.map(([value, label]) => ({ value, label })) } } });
+        }
+        schema.push({ name: 'direction', label: 'Front facing (°, clockwise from the top of the plan)', selector: { number: { min: 0, max: 355, step: 5, mode: 'slider' } } });
+        if (model === 'car') {
+          schema.push(
+            { name: 'color', label: 'Body color', selector: { color_rgb: {} } },
+            { name: 'location_entity', label: 'Location (optional: the car only shows at its place when it is home)', selector: { entity: { filter: [{ domain: 'device_tracker' }, { domain: 'person' }, { domain: 'sensor' }] } } }
+          );
+        }
+        if (model === 'aquarium') {
+          schema.push(
+            { name: 'length', label: 'Aquarium length', selector: { number: { min: 0.3, max: 3, step: 0.05, mode: 'box' } } },
+            { name: 'light_entity', label: 'Light (optional: lights up the water)', selector: { entity: {} } },
+            { name: 'co2_entity', label: 'CO2 (optional: fine bubbles, green drop checker)', selector: { entity: {} } },
+            { name: 'air_entity', label: 'Air pump (optional: bubbles)', selector: { entity: {} } }
+          );
+        }
+      }
       if (isCamera) {
         schema.push(
           {
@@ -6707,7 +7142,8 @@ class HaPlooumFloorplanCardEditor extends LitElement {
         },
         { name: 'projection', label: 'Project the picture onto the floor and walls it sees (3D)', selector: { boolean: {} } },
       ];
-      const data = { length: WINDOW_LENGTH, light: naturalRole === 'light', ...(isCamera ? { ...this._cameraDefaults(floor, sel.index), preview_position: 'auto' } : {}), ...ent };
+      const modelDefaults = model ? { direction: MODEL_DIRECTION, length: AQUARIUM_LENGTH, ...(MODELS[model].length ? { variant: MODELS[model][0] } : {}) } : {};
+      const data = { length: WINDOW_LENGTH, light: naturalRole === 'light', ...modelDefaults, ...(isCamera ? { ...this._cameraDefaults(floor, sel.index), preview_position: 'auto' } : {}), ...ent };
       return html`<div class="selection">
         <div class="selection-header">
           ${this._entityIcon(ent.entity, ent.icon)}
@@ -7533,7 +7969,16 @@ class HaPlooumFloorplanCardEditor extends LitElement {
     for (const key of Object.keys(value)) {
       if (value[key] === '' || value[key] === undefined || value[key] === null) delete value[key];
     }
-    if (listKey === 'entities' && num(value.length, WINDOW_LENGTH) === WINDOW_LENGTH) delete value.length;
+    if (listKey === 'entities' && num(value.length, WINDOW_LENGTH) === (value.model === 'aquarium' ? AQUARIUM_LENGTH : WINDOW_LENGTH)) delete value.length;
+    if (listKey === 'entities') {
+      // A model's options: only those of its model, without their defaults.
+      const model = value.model in MODELS ? value.model : null;
+      if (!model) delete value.model;
+      const own = { aquarium: ['length', 'light_entity', 'co2_entity', 'air_entity'], car: ['variant', 'color', 'location_entity'], pellet_stove: ['variant'] }[model] || [];
+      for (const key of ['variant', 'color', 'light_entity', 'co2_entity', 'air_entity', 'location_entity']) if (!own.includes(key)) delete value[key];
+      if (model && (!MODELS[model].includes(value.variant) || value.variant === MODELS[model][0])) delete value.variant;
+      if (model && num(value.direction, MODEL_DIRECTION) === MODEL_DIRECTION) delete value.direction;
+    }
     if (listKey === 'entities' && (!value.floor_length || domainOf(value.entity) !== 'cover')) delete value.floor_length;
     if (listKey === 'entities' && !value.entity) return;
     if (listKey === 'entities') {
@@ -7543,7 +7988,8 @@ class HaPlooumFloorplanCardEditor extends LitElement {
       if (!value.projection) delete value.projection;
       if (value.preview_position === 'auto') delete value.preview_position;
       if (domainOf(value.entity) !== 'camera') {
-        for (const key of ['direction', 'projection', 'preview_position', 'reference_picture', 'distortion', 'x_scale', 'pins', ...CORRECTION_KEYS, ...CAMERA_KEYS]) delete value[key];
+        if (!value.model) delete value.direction;
+        for (const key of ['projection', 'preview_position', 'reference_picture', 'distortion', 'x_scale', 'pins', ...CORRECTION_KEYS, ...CAMERA_KEYS]) delete value[key];
       }
     }
     if (listKey === 'entities') {

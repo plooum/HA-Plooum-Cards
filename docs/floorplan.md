@@ -20,6 +20,7 @@ Switch it to **3D** and the same plan becomes a model of your home and garden, w
 - **Every state stays readable**: unavailable devices blink in grey, an entity that no longer exists shows as an orange dashed `?`.
 - **Cameras**: on the plan, a cone shows where each camera looks (up to the first wall). Hover a camera with the mouse to preview its picture next to it; tap it to keep the preview open (tap the camera again, the preview's ✕, `Escape` or the plan to close it). A tap on the preview opens the camera's live view: the plan itself only shows snapshots. With `camera_previews: always`, a small thumbnail stays next to each camera, refreshed every 5 minutes (its ↻ button reloads it now), on the side set by the camera's `preview_position`. In 3D, its picture is shown on a screen in front of it or on a floating screen, and can be projected onto the floor and walls. The editor shows the plan over the camera's picture: drag the corners of the house onto the same corners in the picture: they stay pinned there, and the picture is projected to fit them.
 - **3D view** (the **2D / 3D** switch at the top of the card): the floors are stacked, outer walls get their windows and shutters, a hip roof is generated over the home, and outdoor rooms (garden, terrace) lie on the lawn.
+- **3D models**: an entity can stand for an aquarium, a car or a pellet stove in 3D (`model`), animated by its state, and seen through walls and roofs.
 
 ## The 3D view
 
@@ -37,6 +38,26 @@ Switch it to **3D** and the same plan becomes a model of your home and garden, w
 - **Windows on a projected facade** (`projected_windows`): the projected picture already shows the real windows and shutters, so a window drawn on top of it would hide and double them. On a facade an outdoor camera projects onto (the window falls in its picture), only the **outer side** of a window follows `projected_windows`; the inner side and the windows of other facades are drawn as usual.
 - Room names on the floor, with their temperature and humidity, turn by quarter turns to read upright from where you look.
 - Grid units are taken as meters: walls are 2.5 high (`wall_height`). The roof is generated, a best effort, unless you draw it with `roofs` (below): the plan says nothing about it, so a hip roof is generated over each part of the home that no floor covers. A part that leans against a floor above (a strip along its wall, a wing ending against it) gets a lean-to roof rising to that wall instead.
+
+## 3D models (`model`)
+
+Give an entity of the plan a `model` and it stands in the 3D view as that object, where it is placed, its front facing `direction` (degrees clockwise from the top of the plan, `180` by default: facing down the plan). Models are seen **through walls and roofs**: what hides them lets them show, faint (turn it off with `see_through: false`). The 2D plan doesn't change: the entity keeps its icon or badge there, and a model's entity doesn't count in its room's temperature, humidity, lights or presence.
+
+- **Aquarium** (`model: aquarium`), on its stand, `length` long (default `1`), with sand, rocks, plants and a few fish. Optional entities light it up and animate it:
+  - `light_entity`: a light ramp on top; while on, the water lights up under it.
+  - `air_entity`: an air pump beside the stand and an air stone in the tank; while on, bubbles rise from it.
+  - `co2_entity`: a CO2 bottle beside the stand and a diffuser in the tank; while on, a mist of fine bubbles rises from the diffuser and the drop checker on the glass turns green (blue without CO2).
+- **Car** (`model: car`), `variant` `dacia_spring` (default), `city`, `sedan` or `suv`, in its `color`. With a location (`location_entity`, or the entity itself when it is a `device_tracker` or a `person`), the car only shows at its place when that location is `home`.
+- **Pellet stove** (`model: pellet_stove`), `variant` `slim` (default: flat and tall), `cylinder` or `classic` (boxy, with a stone top), with its flue pipe up to the ceiling. While its entity heats, flames dance behind its glass and its glow warms the floor: a thermostat (`climate`) while its `hvac_action` is `heating` (or when it isn't off, without one), a sensor (its power) above `0`, anything else when on.
+
+```yaml
+entities:
+  - { entity: sensor.aquarium_temperature, x: 2, y: 4.6, model: aquarium, direction: 0, length: 1.2, light_entity: light.aquarium, co2_entity: switch.aquarium_co2, air_entity: switch.aquarium_air }
+  - { entity: climate.pellet_stove, x: 0.4, y: 2.5, model: pellet_stove, variant: cylinder, direction: 90 }
+  - { entity: sensor.spring_battery, x: 14, y: 2.5, model: car, variant: dacia_spring, color: "#e8eaec", location_entity: device_tracker.spring }
+```
+
+In the editor, select the entity and choose its **3D model**: its options follow.
 
 ## Drawn roof (`roofs`)
 
@@ -107,6 +128,7 @@ The editor writes this configuration for you; it can also be written by hand. Po
 | `temp_max` | number | `27` (`81` in °F) | Temperature shown as a red floor. |
 | `view` | string | `2d` | View shown when the card opens: `2d` or `3d`. |
 | `roof` | boolean | `true` | In 3D, start with the whole home closed, with its roof. `false` starts on the top floor, open. |
+| `see_through` | boolean | `true` | In 3D, the models (`model`) show faint through the walls and roofs that hide them. |
 | `wall_height` | number | `2.5` | Wall height in 3D, in grid units. |
 | `camera_view` | string | `snapshot` | Pictures of the 3D floating screens: `snapshot` (an image refreshed every `refresh_interval`) or `live` (the live stream). The screens standing in the scene always show snapshots, and the screen zoomed on the live stream. The 2D plan always shows snapshots: a tap on a preview opens the live view. |
 | `camera_previews` | string | `hover` | Camera previews on the 2D plan: `hover` (shown while the mouse is on a camera, or after a tap on it) or `always` (also a small thumbnail next to each camera at all times, refreshed every 5 minutes; thumbnails are kept on the device (browser storage, a few dozen KB), so opening the dashboard again or switching views shows them at once without loading them again until they are 5 minutes old; a snapshot that fails or comes out black keeps the previous one, and an unavailable camera shows its last picture greyed). A tap on a thumbnail opens the camera's live view; its ↻ button (top right, shown on hover with a mouse) reloads the picture now. Thumbnails try to hide nothing: not each other, nor the markers, windows and room names. They move a little away from their camera (linked to it by a dashed line) or shrink if needed. Set `preview_position` on a camera to choose its side. |
@@ -147,9 +169,14 @@ Walls shared by two rooms are drawn thin; outer walls are drawn thick.
 | `name` | string | Optional name, instead of the friendly name. |
 | `icon` | string | Optional icon, instead of the state icon. |
 | `light` | boolean | Lights up its room like a light: `true` for an on/off device that isn't a `light.*` (a plug powering a lamp, a switch, an input boolean…), `false` to stop a `light.*` from glowing. Default: `true` for `light.*` only. |
-| `length` | number | Covers only: window length, default `1.5`. |
+| `length` | number | Covers: window length, default `1.5`. Aquariums: their length, default `1`. |
+| `model` | string | In 3D, the object this entity stands for: `aquarium`, `car` or `pellet_stove` (see [3D models](#3d-models-model)). Not for covers and cameras. |
+| `variant` | string | Models: `dacia_spring`, `city`, `sedan` or `suv` for a car; `slim`, `cylinder` or `classic` for a pellet stove. Default: the first one. |
+| `color` | string or list | Cars only: body color, a CSS color (`"#2b4a7a"`) or `[r, g, b]`. Default light grey. |
+| `location_entity` | string | Cars only: where the car is (a `device_tracker`, a `person`…): it only shows when its state is `home`. |
+| `light_entity`, `co2_entity`, `air_entity` | string | Aquariums only: its light, CO2 and air pump, each shown and animated while on. |
 | `floor_length` | boolean | Covers only: the window goes down to the floor (French window, bay window), in 3D. Default `false`. |
-| `direction` | number | Cameras only: where it looks, in degrees clockwise from the top of the plan (`0` up, `90` right). Default: the middle of its room, or away from the home outdoors. |
+| `direction` | number | Cameras: where it looks, in degrees clockwise from the top of the plan (`0` up, `90` right). Default: the middle of its room, or away from the home outdoors. Models: where its front faces, default `180`. |
 | `fov` | number | Cameras only: horizontal field of view, default `90`. |
 | `tilt` | number | Cameras only: degrees looking down, default `15`. |
 | `height` | number | Cameras only: height above the floor, default `2.2`. |
