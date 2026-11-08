@@ -192,6 +192,31 @@ input_number:
     max: 40
     step: 0.1
     initial: 25.6
+  # Climate band card: one outdoor reading and more rooms with a humidity.
+  outdoor_temperature:
+    name: Outdoor temperature (backing)
+    min: -30
+    max: 45
+    step: 0.1
+    initial: 7.1
+  outdoor_humidity:
+    name: Outdoor humidity (backing)
+    min: 0
+    max: 100
+    step: 1
+    initial: 83
+  bedroom_humidity:
+    name: Bedroom humidity (backing)
+    min: 0
+    max: 100
+    step: 1
+    initial: 64
+  kitchen_humidity:
+    name: Kitchen humidity (backing)
+    min: 0
+    max: 100
+    step: 1
+    initial: 55
   # Vivarium card.
   aquarium_temperature:
     name: Aquarium 150L temperature (backing)
@@ -289,6 +314,31 @@ template:
         state: "{{ states('input_number.kitchen_temperature') }}"
         unit_of_measurement: "°C"
         device_class: temperature
+        state_class: measurement
+      # Climate band card.
+      - name: Outdoor Temperature
+        unique_id: plooum_dev_outdoor_temperature
+        state: "{{ states('input_number.outdoor_temperature') }}"
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+      - name: Outdoor Humidity
+        unique_id: plooum_dev_outdoor_humidity
+        state: "{{ states('input_number.outdoor_humidity') }}"
+        unit_of_measurement: "%"
+        device_class: humidity
+        state_class: measurement
+      - name: Bedroom Humidity
+        unique_id: plooum_dev_bedroom_humidity
+        state: "{{ states('input_number.bedroom_humidity') }}"
+        unit_of_measurement: "%"
+        device_class: humidity
+        state_class: measurement
+      - name: Kitchen Humidity
+        unique_id: plooum_dev_kitchen_humidity
+        state: "{{ states('input_number.kitchen_humidity') }}"
+        unit_of_measurement: "%"
+        device_class: humidity
         state_class: measurement
       # Vivarium card.
       - name: Aquarium Temperature

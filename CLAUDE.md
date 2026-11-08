@@ -120,6 +120,7 @@ dev/.venv/bin/python dev/shot.py /plooum-test/multistatus -e ha-plooum-multi-sta
 | `light.living_room_light` | cible de bascule | `input_boolean.living_room_light` |
 | `switch.tv_plug` | cible de bascule, **devient `unavailable`** | `input_boolean.tv_plug`, disponibilité : `input_boolean.tv_plug_available` |
 | `sensor.living_room_temperature` / `sensor.living_room_humidity` | valeurs numériques (°C, %) | `input_number.living_room_temperature` / `input_number.living_room_humidity` |
+| `sensor.outdoor_temperature` / `sensor.outdoor_humidity`, `sensor.bedroom_humidity`, `sensor.kitchen_humidity` | carte bande climat (°C, %) : extérieur (83 %) et chambre (64 %) au-dessus du seuil de 60 % | `input_number.outdoor_temperature` / `input_number.outdoor_humidity` / `input_number.bedroom_humidity` / `input_number.kitchen_humidity` |
 | `cover.living_room_cover` / `cover.bedroom_cover` | volets à position (open/close/stop/set_position) | `input_number.*_cover_position` |
 | `cover.kitchen_cover` / `cover.hallway_cover` | volets à position sur les murs extérieurs que voit la caméra du jardin (mur est de la cuisine, mur sud du couloir) ; dessinés dans sa fausse image (`WINDOWS` dans `camera.py`) | `input_number.kitchen_cover_position` / `input_number.hallway_cover_position` |
 | `button.ptz_up/down/left/right` | `press` du D-Pad | chaque appui incrémente `counter.ptz_presses` |

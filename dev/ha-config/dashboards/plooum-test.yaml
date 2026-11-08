@@ -103,6 +103,30 @@ views:
         entity: binary_sensor.bureau_en_ligne
         mac: "02:00:00:00:00:01"
         broadcast_address: 127.0.0.1
+      - type: custom:ha-plooum-climate-band-card
+        rooms:
+          - name: Outside
+            temperature: sensor.outdoor_temperature
+            humidity: sensor.outdoor_humidity
+          - name: Living
+            temperature: sensor.living_room_temperature
+            humidity: sensor.living_room_humidity
+          - name: Kitchen
+            temperature: sensor.kitchen_temperature
+            humidity: sensor.kitchen_humidity
+          - name: Bedroom
+            temperature: sensor.bedroom_temperature
+            humidity: sensor.bedroom_humidity
+          - name: Terrarium
+            temperature: sensor.terrarium_temperature
+            humidity: sensor.terrarium_humidity
+          # Temperature only: no water under it.
+          - name: Aquarium
+            temperature: sensor.aquarium_temperature
+          # Missing sensors: dashes, gray, no water.
+          - name: Missing
+            temperature: sensor.does_not_exist
+            humidity: sensor.does_not_exist
 
   - title: D-Pad
     path: dpad
@@ -790,6 +814,84 @@ views:
       - type: custom:ha-plooum-gallery-card
         media_source: media-source://media_source/rec_cam_entree/epoch
         filename_format: "{start:X}-{end:X}"
+
+  # Climate band: 7 rooms (one line on a wide screen, 4 + 3 centered when narrow). Outside (83 %), Terrarium (72 %) and
+  # Bedroom (64 %) are above the 60 % threshold: their humidity pulses in red. A tap on a room opens its
+  # history dialog.
+  - title: Climate band
+    path: climate-band
+    cards:
+      - type: custom:ha-plooum-climate-band-card
+        rooms:
+          - name: Outside
+            temperature: sensor.outdoor_temperature
+            humidity: sensor.outdoor_humidity
+          - name: Living
+            temperature: sensor.living_room_temperature
+            humidity: sensor.living_room_humidity
+          - name: Kitchen
+            temperature: sensor.kitchen_temperature
+            humidity: sensor.kitchen_humidity
+          - name: Bedroom
+            temperature: sensor.bedroom_temperature
+            humidity: sensor.bedroom_humidity
+          - name: Terrarium
+            temperature: sensor.terrarium_temperature
+            humidity: sensor.terrarium_humidity
+          # Temperature only: no water under it.
+          - name: Aquarium
+            temperature: sensor.aquarium_temperature
+          # Missing sensors: dashes, gray, no water.
+          - name: Missing
+            temperature: sensor.does_not_exist
+            humidity: sensor.does_not_exist
+      # Narrow column: the same rooms split into two lines.
+      - type: grid
+        columns: 3
+        square: false
+        cards:
+          - type: custom:ha-plooum-climate-band-card
+            min_room_width: 80
+            rooms:
+              - name: Outside
+                temperature: sensor.outdoor_temperature
+                humidity: sensor.outdoor_humidity
+              - name: Living
+                temperature: sensor.living_room_temperature
+                humidity: sensor.living_room_humidity
+              - name: Kitchen
+                temperature: sensor.kitchen_temperature
+                humidity: sensor.kitchen_humidity
+              - name: Bedroom
+                temperature: sensor.bedroom_temperature
+                humidity: sensor.bedroom_humidity
+              - name: Terrarium
+                temperature: sensor.terrarium_temperature
+                humidity: sensor.terrarium_humidity
+          # No pulse, higher threshold (only Outside alerts), temperatures without decimals.
+          - type: custom:ha-plooum-climate-band-card
+            pulse: false
+            threshold: 70
+            temp_decimals: 0
+            rooms:
+              - name: Outside
+                temperature: sensor.outdoor_temperature
+                humidity: sensor.outdoor_humidity
+              - name: Bedroom
+                temperature: sensor.bedroom_temperature
+                humidity: sensor.bedroom_humidity
+          # No rooms yet.
+          - type: custom:ha-plooum-climate-band-card
+      - type: entities
+        title: Test controls
+        entities:
+          - input_number.outdoor_temperature
+          - input_number.outdoor_humidity
+          - input_number.living_room_temperature
+          - input_number.living_room_humidity
+          - input_number.bedroom_temperature
+          - input_number.bedroom_humidity
+          - input_number.kitchen_humidity
 
   # Fake PC agents (plooum_dev/pc.py): bureau starts on and wakes with wake_on_lan.send_magic_packet on its
   # MAC (sent to 127.0.0.1), nas starts off and wakes with button.nas_wake_on_lan. Shutdown takes 3 s,
