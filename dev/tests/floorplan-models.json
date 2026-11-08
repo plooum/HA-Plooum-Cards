@@ -62,6 +62,8 @@
         { "assert": "S.a.variant === 'small' && !('length' in S.a)", "msg": "a size keeps its variant, its own length is dropped" },
         { "assert": "S.b.variant === 'large' && !('length' in S.b)", "msg": "another size: the old size's default length doesn't stick" },
         { "assert": "S.c.length === 1.2 && !('variant' in S.d) && S.d.length === 1.2", "msg": "a length set by hand stays; medium (the default size) is dropped" },
+        { "js": "S.ed._selectionChanged({ detail: { value: { entity: S.ed._config.floors[0].entities[S.i].entity, x: S.ed._config.floors[0].entities[S.i].x, y: S.ed._config.floors[0].entities[S.i].y } } }, 'entities'); await S.ed.updateComplete; S.e = await S.set({ model: 'aquarium', length: 1.5 }); S.f = await S.set({ variant: 'nano' });" },
+        { "assert": "!('length' in S.e) && !('length' in S.f) && S.f.variant === 'nano'", "msg": "becoming an aquarium: the window's default length (1.5) shown by the form doesn't stick, so a size changes its length" },
         { "assert": "S.forms().includes('Large (150 cm)')", "msg": "the sizes show in the editor" },
         { "js": "await T.cancelDialog();" }
       ]

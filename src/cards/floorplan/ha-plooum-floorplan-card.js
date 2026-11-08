@@ -8211,9 +8211,11 @@ class HaPlooumFloorplanCardEditor extends LitElement {
       for (const key of ['variant', 'color', 'temperature_entity', 'light_entity', 'co2_entity', 'air_entity', 'location_entity', 'battery_entity', 'charging_entity', 'plug_entity']) if (!own.includes(key)) delete value[key];
       if (model && (!MODELS[model].includes(value.variant) || value.variant === MODELS[model][0])) delete value.variant;
       if (model && num(value.direction, MODEL_DIRECTION) === MODEL_DIRECTION) delete value.direction;
-      // A new size brings its own length: the form still holds the default of the size before.
+      // A new size, or the entity becoming an aquarium, brings its own length: the form still holds
+      // the default length shown before (the size before's, or a window's).
       const before = this._floors()[this._currentFloorIndex()].entities[sel.index] || {};
-      if (model === 'aquarium' && 'length' in value && num(value.length) === aquariumLength(before.variant) && !('length' in before)) delete value.length;
+      const shown = before.model === 'aquarium' ? aquariumLength(before.variant) : WINDOW_LENGTH;
+      if (model === 'aquarium' && 'length' in value && num(value.length) === shown && !('length' in before)) delete value.length;
     }
     if (listKey === 'entities' && (!value.floor_length || domainOf(value.entity) !== 'cover')) delete value.floor_length;
     if (listKey === 'entities' && !value.entity) return;
