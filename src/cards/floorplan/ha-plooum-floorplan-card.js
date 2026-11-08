@@ -65,7 +65,7 @@ const PALETTE_FILTERS = [
 ];
 
 // Card options shown in the editor with their default value, and left out of the config when unchanged.
-const CARD_DEFAULTS = { view: '2d', camera_view: 'snapshot', camera_previews: 'hover', projection_picture: 'frozen', projected_windows: 'overlay', screen_mode: 'world', roof: true, see_through: true };
+const CARD_DEFAULTS = { view: '2d', camera_view: 'snapshot', camera_previews: 'hover', projection_picture: 'frozen', projected_windows: 'overlay', screen_mode: 'world', roof: true, see_through: true, lighting: 'sun' };
 // Where camera screens are shown in 3D: in the scene in front of their camera, floating flat on the
 // view next to it, or nowhere (the camera bar still flies to them).
 const SCREEN_MODES = ['world', 'billboard', 'none'];
@@ -87,6 +87,10 @@ const PROJ_REACH = 25; // projected pictures stop this far from their camera (gr
 // A surface the camera sees at a grazing angle (degrees between its line of sight and the surface)
 // gets no projected picture: hidden below the first angle, fading in up to the second.
 const PROJ_GRAZING = [10, 20];
+const LIGHTINGS = ['sun', 'day', 'night']; // `lighting` values
+const NIGHT_AMBIENT = 0.3; // brightness of the 3D scene at night (1 by day), under its own lights
+const LAMP_RADIUS = 0.16; // ceiling lamp of a light in 3D (grid units)
+const LAMP_GHOST = 0.8; // opacity of a lit lamp and its halo seen through walls and roofs
 const XRAY_ALPHA = 0.35; // opacity of the models seen through walls and roofs (`see_through`)
 const REFRESH_INTERVAL = 3; // s between two snapshots of a camera
 const THUMB_INTERVAL = 300; // s between two snapshots of the thumbnails always shown in 2D (`camera_previews: always`)
@@ -1725,6 +1729,7 @@ uniform vec2 uWarpAx;
 uniform vec2 uWarpAy;
 uniform float uTime;
 uniform float uGhost;
+uniform float uAmbient;
 varying vec3 vPos;
 varying vec4 vColor;
 varying vec4 vUV;
@@ -1801,6 +1806,8 @@ void main() {
     if (l > radius) discard;
     c.a *= 0.35 + 0.6 * smoothstep(radius * 0.5, radius, l);
   }
+  // The daylight (or the night): what lights itself (lamps, fire, pictures) isn't dimmed (see GlScene.draw()).
+  c.rgb *= uAmbient;
   if (uGhost > 0.0) {
     // Seen through what hides it (see GlScene.draw()): lighter and faint.
     c.rgb = mix(c.rgb, vec3(1.0), 0.25);
@@ -1989,7 +1996,7 @@ class GlScene {
     this.depth = program(GL_DEPTH_VERTEX, GL_DEPTH_FRAGMENT, ['uView', 'uC', 'uFwd', 'uReach', 'uBase', 'uStretch', 'uShift']);
     this.u = program(GL_VERTEX, GL_FRAGMENT, [
       'uView', 'uMode', 'uTex', 'uC', 'uFwd', 'uRight', 'uUp', 'uF', 'uAspect', 'uReach', 'uK', 'uBase', 'uStretch', 'uShift', 'uShadow', 'uShadowOn', 'uShadowScale',
-      'uXScale', 'uWarpN', 'uWarpP', 'uWarpW', 'uWarpA0', 'uWarpAx', 'uWarpAy', 'uTime', 'uGhost',
+      'uXScale', 'uWarpN', 'uWarpP', 'uWarpW', 'uWarpA0', 'uWarpAx', 'uWarpAy', 'uTime', 'uGhost', 'uAmbient',
     ]);
     gl.useProgram(this.u.prog);
     this.buffer = gl.createBuffer();
@@ -2108,8 +2115,9 @@ class GlScene {
   // come after the rest of the opaque ones, and are first drawn faint wherever the rest hides
   // them, so that they show through walls and roofs. `occluders` (a mesh) hide from the cameras
   // the parts of the scene their pictures don't reach. `time` (s) drives the animated modes;
-  // redraw() draws the same frame again at another time.
-  draw(meshes, view, w, h, eye, occluders = null, time = 0) {
+  // redraw() draws the same frame again at another time. `ambient` dims what doesn't give its own
+  // light (1 by day, NIGHT_AMBIENT at night).
+  draw(meshes, view, w, h, eye, occluders = null, time = 0, ambient = 1) {
     const gl = this.gl;
     this.frame++;
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
@@ -2129,8 +2137,8 @@ class GlScene {
     const list = [];
     for (const [stage, group] of [[0, opaque], [1, objects], [2, far]]) {
       for (const m of group) {
-        list.push({ m, over: false, stage, xray: !!m.xray });
-        for (const o of m.overlays) list.push({ m: o, over: true, transparent: m.transparent, stage, xray: !!m.xray });
+        list.push({ m, over: false, stage, xray: !!m.xray, ghost: m.ghost });
+        for (const o of m.overlays) list.push({ m: o, over: true, transparent: m.transparent, stage, xray: !!m.xray, ghost: m.ghost });
       }
     }
     const occ = { m: occluders || new Mesh() };
@@ -2153,7 +2161,7 @@ class GlScene {
       const p = x.m.proj;
       if (p && p.shadow && occ.count && !shadows.has(p.key)) shadows.set(p.key, this._shadow(p, occ.first, occ.count));
     }
-    this._last = { list, view, cw, ch, shadows };
+    this._last = { list, view, cw, ch, shadows, ambient };
     this._pass(time);
 
     // Textures not used by this frame (an old snapshot, a label no longer shown) are freed.
@@ -2178,7 +2186,7 @@ class GlScene {
 
   _pass(time) {
     const gl = this.gl;
-    const { list, view, cw, ch, shadows } = this._last;
+    const { list, view, cw, ch, shadows, ambient } = this._last;
     gl.viewport(0, 0, cw, ch);
     gl.clearColor(0, 0, 0, 0);
     gl.depthMask(true);
@@ -2230,6 +2238,10 @@ class GlScene {
         }
       }
       gl.uniform1i(this.u.uMode, m.mode);
+      // Lit by the day (`ambient`), unless it gives its own light: `emissive` meshes, glows, fire,
+      // pictures and textures (camera screens, labels).
+      const own = m.emissive || [MODE.glow, MODE.texture, MODE.flame, MODE.picture].includes(m.mode);
+      gl.uniform1f(this.u.uAmbient, own ? 1 : ambient);
       // Overlays, transparent meshes and ghosts don't hide what is drawn after them.
       gl.depthMask(!ghost && !x.over && !m.transparent);
       if (x.over) gl.enable(gl.POLYGON_OFFSET_FILL);
@@ -2241,7 +2253,11 @@ class GlScene {
     if (list.some((x) => x.xray)) {
       gl.depthFunc(gl.GREATER);
       gl.uniform1f(this.u.uGhost, XRAY_ALPHA);
-      for (const x of list) if (x.xray) drawOne(x, true);
+      for (const x of list) {
+        if (!x.xray) continue;
+        gl.uniform1f(this.u.uGhost, x.ghost || XRAY_ALPHA);
+        drawOne(x, true);
+      }
       gl.uniform1f(this.u.uGhost, 0);
       gl.depthFunc(gl.LEQUAL);
     }
@@ -3047,6 +3063,9 @@ class HaPlooumFloorplanCard extends LitElement {
     checkRoofs(config.roofs);
     if (config.projected_windows !== undefined && !PROJECTED_WINDOWS.includes(config.projected_windows)) {
       throw new Error(`projected_windows must be one of ${PROJECTED_WINDOWS.join(', ')}`);
+    }
+    if (config.lighting !== undefined && !LIGHTINGS.includes(config.lighting)) {
+      throw new Error(`lighting must be one of ${LIGHTINGS.join(', ')}`);
     }
     // A new `view` or `roof` in the config (editor) is applied; otherwise the user's choice stays.
     if (!this.config || this.config.view !== config.view) this._view = config.view || '2d';
@@ -4033,9 +4052,22 @@ class HaPlooumFloorplanCard extends LitElement {
       if (failed !== !!this._glFailed) this._glFailed = failed;
     }
     if (this._gl && this._gl.ok) {
-      this._gl.draw(frame.meshes, frame.view, frame.vp.w, frame.vp.h, frame.eye, frame.occluders, performance.now() / 1000);
+      this._gl.draw(frame.meshes, frame.view, frame.vp.w, frame.vp.h, frame.eye, frame.occluders, performance.now() / 1000, this._ambient());
       if (frame.animated) this._animate3d();
     }
+  }
+
+  // Brightness of the 3D scene (`lighting`): 1 by day, NIGHT_AMBIENT at night, following the sun
+  // (sun.sun, through the twilight: from 6° below the horizon to 6° above it) by default.
+  _ambient() {
+    const mode = this.config.lighting || CARD_DEFAULTS.lighting;
+    if (mode === 'day') return 1;
+    if (mode === 'night') return NIGHT_AMBIENT;
+    const st = this.hass && this.hass.states['sun.sun'];
+    if (!st || isUnavailable(st)) return 1;
+    const elevation = st.attributes.elevation;
+    const k = typeof elevation === 'number' ? clamp((elevation + 6) / 12, 0, 1) : st.state === 'below_horizon' ? 0 : 1;
+    return NIGHT_AMBIENT + (1 - NIGHT_AMBIENT) * k;
   }
 
   // Draws the frame again, about 30 times a second, while it has animated meshes (fire, bubbles).
@@ -4439,6 +4471,10 @@ class HaPlooumFloorplanCard extends LitElement {
         // already shows the real window: the outer side follows `projected_windows`.
         const shown = projectedOn(quadOf(0), seg);
         const style = shown.length ? this.config.projected_windows || CARD_DEFAULTS.projected_windows : 'solid';
+        // Lit from inside while a light of the room behind it is on.
+        const inside = seg.o === 'h' ? [center, seg.at - seg.normal[1] * 0.2] : [seg.at - seg.normal[0] * 0.2, center];
+        const ri = roomAt(p.indoor, inside[0], inside[1]);
+        const lit = ri >= 0 && p.indoor[ri].lights.some((l) => isActive(l.st));
         for (const side of [0.02, -0.02]) {
           // Each side only from its side of the wall: the other one would show through it (depth precision).
           const k = seg.o === 'h' ? 1 : 0;
@@ -4446,14 +4482,41 @@ class HaPlooumFloorplanCard extends LitElement {
           this._window3d(
             add, at(side), dir, len, top - sill, isUnavailable(it.st), coverPosition(it.st), colors,
             side > 0 ? style : 'solid',
-            (mesh, alpha) => project(mesh, shown, quadOf(side), alpha)
+            (mesh, alpha) => project(mesh, shown, quadOf(side), alpha),
+            lit
           );
         }
       }
     }
 
-    // Models (`model`), on each floor shown, even under the roof: they show through it.
     const seeThrough = this.config.see_through !== false;
+    // Lights: a lamp under the ceiling, glowing in its color while on, grey while off; seen through
+    // the roof and the floors above like the models.
+    for (const p of s.shown) {
+      for (const it of p.items) {
+        if (it.role !== 'light' || it.conf.model in MODELS) continue;
+        const on = !!it.st && isActive(it.st);
+        const color = on ? [...lightRgb(it.st).map((v) => v / 255), 1] : !it.st || isUnavailable(it.st) ? [0.35, 0.35, 0.35, 0.6] : [0.62, 0.62, 0.6, 1];
+        const F = modelFrame(it.x, it.y, p.z0, 0);
+        const lamp = new Mesh(MODE.flat, { emissive: on, transparent: color[3] < 1, kind: 'lamp', on });
+        tube(lamp, F, [0, 0, H - 0.08], [0, 0, H - 0.02], LAMP_RADIUS, color, 20);
+        tube(lamp, F, [0, 0, H - 0.02], [0, 0, H], 0.04, [0.3, 0.3, 0.3, 1], 8);
+        lamp.xray = seeThrough;
+        if (on) lamp.ghost = LAMP_GHOST;
+        add(lamp);
+        if (on) {
+          // Its light under the ceiling: a halo that also shows through the roof.
+          const R = 0.9;
+          const pts = quad([it.x - R, it.y - R, p.z0 + H - 0.1], [2 * R, 0, 0], [0, 2 * R, 0]);
+          const halo = new Mesh(MODE.glow, { transparent: true, kind: 'halo' }).poly(pts, [...color.slice(0, 3), 0.85], pts.map((q) => [(q[0] - it.x) / R, (q[1] - it.y) / R, 0, 0]));
+          halo.xray = seeThrough;
+          halo.ghost = LAMP_GHOST;
+          add(halo);
+        }
+      }
+    }
+
+    // Models (`model`), on each floor shown, even under the roof: they show through it.
     for (const p of s.shown) {
       for (const it of p.items) {
         const model = it.conf.model;
@@ -4517,8 +4580,8 @@ class HaPlooumFloorplanCard extends LitElement {
   // a frame, the glass, and the shutter coming down as the cover closes. `style` (see
   // `projected_windows`): `solid` as is, `overlay` with the projected picture
   // cast over it (`project(mesh, alpha)`), `outline` only its outline and the shutter's bottom
-  // edge, `hidden` nothing.
-  _window3d(add, o, dir, len, height, unavailable, position, colors, style = 'solid', project = null) {
+  // edge, `hidden` nothing. `lit`: the room behind it is lit, its glass glows.
+  _window3d(add, o, dir, len, height, unavailable, position, colors, style = 'solid', project = null, lit = false) {
     if (style === 'hidden') return;
     const closed = (100 - position) / 100;
     if (style === 'outline') {
@@ -4543,10 +4606,11 @@ class HaPlooumFloorplanCard extends LitElement {
     const iu = mul3(dir, len - 2 * b);
     const ih = height - 2 * b;
     // Glass: a gradient from the top-left corner (160deg in CSS terms).
-    const [g0, g1] = colors.glass;
+    // Warm and giving its own light when the room behind it is lit (`lit`).
+    const [g0, g1] = lit ? [[1, 0.92, 0.62, 1], [1, 0.74, 0.38, 1]] : colors.glass;
     const along = [0, len - 2 * b, len - 2 * b, 0].map((x, i) => x * 0.342 + (i > 1 ? ih : 0) * 0.94);
     const span = Math.max(...along) || 1;
-    frame.overlay(new Mesh().poly(quad(io, iu, [0, 0, -ih]), along.map((v) => [...mix(g0, g1, v / span).slice(0, 3), alpha])));
+    frame.overlay(new Mesh(MODE.flat, { emissive: lit }).poly(quad(io, iu, [0, 0, -ih]), along.map((v) => [...mix(g0, g1, v / span).slice(0, 3), alpha])));
     if (closed > 0) {
       const sh = [0, 0, 0.5, 0.8];
       const end = (ih * closed) / 0.12; // a slat every 12 cm
@@ -6561,7 +6625,21 @@ class HaPlooumFloorplanCardEditor extends LitElement {
         ],
       },
       { name: 'roof', label: 'Show the roof when the 3D view opens', selector: { boolean: {} } },
-      { name: 'see_through', label: 'See the 3D models through walls and roofs', selector: { boolean: {} } },
+      { name: 'see_through', label: 'See the 3D models and lamps through walls and roofs', selector: { boolean: {} } },
+      {
+        name: 'lighting',
+        label: 'Daylight in 3D',
+        selector: {
+          select: {
+            mode: 'dropdown',
+            options: [
+              { value: 'sun', label: 'Follow the sun (darker at night)' },
+              { value: 'day', label: 'Always day' },
+              { value: 'night', label: 'Always night' },
+            ],
+          },
+        },
+      },
       {
         type: 'expandable',
         name: '',
