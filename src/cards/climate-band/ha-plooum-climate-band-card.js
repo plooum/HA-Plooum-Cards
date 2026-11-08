@@ -378,8 +378,10 @@ class HaPlooumClimateBandCard extends LitElement {
       tMin = mid - 1;
       tMax = mid + 1;
     }
-    tMin -= 0.3;
-    tMax += 0.3;
+    // Room above and below the curve, so it never runs along the time axis or the top edge.
+    const pad = Math.max(0.3, (tMax - tMin) * 0.12);
+    tMin -= pad;
+    tMax += pad;
     const yT = (t) => m.top + plotH - ((t - tMin) / (tMax - tMin)) * plotH;
 
     // Each series is a step line: a value holds until the next one, and the last one until now.
@@ -435,8 +437,8 @@ class HaPlooumClimateBandCard extends LitElement {
         @pointerleave=${() => this._onChartLeave()}>
         <defs>
           <linearGradient id="depth" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0" stop-color="#85B7EB" stop-opacity="0.3"></stop>
-            <stop offset="1" stop-color="#042C53" stop-opacity="0.85"></stop>
+            <stop offset="0" stop-color="#85B7EB" stop-opacity="0.5"></stop>
+            <stop offset="1" stop-color="#185FA5" stop-opacity="0.9"></stop>
           </linearGradient>
           <linearGradient id="temp" gradientUnits="userSpaceOnUse" x1="0" x2="0" y1=${m.top} y2=${m.top + plotH}>
             ${tempStops}
@@ -446,7 +448,8 @@ class HaPlooumClimateBandCard extends LitElement {
           <path class="hum-line" d=${humLine}></path>` : nothing}
         ${data.hum.length && threshold > hMin && threshold < hMax ? svg`
           <line class="threshold" x1=${m.left} x2=${m.left + plotW} y1=${yH(threshold)} y2=${yH(threshold)}></line>` : nothing}
-        ${tempLine ? svg`<path class="temp-line" d=${tempLine} stroke="url(#temp)"></path>` : nothing}
+        ${tempLine ? svg`<path class="temp-halo" d=${tempLine}></path>
+          <path class="temp-line" d=${tempLine} stroke="url(#temp)"></path>` : nothing}
         ${data.temp.length ? HaPlooumClimateBandCard.ticks(tMin, tMax).map((v) => svg`
           <text class="axis temp-axis" x=${m.left - 5} y=${yT(v) + 4}>${v}°</text>`) : nothing}
         ${data.hum.length ? HaPlooumClimateBandCard.ticks(hMin, hMax, 3).map((v) => svg`
@@ -454,6 +457,11 @@ class HaPlooumClimateBandCard extends LitElement {
         ${timeTicks.map((t) => svg`<text class="axis time-axis" x=${x(t)} y=${height - 4}>${this._timeLabel(t, period)}</text>`)}
         ${cursor !== null ? svg`<line class="cursor" x1=${x(cursor)} x2=${x(cursor)} y1=${m.top} y2=${m.top + plotH}></line>` : nothing}
       </svg>
+      <div class="legend">
+        ${data.temp.length ? html`<span><i class="swatch temp"></i>Temperature</span>` : nothing}
+        ${data.hum.length ? html`<span><i class="swatch hum"></i>Humidity</span>` : nothing}
+        ${data.hum.length ? html`<span><i class="swatch threshold"></i>Alert above ${threshold} %</span>` : nothing}
+      </div>
     `;
   }
 
@@ -507,7 +515,7 @@ class HaPlooumClimateBandCard extends LitElement {
             <button role="tab" data-period=${p.key} aria-selected=${p.key === h.period ? 'true' : 'false'}
               class=${p.key === h.period ? 'active' : ''} @click=${() => this._setPeriod(p.key)}>${p.label}</button>`)}
         </div>
-        <div class="body" style=${`min-height: 190px`}>${body}</div>
+        <div class="body" style=${`min-height: 214px`}>${body}</div>
       </div>
     `;
   }
@@ -788,8 +796,41 @@ const DIALOG_STYLES = css`
   }
   .body {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+  }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    align-self: flex-start;
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--secondary-text-color, #727272);
+  }
+  .legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .swatch {
+    display: inline-block;
+    width: 14px;
+  }
+  .swatch.temp {
+    height: 3px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, #85b7eb, #9fe1cb, #ef9f27, #d85a30);
+  }
+  .swatch.hum {
+    height: 10px;
+    border-radius: 2px;
+    background: linear-gradient(180deg, rgba(133, 183, 235, 0.6), rgba(24, 95, 165, 0.95));
+  }
+  .swatch.threshold {
+    height: 0;
+    border-top: 2px dashed #e24b4a;
   }
   .info {
     color: var(--secondary-text-color, #727272);
@@ -802,12 +843,18 @@ const DIALOG_STYLES = css`
   .hum-line {
     fill: none;
     stroke: #85b7eb;
-    stroke-width: 1.2;
+    stroke-width: 1.5;
   }
   .threshold {
     stroke: #e24b4a;
     stroke-dasharray: 3 4;
     stroke-opacity: 0.8;
+  }
+  .temp-halo {
+    fill: none;
+    stroke: var(--ha-card-background, var(--card-background-color, #fff));
+    stroke-width: 6;
+    stroke-linejoin: round;
   }
   .temp-line {
     fill: none;
@@ -820,6 +867,7 @@ const DIALOG_STYLES = css`
   }
   .temp-axis {
     text-anchor: end;
+    fill: #ef9f27;
   }
   .hum-axis {
     text-anchor: start;

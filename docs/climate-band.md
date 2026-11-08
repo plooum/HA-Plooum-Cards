@@ -28,8 +28,9 @@ A room whose temperature is unavailable, unknown, missing or not a number shows 
 
 A tap on a room opens its history in a dialog:
 
-- the **temperature** as a line, in the band's colors;
-- the **humidity** as the same water table, with the alert threshold as a dashed red line;
+- both measures **on the same chart**, each with its own scale (degrees on the left, percent on the right) and a legend underneath:
+  - the **temperature** as a line, in the band's colors, outlined so it stays readable over the water;
+  - the **humidity** as the same water table, with the alert threshold as a dashed red line;
 - **6 h, 24 h, 7 d or 30 d**: the last 6 and 24 hours come from the recorder's states, 7 and 30 days from its hourly statistics (the sensors need a `state_class`, otherwise the card falls back to the states, which the recorder keeps 10 days by default);
 - move over (or touch) the chart to read the values at a given time;
 - a tap on a value in the dialog's header opens that sensor's own dialog.
