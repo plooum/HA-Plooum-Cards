@@ -1163,12 +1163,15 @@ function segmentsCross(p1, p2, q1, q2) {
 
 // Models and their variants (`variant`; the first one by default).
 const MODELS = {
-  aquarium: [],
+  aquarium: ['medium', 'nano', 'small', 'large'],
   car: ['dacia_spring', 'city', 'sedan', 'suv'],
   pellet_stove: ['slim', 'cylinder', 'classic'],
 };
 const MODEL_DIRECTION = 180; // where a model's front faces by default (degrees clockwise from the top of the plan): down the plan
-const AQUARIUM_LENGTH = 1; // default `length` of an aquarium (grid units)
+// Length of an aquarium of each size (`variant`; grid units): its default `length`. Its depth and
+// height follow its length (see modelMeshes()).
+const AQUARIUM_LENGTHS = { nano: 0.45, small: 0.6, medium: 1, large: 1.5 };
+const aquariumLength = (variant) => AQUARIUM_LENGTHS[variant] || AQUARIUM_LENGTHS.medium;
 const CAR_COLOR = [0.86, 0.87, 0.88, 1];
 // Cars (grid units): length, width, height, wheel radius, cabin length at the roof and its shift
 // backwards, height of the bottom of the windows; black plastic cladding and roof rails.
@@ -1297,8 +1300,8 @@ function modelMeshes(model, x, y, z, direction, o) {
   const out = [body];
   if (model === 'aquarium') {
     const L = o.length;
-    const D = clamp(L * 0.4, 0.3, 0.6);
-    const T = clamp(L * 0.5, 0.35, 0.65);
+    const D = clamp(L * 0.35 + 0.05, 0.25, 0.65);
+    const T = clamp(L * 0.45 + 0.05, 0.3, 0.7);
     const S = 0.75; // stand
     const water = S + 0.03 + (T - 0.03) * 0.9;
     box(body, F, 0, 0, L + 0.02, D + 0.02, 0, S, [0.33, 0.22, 0.14, 1]);
@@ -4463,7 +4466,7 @@ class HaPlooumFloorplanCard extends LitElement {
         const opts = {
           variant: it.conf.variant,
           color: it.conf.color ? modelColor(it.conf.color) : null,
-          length: clamp(num(it.conf.length, AQUARIUM_LENGTH), 0.3, 3),
+          length: clamp(num(it.conf.length, aquariumLength(it.conf.variant)), 0.3, 3),
           ceiling: H,
           heating: isHeating(it.st),
           light: sub(it.conf.light_entity),
@@ -7114,11 +7117,12 @@ class HaPlooumFloorplanCardEditor extends LitElement {
       }
       if (model) {
         const variants = {
+          aquarium: [['nano', 'Nano (45 cm)'], ['small', 'Small (60 cm)'], ['medium', 'Medium (100 cm)'], ['large', 'Large (150 cm)']],
           car: [['dacia_spring', 'Dacia Spring'], ['city', 'City car'], ['sedan', 'Sedan'], ['suv', 'SUV']],
           pellet_stove: [['slim', 'Slim'], ['cylinder', 'Cylinder'], ['classic', 'Classic (stone top)']],
         }[model];
         if (variants) {
-          schema.push({ name: 'variant', label: 'Model', selector: { select: { mode: 'dropdown', options: variants.map(([value, label]) => ({ value, label })) } } });
+          schema.push({ name: 'variant', label: model === 'aquarium' ? 'Size' : 'Model', selector: { select: { mode: 'dropdown', options: variants.map(([value, label]) => ({ value, label })) } } });
         }
         schema.push({ name: 'direction', label: 'Front facing (°, clockwise from the top of the plan)', selector: { number: { min: 0, max: 355, step: 5, mode: 'slider' } } });
         if (model === 'car') {
@@ -7129,7 +7133,7 @@ class HaPlooumFloorplanCardEditor extends LitElement {
         }
         if (model === 'aquarium') {
           schema.push(
-            { name: 'length', label: 'Aquarium length', selector: { number: { min: 0.3, max: 3, step: 0.05, mode: 'box' } } },
+            { name: 'length', label: 'Length (default: that of its size)', selector: { number: { min: 0.3, max: 3, step: 0.05, mode: 'box' } } },
             { name: 'temperature_entity', label: 'Temperature (optional: a thermometer on the glass; default: this entity if it is a temperature sensor)', selector: { entity: { filter: { domain: ['sensor', 'input_number'] } } } },
             { name: 'light_entity', label: 'Light (optional: lights up the water)', selector: { entity: {} } },
             { name: 'co2_entity', label: 'CO2 (optional: fine bubbles, green drop checker)', selector: { entity: {} } },
@@ -7178,7 +7182,7 @@ class HaPlooumFloorplanCardEditor extends LitElement {
         },
         { name: 'projection', label: 'Project the picture onto the floor and walls it sees (3D)', selector: { boolean: {} } },
       ];
-      const modelDefaults = model ? { direction: MODEL_DIRECTION, length: AQUARIUM_LENGTH, ...(MODELS[model].length ? { variant: MODELS[model][0] } : {}) } : {};
+      const modelDefaults = model ? { direction: MODEL_DIRECTION, length: aquariumLength(ent.variant), ...(MODELS[model].length ? { variant: MODELS[model][0] } : {}) } : {};
       const data = { length: WINDOW_LENGTH, light: naturalRole === 'light', ...modelDefaults, ...(isCamera ? { ...this._cameraDefaults(floor, sel.index), preview_position: 'auto' } : {}), ...ent };
       return html`<div class="selection">
         <div class="selection-header">
@@ -8005,15 +8009,18 @@ class HaPlooumFloorplanCardEditor extends LitElement {
     for (const key of Object.keys(value)) {
       if (value[key] === '' || value[key] === undefined || value[key] === null) delete value[key];
     }
-    if (listKey === 'entities' && num(value.length, WINDOW_LENGTH) === (value.model === 'aquarium' ? AQUARIUM_LENGTH : WINDOW_LENGTH)) delete value.length;
+    if (listKey === 'entities' && num(value.length, WINDOW_LENGTH) === (value.model === 'aquarium' ? aquariumLength(value.variant) : WINDOW_LENGTH)) delete value.length;
     if (listKey === 'entities') {
       // A model's options: only those of its model, without their defaults.
       const model = value.model in MODELS ? value.model : null;
       if (!model) delete value.model;
-      const own = { aquarium: ['length', 'temperature_entity', 'light_entity', 'co2_entity', 'air_entity'], car: ['variant', 'color', 'location_entity'], pellet_stove: ['variant'] }[model] || [];
+      const own = { aquarium: ['variant', 'length', 'temperature_entity', 'light_entity', 'co2_entity', 'air_entity'], car: ['variant', 'color', 'location_entity'], pellet_stove: ['variant'] }[model] || [];
       for (const key of ['variant', 'color', 'temperature_entity', 'light_entity', 'co2_entity', 'air_entity', 'location_entity']) if (!own.includes(key)) delete value[key];
       if (model && (!MODELS[model].includes(value.variant) || value.variant === MODELS[model][0])) delete value.variant;
       if (model && num(value.direction, MODEL_DIRECTION) === MODEL_DIRECTION) delete value.direction;
+      // A new size brings its own length: the form still holds the default of the size before.
+      const before = this._floors()[this._currentFloorIndex()].entities[sel.index] || {};
+      if (model === 'aquarium' && 'length' in value && num(value.length) === aquariumLength(before.variant) && !('length' in before)) delete value.length;
     }
     if (listKey === 'entities' && (!value.floor_length || domainOf(value.entity) !== 'cover')) delete value.floor_length;
     if (listKey === 'entities' && !value.entity) return;

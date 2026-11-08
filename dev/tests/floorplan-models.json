@@ -46,6 +46,11 @@
         { "assert": "S.forms().includes('location_entity') && S.forms().includes('dacia_spring')", "msg": "the car's options show" },
         { "js": "S.ed._selectionChanged({ detail: { value: { ...S.ed._config.floors[0].entities[S.i], model: 'pellet_stove', variant: 'sedan' } } }, 'entities'); await S.ed.updateComplete;" },
         { "assert": "(() => { const e = S.ed._config.floors[0].entities[S.i]; return e.model === 'pellet_stove' && !('variant' in e) && !('color' in e); })()", "msg": "a variant of another model and the car's color are dropped" },
+        { "js": "S.set = async (v) => { S.ed._selectionChanged({ detail: { value: { ...S.ed._config.floors[0].entities[S.i], ...v } } }, 'entities'); await S.ed.updateComplete; await new Promise((r) => setTimeout(r, 400)); return { ...S.ed._config.floors[0].entities[S.i] }; }; S.a = await S.set({ model: 'aquarium', variant: 'small', length: 0.6 }); S.b = await S.set({ variant: 'large', length: 0.6 }); S.c = await S.set({ length: 1.2 }); S.d = await S.set({ variant: 'medium' });" },
+        { "assert": "S.a.variant === 'small' && !('length' in S.a)", "msg": "a size keeps its variant, its own length is dropped" },
+        { "assert": "S.b.variant === 'large' && !('length' in S.b)", "msg": "another size: the old size's default length doesn't stick" },
+        { "assert": "S.c.length === 1.2 && !('variant' in S.d) && S.d.length === 1.2", "msg": "a length set by hand stays; medium (the default size) is dropped" },
+        { "assert": "S.forms().includes('Large (150 cm)')", "msg": "the sizes show in the editor" },
         { "js": "await T.cancelDialog();" }
       ]
     }
