@@ -4433,8 +4433,15 @@ class HaPlooumFloorplanCard extends LitElement {
 
     // Outdoor projectors whose picture falls on a window (its quad `pts`, on the outer wall `seg`):
     // the camera is in front of the wall, sees it at more than a grazing angle (where the picture
-    // fades out, see PROJ_GRAZING) and the window's center shows in its picture.
+    // fades out, see PROJ_GRAZING), the window's center shows in its picture and the home doesn't
+    // hide it from the camera (a window on the far side of the home).
     const grazing = Math.sin((PROJ_GRAZING[1] * Math.PI) / 180);
+    const occluding = new Map(); // floor k -> what hides its outdoor cameras' sight (floorOccluders())
+    const hiddenFrom = (pr, P) => {
+      if (!occluding.has(pr.k)) occluding.set(pr.k, floorOccluders(this._floors(), pr.k, s.all[pr.k], H, this.config.roofs));
+      const z0 = s.all[pr.k].z0;
+      return sightBlocked(occluding.get(pr.k), sub3(pr.pose.C, [0, 0, z0]), sub3(P, [0, 0, z0]));
+    };
     const projectedOn = (pts, seg) => {
       const k = seg.o === 'h' ? 1 : 0;
       const center = pts.reduce((c, P) => add3(c, mul3(P, 1 / pts.length)), [0, 0, 0]);
@@ -4442,7 +4449,7 @@ class HaPlooumFloorplanCard extends LitElement {
         if ((pr.pose.C[k] - seg.at) * seg.normal[k] <= 0.05) return false;
         if (Math.abs(dot3(norm3(sub3(center, pr.pose.C)), [seg.normal[0], seg.normal[1], 0])) < grazing) return false;
         const uv = toPicture(pr.pose, center, pr.aspect);
-        return !!uv && uv[0] >= 0 && uv[0] <= 1 && uv[1] >= 0 && uv[1] <= 1 / pr.aspect;
+        return !!uv && uv[0] >= 0 && uv[0] <= 1 && uv[1] >= 0 && uv[1] <= 1 / pr.aspect && !hiddenFrom(pr, center);
       });
     };
 

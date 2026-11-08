@@ -24,6 +24,15 @@
       ]
     },
     {
+      "name": "a window the home hides from the camera is drawn as is",
+      "steps": [
+        { "js": "S.card = await waitFor(() => T.card.all('ha-plooum-floorplan-card').find((c) => c.config.title === 'Home in 3D' && c._scene3dState), 15000, 'the 3D card'); S.cfg = JSON.parse(JSON.stringify(S.card.config)); S.orbit = S.card._orbit; const f = JSON.parse(JSON.stringify(S.cfg.floors)); f[0].rooms.push({ name: 'Annex', x: -6, y: 0, w: 2, h: 5 }); f[0].entities.push({ entity: 'cover.bedroom_cover', x: -4, y: 2.5 }); S.calls = []; S.card.setConfig({ ...S.cfg, floors: f, projected_windows: 'hidden' }); const proto = S.card._window3d; S.card._window3d = function (add, o, dir, len, h, un, pos, colors, style, ...r) { S.calls.push({ style, o: o.slice() }); return proto.call(this, add, o, dir, len, h, un, pos, colors, style, ...r); }; S.card._orbit = { az: 160, tilt: 70, dist: 900, target: [-4, 2.5, 1.2] }; S.card._orbitAnim = null; S.card.requestUpdate(); await S.card.updateComplete; await T.fp.waitIdle(S.card, 8000); S.calls.length = 0; S.card._orbitAnim = null; S.card.requestUpdate(); await S.card.updateComplete;" },
+        { "assert": "S.calls.some((c) => Math.abs(c.o[0] + 3.98) < 0.01 && c.style === 'solid')", "msg": "the Annex's east window, behind the Living Room from the garden camera, is drawn solid" },
+        { "assert": "S.calls.every((c) => !(Math.abs(c.o[0] + 3.98) < 0.01 && c.style === 'hidden'))", "msg": "it is not hidden" },
+        { "js": "delete S.card._window3d; S.card._orbit = S.orbit; S.card.setConfig(S.cfg); S.card.requestUpdate();" }
+      ]
+    },
+    {
       "name": "the editor shows the field",
       "path": "/plooum-edit/floorplan?edit=1",
       "steps": [
