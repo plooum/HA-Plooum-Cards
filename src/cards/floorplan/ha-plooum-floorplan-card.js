@@ -1163,12 +1163,15 @@ function segmentsCross(p1, p2, q1, q2) {
 
 // Models and their variants (`variant`; the first one by default).
 const MODELS = {
-  aquarium: [],
+  aquarium: ['medium', 'nano', 'small', 'large'],
   car: ['dacia_spring', 'city', 'sedan', 'suv'],
   pellet_stove: ['slim', 'cylinder', 'classic'],
 };
 const MODEL_DIRECTION = 180; // where a model's front faces by default (degrees clockwise from the top of the plan): down the plan
-const AQUARIUM_LENGTH = 1; // default `length` of an aquarium (grid units)
+// Length of an aquarium of each size (`variant`; grid units): its default `length`. Its depth and
+// height follow its length (see modelMeshes()).
+const AQUARIUM_LENGTHS = { nano: 0.45, small: 0.6, medium: 1, large: 1.5 };
+const aquariumLength = (variant) => AQUARIUM_LENGTHS[variant] || AQUARIUM_LENGTHS.medium;
 const CAR_COLOR = [0.86, 0.87, 0.88, 1];
 // Cars (grid units): length, width, height, wheel radius, cabin length at the roof and its shift
 // backwards, height of the bottom of the windows; black plastic cladding and roof rails.
@@ -1288,16 +1291,17 @@ function fireWindow(F, x, y, w, z0, z1, fire) {
 
 // Meshes of a model (see MODELS) standing at (x, y, z), its front facing `direction`. `o`: its
 // options and state: `variant`, `color` (RGBA), `length`, `ceiling` (height of the ceiling above
-// z, for a stove's flue pipe), `heating`, and the aquarium's `light`, `co2` and `air` (true / false
-// when on / off, null without one). Each mesh is see-through (see GlScene.draw()) unless `solid`.
+// z, for a stove's flue pipe), `heating`, the aquarium's `light`, `co2` and `air` (true / false
+// when on / off, null without one) and `temperature` (its thermometer's text, null without one,
+// drawn in `font`). Each mesh is see-through (see GlScene.draw()) unless `solid`.
 function modelMeshes(model, x, y, z, direction, o) {
   const F = modelFrame(x, y, z, direction);
   const body = new Mesh();
   const out = [body];
   if (model === 'aquarium') {
     const L = o.length;
-    const D = clamp(L * 0.4, 0.3, 0.6);
-    const T = clamp(L * 0.5, 0.35, 0.65);
+    const D = clamp(L * 0.35 + 0.05, 0.25, 0.65);
+    const T = clamp(L * 0.45 + 0.05, 0.3, 0.7);
     const S = 0.75; // stand
     const water = S + 0.03 + (T - 0.03) * 0.9;
     box(body, F, 0, 0, L + 0.02, D + 0.02, 0, S, [0.33, 0.22, 0.14, 1]);
@@ -1341,9 +1345,32 @@ function modelMeshes(model, x, y, z, direction, o) {
       tube(body, F, [L / 2 + 0.13, 0, 0.48], [L / 2 + 0.13, 0, 0.56], 0.025, [0.6, 0.6, 0.6, 1], 10);
       tube(body, F, [L / 2 - 0.12, 0, S + 0.08], [L / 2 - 0.12, 0, S + 0.16], 0.02, [0.85, 0.9, 0.9, 1], 10);
       // The drop checker on the front glass: green while CO2 flows, blue without it.
-      tube(body, F, [L / 2 - 0.2, D / 2 - 0.035, S + T * 0.55], [L / 2 - 0.2, D / 2 - 0.035, S + T * 0.55 + 0.06], 0.022, o.co2 ? [0.35, 0.85, 0.3, 1] : [0.2, 0.45, 0.95, 1], 10);
+      tube(body, F, [L / 2 - 0.4, D / 2 - 0.035, S + T * 0.45], [L / 2 - 0.4, D / 2 - 0.035, S + T * 0.45 + 0.06], 0.022, o.co2 ? [0.35, 0.85, 0.3, 1] : [0.2, 0.45, 0.95, 1], 10);
       // A mist of fine bubbles from the diffuser.
       if (o.co2) for (let i = 0; i < 3; i++) out.push(bubbles(F, [L / 2 - 0.12 + (i - 1) * 0.015, (i - 1) * 0.012, S + 0.16], water, 0.007, 1 + i * 0.37));
+    }
+    if (o.temperature !== null) {
+      // A digital thermometer stuck on the front glass, near its left end as seen from the front
+      // (the model's right: +x), its text running towards -x to read from there.
+      const text = o.temperature;
+      const key = `aquarium-temp:${text}:${o.font}`;
+      const source = () => {
+        const [c, ctx] = canvas2d(320, 128);
+        ctx.fillStyle = '#101418';
+        ctx.fillRect(0, 0, 320, 128);
+        ctx.strokeStyle = '#9aa4ae';
+        ctx.lineWidth = 6;
+        ctx.strokeRect(3, 3, 314, 122);
+        ctx.fillStyle = '#7fe3ff';
+        ctx.font = `600 ${text.length > 7 ? 56 : 68}px ${o.font}`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, 160, 68, 300);
+        return c;
+      };
+      const w = clamp(L * 0.22, 0.14, 0.22);
+      const zt = S + T * 0.8;
+      out.push(new Mesh(MODE.texture, { tex: { key, source } }).poly(quad([L / 2 - 0.05, D / 2 + 0.004, zt], [-w, 0, 0], [0, 0, -w * 0.4]).map(F.at), [1, 1, 1, 1], UV_QUAD));
     }
     if (o.air !== null) {
       // The air pump on the floor, and the air stone in the tank.
@@ -4439,12 +4466,14 @@ class HaPlooumFloorplanCard extends LitElement {
         const opts = {
           variant: it.conf.variant,
           color: it.conf.color ? modelColor(it.conf.color) : null,
-          length: clamp(num(it.conf.length, AQUARIUM_LENGTH), 0.3, 3),
+          length: clamp(num(it.conf.length, aquariumLength(it.conf.variant)), 0.3, 3),
           ceiling: H,
           heating: isHeating(it.st),
           light: sub(it.conf.light_entity),
           co2: sub(it.conf.co2_entity),
           air: sub(it.conf.air_entity),
+          temperature: model === 'aquarium' ? this._modelTemperature(it) : null,
+          font: colors.font,
         };
         for (const mesh of modelMeshes(model, it.x, it.y, p.z0 + 0.015, num(it.conf.direction, MODEL_DIRECTION), opts)) {
           mesh.xray = seeThrough && !mesh.solid;
@@ -4473,6 +4502,15 @@ class HaPlooumFloorplanCard extends LitElement {
     }
     const radius = Math.hypot(g.maxX - g.minX, g.maxY - g.minY, s.all.length * (H + SLAB) + H);
     return { meshes, occluders, screens, radius };
+  }
+
+  // What an aquarium's thermometer reads (`temperature_entity`, or its own entity when it is a
+  // temperature sensor): the formatted state, `--` while unavailable; null without one.
+  _modelTemperature(it) {
+    const id = it.conf.temperature_entity || (it.role === 'temperature' ? it.id : null);
+    if (!id) return null;
+    const st = this.hass.states[id];
+    return st && !isUnavailable(st) ? formatState(this.hass, st) : '--';
   }
 
   // A window of `len` x `height` on a wall, its top-left corner at `o` and its length along `dir`:
@@ -7079,11 +7117,12 @@ class HaPlooumFloorplanCardEditor extends LitElement {
       }
       if (model) {
         const variants = {
+          aquarium: [['nano', 'Nano (45 cm)'], ['small', 'Small (60 cm)'], ['medium', 'Medium (100 cm)'], ['large', 'Large (150 cm)']],
           car: [['dacia_spring', 'Dacia Spring'], ['city', 'City car'], ['sedan', 'Sedan'], ['suv', 'SUV']],
           pellet_stove: [['slim', 'Slim'], ['cylinder', 'Cylinder'], ['classic', 'Classic (stone top)']],
         }[model];
         if (variants) {
-          schema.push({ name: 'variant', label: 'Model', selector: { select: { mode: 'dropdown', options: variants.map(([value, label]) => ({ value, label })) } } });
+          schema.push({ name: 'variant', label: model === 'aquarium' ? 'Size' : 'Model', selector: { select: { mode: 'dropdown', options: variants.map(([value, label]) => ({ value, label })) } } });
         }
         schema.push({ name: 'direction', label: 'Front facing (°, clockwise from the top of the plan)', selector: { number: { min: 0, max: 355, step: 5, mode: 'slider' } } });
         if (model === 'car') {
@@ -7094,7 +7133,8 @@ class HaPlooumFloorplanCardEditor extends LitElement {
         }
         if (model === 'aquarium') {
           schema.push(
-            { name: 'length', label: 'Aquarium length', selector: { number: { min: 0.3, max: 3, step: 0.05, mode: 'box' } } },
+            { name: 'length', label: 'Length (default: that of its size)', selector: { number: { min: 0.3, max: 3, step: 0.05, mode: 'box' } } },
+            { name: 'temperature_entity', label: 'Temperature (optional: a thermometer on the glass; default: this entity if it is a temperature sensor)', selector: { entity: { filter: { domain: ['sensor', 'input_number'] } } } },
             { name: 'light_entity', label: 'Light (optional: lights up the water)', selector: { entity: {} } },
             { name: 'co2_entity', label: 'CO2 (optional: fine bubbles, green drop checker)', selector: { entity: {} } },
             { name: 'air_entity', label: 'Air pump (optional: bubbles)', selector: { entity: {} } }
@@ -7142,7 +7182,7 @@ class HaPlooumFloorplanCardEditor extends LitElement {
         },
         { name: 'projection', label: 'Project the picture onto the floor and walls it sees (3D)', selector: { boolean: {} } },
       ];
-      const modelDefaults = model ? { direction: MODEL_DIRECTION, length: AQUARIUM_LENGTH, ...(MODELS[model].length ? { variant: MODELS[model][0] } : {}) } : {};
+      const modelDefaults = model ? { direction: MODEL_DIRECTION, length: aquariumLength(ent.variant), ...(MODELS[model].length ? { variant: MODELS[model][0] } : {}) } : {};
       const data = { length: WINDOW_LENGTH, light: naturalRole === 'light', ...modelDefaults, ...(isCamera ? { ...this._cameraDefaults(floor, sel.index), preview_position: 'auto' } : {}), ...ent };
       return html`<div class="selection">
         <div class="selection-header">
@@ -7969,15 +8009,18 @@ class HaPlooumFloorplanCardEditor extends LitElement {
     for (const key of Object.keys(value)) {
       if (value[key] === '' || value[key] === undefined || value[key] === null) delete value[key];
     }
-    if (listKey === 'entities' && num(value.length, WINDOW_LENGTH) === (value.model === 'aquarium' ? AQUARIUM_LENGTH : WINDOW_LENGTH)) delete value.length;
+    if (listKey === 'entities' && num(value.length, WINDOW_LENGTH) === (value.model === 'aquarium' ? aquariumLength(value.variant) : WINDOW_LENGTH)) delete value.length;
     if (listKey === 'entities') {
       // A model's options: only those of its model, without their defaults.
       const model = value.model in MODELS ? value.model : null;
       if (!model) delete value.model;
-      const own = { aquarium: ['length', 'light_entity', 'co2_entity', 'air_entity'], car: ['variant', 'color', 'location_entity'], pellet_stove: ['variant'] }[model] || [];
-      for (const key of ['variant', 'color', 'light_entity', 'co2_entity', 'air_entity', 'location_entity']) if (!own.includes(key)) delete value[key];
+      const own = { aquarium: ['variant', 'length', 'temperature_entity', 'light_entity', 'co2_entity', 'air_entity'], car: ['variant', 'color', 'location_entity'], pellet_stove: ['variant'] }[model] || [];
+      for (const key of ['variant', 'color', 'temperature_entity', 'light_entity', 'co2_entity', 'air_entity', 'location_entity']) if (!own.includes(key)) delete value[key];
       if (model && (!MODELS[model].includes(value.variant) || value.variant === MODELS[model][0])) delete value.variant;
       if (model && num(value.direction, MODEL_DIRECTION) === MODEL_DIRECTION) delete value.direction;
+      // A new size brings its own length: the form still holds the default of the size before.
+      const before = this._floors()[this._currentFloorIndex()].entities[sel.index] || {};
+      if (model === 'aquarium' && 'length' in value && num(value.length) === aquariumLength(before.variant) && !('length' in before)) delete value.length;
     }
     if (listKey === 'entities' && (!value.floor_length || domainOf(value.entity) !== 'cover')) delete value.floor_length;
     if (listKey === 'entities' && !value.entity) return;

@@ -518,8 +518,13 @@ views:
                   - { entity: switch.pellet_stove, x: 13, y: 0.5, model: pellet_stove, variant: slim }
                   - { entity: switch.pellet_stove, x: 14.5, y: 0.5, model: pellet_stove, variant: cylinder }
                   - { entity: switch.pellet_stove, x: 16.5, y: 0.5, model: pellet_stove, variant: classic }
-                  - { entity: sensor.aquarium_temperature, x: 14, y: 5.6, model: aquarium, direction: 0, length: 1.2, light_entity: light.aquarium_light, co2_entity: input_boolean.aquarium_co2, air_entity: input_boolean.aquarium_60_air }
-                  - { entity: sensor.aquarium_60l_temperature, x: 16.5, y: 5.6, model: aquarium, direction: 0, length: 0.6 }
+                  # The four sizes. Nano: no thermometer (its entity isn't a temperature sensor).
+                  - { entity: light.aquarium_light, x: 12.5, y: 5.6, model: aquarium, variant: nano, direction: 0 }
+                  # Its entity is a temperature sensor: its thermometer reads it.
+                  - { entity: sensor.aquarium_60l_temperature, x: 13.35, y: 5.6, model: aquarium, variant: small, direction: 0 }
+                  # Medium (default): its entity is its light; its thermometer reads temperature_entity.
+                  - { entity: light.aquarium_light, x: 14.65, y: 5.6, model: aquarium, direction: 0, temperature_entity: sensor.aquarium_temperature, light_entity: light.aquarium_light, co2_entity: input_boolean.aquarium_co2, air_entity: input_boolean.aquarium_60_air }
+                  - { entity: input_boolean.aquarium_pump, x: 16.75, y: 5.6, model: aquarium, variant: large, direction: 0 }
           - type: custom:ha-plooum-floorplan-card
             title: Home, drawn roof
             view: 3d

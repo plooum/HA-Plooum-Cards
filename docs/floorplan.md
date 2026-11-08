@@ -43,7 +43,8 @@ Switch it to **3D** and the same plan becomes a model of your home and garden, w
 
 Give an entity of the plan a `model` and it stands in the 3D view as that object, where it is placed, its front facing `direction` (degrees clockwise from the top of the plan, `180` by default: facing down the plan). Models are seen **through walls and roofs**: what hides them lets them show, faint (turn it off with `see_through: false`). The 2D plan doesn't change: the entity keeps its icon or badge there, and a model's entity doesn't count in its room's temperature, humidity, lights or presence.
 
-- **Aquarium** (`model: aquarium`), on its stand, `length` long (default `1`), with sand, rocks, plants and a few fish. Optional entities light it up and animate it:
+- **Aquarium** (`model: aquarium`), on its stand, with sand, rocks, plants and a few fish. Its size (`variant`): `nano` (45 cm long), `small` (60 cm), `medium` (100 cm, default) or `large` (150 cm); its depth and height follow its length, and `length` sets another one. Optional entities light it up and animate it:
+  - `temperature_entity`: a digital thermometer on the front glass shows its temperature. Without it, the thermometer reads the aquarium's own entity when that is a temperature sensor.
   - `light_entity`: a light ramp on top; while on, the water lights up under it.
   - `air_entity`: an air pump beside the stand and an air stone in the tank; while on, bubbles rise from it.
   - `co2_entity`: a CO2 bottle beside the stand and a diffuser in the tank; while on, a mist of fine bubbles rises from the diffuser and the drop checker on the glass turns green (blue without CO2).
@@ -52,7 +53,7 @@ Give an entity of the plan a `model` and it stands in the 3D view as that object
 
 ```yaml
 entities:
-  - { entity: sensor.aquarium_temperature, x: 2, y: 4.6, model: aquarium, direction: 0, length: 1.2, light_entity: light.aquarium, co2_entity: switch.aquarium_co2, air_entity: switch.aquarium_air }
+  - { entity: light.aquarium, x: 2, y: 4.6, model: aquarium, variant: large, direction: 0, temperature_entity: sensor.aquarium_temperature, light_entity: light.aquarium, co2_entity: switch.aquarium_co2, air_entity: switch.aquarium_air }
   - { entity: climate.pellet_stove, x: 0.4, y: 2.5, model: pellet_stove, variant: cylinder, direction: 90 }
   - { entity: sensor.spring_battery, x: 14, y: 2.5, model: car, variant: dacia_spring, color: "#e8eaec", location_entity: device_tracker.spring }
 ```
@@ -169,11 +170,12 @@ Walls shared by two rooms are drawn thin; outer walls are drawn thick.
 | `name` | string | Optional name, instead of the friendly name. |
 | `icon` | string | Optional icon, instead of the state icon. |
 | `light` | boolean | Lights up its room like a light: `true` for an on/off device that isn't a `light.*` (a plug powering a lamp, a switch, an input boolean…), `false` to stop a `light.*` from glowing. Default: `true` for `light.*` only. |
-| `length` | number | Covers: window length, default `1.5`. Aquariums: their length, default `1`. |
+| `length` | number | Covers: window length, default `1.5`. Aquariums: their length, default that of their size (`variant`). |
 | `model` | string | In 3D, the object this entity stands for: `aquarium`, `car` or `pellet_stove` (see [3D models](#3d-models-model)). Not for covers and cameras. |
-| `variant` | string | Models: `dacia_spring`, `city`, `sedan` or `suv` for a car; `slim`, `cylinder` or `classic` for a pellet stove. Default: the first one. |
+| `variant` | string | Models: `medium`, `nano`, `small` or `large` for an aquarium; `dacia_spring`, `city`, `sedan` or `suv` for a car; `slim`, `cylinder` or `classic` for a pellet stove. Default: the first one. |
 | `color` | string or list | Cars only: body color, a CSS color (`"#2b4a7a"`) or `[r, g, b]`. Default light grey. |
 | `location_entity` | string | Cars only: where the car is (a `device_tracker`, a `person`…): it only shows when its state is `home`. |
+| `temperature_entity` | string | Aquariums only: the temperature its thermometer shows on the glass. Default: its own entity, when it is a temperature sensor. |
 | `light_entity`, `co2_entity`, `air_entity` | string | Aquariums only: its light, CO2 and air pump, each shown and animated while on. |
 | `floor_length` | boolean | Covers only: the window goes down to the floor (French window, bay window), in 3D. Default `false`. |
 | `direction` | number | Cameras: where it looks, in degrees clockwise from the top of the plan (`0` up, `90` right). Default: the middle of its room, or away from the home outdoors. Models: where its front faces, default `180`. |
