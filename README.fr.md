@@ -13,6 +13,7 @@ Une collection de cartes Lovelace personnalisées pour Home Assistant, packagée
 | :--- | :--- | :--- |
 | Ha Plooum Berlin Clock Card | `custom:ha-plooum-berlin-clock-card` | [docs/berlin-clock.md](docs/berlin-clock.md) |
 | Ha Plooum Button Badge Card | `custom:ha-plooum-buttonbadge-card` | [docs/button-badge.md](docs/button-badge.md) |
+| Ha Plooum Climate Band Card | `custom:ha-plooum-climate-band-card` | [docs/climate-band.md](docs/climate-band.md) |
 | Ha Plooum Cover Card | `custom:ha-plooum-cover-card` | [docs/cover.md](docs/cover.md) |
 | Ha Plooum D-Pad Card | `custom:ha-plooum-dpad-card` | [docs/dpad.md](docs/dpad.md) |
 | Ha Plooum Floorplan Card | `custom:ha-plooum-floorplan-card` | [docs/floorplan.md](docs/floorplan.md) |
@@ -36,6 +37,11 @@ L'heure sous forme d'horloge de Berlin (Mengenlehreuhr) : 24 lampes à lire de h
 Bouton combiné à un badge flottant, icône et texte personnalisables, actions tap/hold (toggle, navigate, script).
 
 ![Button Badge preview](docs/previews/button-badge.png)
+
+### Ha Plooum Climate Band Card
+La température et l'humidité de chaque pièce dans une seule bande : sa couleur suit la température, une nappe d'eau monte avec l'humidité, et une humidité au-dessus du seuil pulse en rouge. Trop étroite (téléphone), elle passe sur deux lignes centrées. Un appui sur une pièce ouvre son historique : température et humidité sur 6 h, 24 h, 7 ou 30 jours.
+
+![Climate Band preview](docs/previews/climate-band.png)
 
 ### Ha Plooum Cover Card
 Contrôle de plusieurs volets roulants côte à côte avec sliders verticaux, icônes d'action et verrouillage de sécurité.
@@ -132,6 +138,7 @@ src/
 └── cards/
     ├── berlin-clock/
     ├── button-badge/
+    ├── climate-band/
     ├── cover/
     ├── dpad/
     ├── floorplan/

@@ -156,6 +156,25 @@
       ]
     },
     {
+      "name": "climate-band: renders, alerts, history, editor",
+      "path": "/plooum-test/climate-band",
+      "steps": [
+        { "js": "S.cards = await T.card.rendered('ha-plooum-climate-band-card', 4); S.c = S.cards.find((c) => (c.config.rooms || []).length === 7);" },
+        { "assert": "S.c.shadowRoot.querySelectorAll('svg.line').length >= 1 && S.c.shadowRoot.querySelectorAll('.hum.alert').length === 3", "msg": "the band renders, Outside, Bedroom and Terrarium above 60 % alert" },
+        { "js": "S.v0 = Number(T.hass().states['input_number.living_room_humidity'].state); await T.card.call('input_number', 'set_value', { entity_id: 'input_number.living_room_humidity', value: 77 });" },
+        { "assert": "await waitFor(() => S.c.shadowRoot.querySelectorAll('.hum.alert').length === 4, 8000, 'Living alerts')", "msg": "a humidity raised above the threshold alerts" },
+        { "js": "S.c.shadowRoot.querySelector('rect.hit[data-room=Living][data-kind=temperature]').dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));" },
+        { "assert": "await waitFor(() => S.c.dialogRoot && S.c.dialogRoot.querySelector('svg.chart .temp-line') && S.c.dialogRoot.querySelector('svg.chart .hum-line'), 8000, 'history chart')", "msg": "a tap opens the room's history with both curves" },
+        { "js": "S.c.dialogRoot.querySelector('[data-period=\"7d\"]').click();" },
+        { "assert": "await waitFor(() => S.c.dialogRoot.querySelector('[data-period=\"7d\"]').classList.contains('active') && S.c.dialogRoot.querySelector('svg.chart .time-axis'), 8000, '7 days')", "msg": "the 7 days period loads" },
+        { "js": "S.c._closeHistory(); await T.card.editorRenders(S.c);" }
+      ],
+      "finally": [
+        { "js": "if (S.c) S.c._closeHistory(); await T.card.call('input_number', 'set_value', { entity_id: 'input_number.living_room_humidity', value: S.v0 });" },
+        { "assert": "await T.card.waitState('input_number.living_room_humidity', (s) => Number(s.state) === S.v0)", "msg": "humidity restored" }
+      ]
+    },
+    {
       "name": "temp-humidity: renders, reacts, editor",
       "path": "/plooum-test/temp-humidity",
       "steps": [
