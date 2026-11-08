@@ -19,6 +19,7 @@ A collection of custom Lovelace cards for Home Assistant, packaged as **a single
 | Ha Plooum Gallery Card | `custom:ha-plooum-gallery-card` | [docs/gallery.md](docs/gallery.md) |
 | HA Plooum GridIcons Card | `custom:ha-plooum-gridicons-card` | [docs/gridicons.md](docs/gridicons.md) |
 | HA Plooum Multi Status Card | `custom:ha-plooum-multi-status-card` | [docs/multistatus.md](docs/multistatus.md) |
+| Ha Plooum PC Card | `custom:ha-plooum-pc-card` | [docs/pc.md](docs/pc.md) |
 | Ha Plooum Sky Card | `custom:ha-plooum-sky-card` | [docs/sky.md](docs/sky.md) |
 | Ha Plooum Tabs Card | `custom:ha-plooum-tabs-card` | [docs/tabbed.md](docs/tabbed.md) |
 | Ha Plooum Room Temp & Humidity Card | `custom:ha-plooum-temp-humidity-card` | [docs/temp-humidity.md](docs/temp-humidity.md) |
@@ -69,6 +70,11 @@ A compact row of entity icons in a pill container, with state colors and tap/hol
 A compact card to follow several boolean entities (light, pump, CO2...) around a main value (e.g. temperature).
 
 ![Multi Status preview](docs/previews/multistatus.png)
+
+### Ha Plooum PC Card
+A single button for a computer run by the Plooum PC agent. A tap opens a dialog with the actions its state allows: turn it on (Wake on LAN) when it is off, restart it or shut it down when it is on.
+
+![PC preview](docs/previews/pc.png)
 
 ### Ha Plooum Sky Card
 The sky above the house as a dome: bright stars, constellations, planets, the Moon with its phase and the Sun, on a background that follows day, twilight and night. Drag the sky sideways to move the time by up to 6 hours. A line under the dome announces the next sky event (eclipse, conjunction, opposition, full Moon or supermoon, equinox or solstice, meteor shower); tap it to jump to the event when it is within 6 hours.
@@ -132,6 +138,7 @@ src/
     ├── gallery/
     ├── gridicons/
     ├── multistatus/
+    ├── pc/
     ├── sky/
     ├── tabbed/
     ├── temp-humidity/

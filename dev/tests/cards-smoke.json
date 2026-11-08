@@ -184,6 +184,23 @@
       ]
     },
     {
+      "name": "pc: renders, restarts through the dialog, editor",
+      "path": "/plooum-test/pc",
+      "steps": [
+        { "js": "S.cards = await T.card.rendered('ha-plooum-pc-card', 4); S.c = S.cards.find((c) => c.config.entity === 'binary_sensor.bureau_en_ligne'); await waitFor(() => S.c._status === 'on' && S.c._buttons.reboot, 15000, 'bureau on, buttons found');" },
+        { "assert": "S.c._buttons.reboot === 'button.bureau_redemarrer' && S.c._buttons.shutdown === 'button.bureau_eteindre'", "msg": "the agent's buttons are found on the sensor's device" },
+        { "js": "S.c.shadowRoot.querySelector('ha-card').click(); S.c.dialogRoot.querySelector('[data-action=reboot]').click();" },
+        { "assert": "await waitFor(() => S.c._status === 'restarting', 5000, 'restarting')", "msg": "Restart presses the agent's button" },
+        { "assert": "await waitFor(() => T.hass().states['binary_sensor.bureau_en_ligne'].state === 'off', 8000, 'bureau off') && S.c._status === 'restarting'", "msg": "still restarting while the PC is down" },
+        { "assert": "await waitFor(() => S.c._status === 'on', 10000, 'bureau back on')", "msg": "on again once the PC is back" },
+        { "js": "S.c._close(); await T.card.editorRenders(S.c);" }
+      ],
+      "finally": [
+        { "js": "if (S.c) S.c._close(); await T.card.call('wake_on_lan', 'send_magic_packet', { mac: '02:00:00:00:00:01', broadcast_address: '127.0.0.1' });" },
+        { "assert": "await T.card.waitState('binary_sensor.bureau_en_ligne', (s) => s.state === 'on', 10000)", "msg": "bureau on" }
+      ]
+    },
+    {
       "name": "floorplan: renders, reacts, editor",
       "path": "/plooum-test/floorplan",
       "steps": [

@@ -49,6 +49,9 @@ logger:
 # Serves ../../ha-plooum-cards.js (and its sourcemap) without caching under /plooum_dev/:
 # `npm run build` + a page reload is enough to test.
 plooum_dev:
+# For the PC card's `mac` option (wake_on_lan.send_magic_packet). The fake PC "bureau" (plooum_dev/pc.py)
+# wakes when the service is called with its MAC; the dev view sends the packet to 127.0.0.1.
+wake_on_lan:
 
 lovelace:
   resource_mode: yaml

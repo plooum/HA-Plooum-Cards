@@ -19,6 +19,7 @@ Une collection de cartes Lovelace personnalisées pour Home Assistant, packagée
 | Ha Plooum Gallery Card | `custom:ha-plooum-gallery-card` | [docs/gallery.md](docs/gallery.md) |
 | HA Plooum GridIcons Card | `custom:ha-plooum-gridicons-card` | [docs/gridicons.md](docs/gridicons.md) |
 | HA Plooum Multi Status Card | `custom:ha-plooum-multi-status-card` | [docs/multistatus.md](docs/multistatus.md) |
+| Ha Plooum PC Card | `custom:ha-plooum-pc-card` | [docs/pc.md](docs/pc.md) |
 | Ha Plooum Sky Card | `custom:ha-plooum-sky-card` | [docs/sky.md](docs/sky.md) |
 | Ha Plooum Tabs Card | `custom:ha-plooum-tabs-card` | [docs/tabbed.md](docs/tabbed.md) |
 | Ha Plooum Room Temp & Humidity Card | `custom:ha-plooum-temp-humidity-card` | [docs/temp-humidity.md](docs/temp-humidity.md) |
@@ -69,6 +70,11 @@ Rangée compacte d'icônes d'entités dans un pill container, avec couleurs d'é
 Carte compacte pour suivre plusieurs entités booléennes (lumière, pompe, CO2...) autour d'une valeur principale (ex. température).
 
 ![Multi Status preview](docs/previews/multistatus.png)
+
+### Ha Plooum PC Card
+Un simple bouton pour un ordinateur géré par l'agent PC Plooum. Un tap ouvre une fenêtre avec les actions que permet son état : l'allumer (Wake on LAN) quand il est éteint, le redémarrer ou l'éteindre quand il est allumé.
+
+![PC preview](docs/previews/pc.png)
 
 ### Ha Plooum Sky Card
 Le ciel au-dessus de la maison en dôme : étoiles brillantes, constellations, planètes, Lune avec sa phase et Soleil, sur un fond qui suit le jour, le crépuscule et la nuit. On fait défiler le temps de ±6 h en faisant tourner le ciel au doigt. Une ligne sous le dôme annonce le prochain événement du ciel (éclipse, conjonction, opposition, pleine Lune ou super-lune, équinoxe ou solstice, pluie d'étoiles filantes) ; un tap dessus amène le dôme sur l'événement quand il tombe dans les 6 h.
@@ -132,6 +138,7 @@ src/
     ├── gallery/
     ├── gridicons/
     ├── multistatus/
+    ├── pc/
     ├── sky/
     ├── tabbed/
     ├── temp-humidity/
