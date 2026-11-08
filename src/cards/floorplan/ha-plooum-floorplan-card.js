@@ -1208,6 +1208,12 @@ function modelColor(value) {
   return parseColor(String(value), CAR_COLOR);
 }
 
+// States of a car's `charging_entity` and `plug_entity` that mean charging / plugged in (binary
+// sensors, and the charge and plug states of car integrations such as Renault's).
+const CHARGING_STATES = ['on', 'true', 'charging', 'charge_in_progress'];
+const PLUGGED_STATES = ['on', 'true', 'plugged', 'plugged_in', 'connected', 'charging', 'charge_in_progress', 'waiting_for_current_charge', 'charge_ended', 'waiting_for_a_planned_charge'];
+const isOnState = (st, states) => !!st && states.includes(String(st.state).toLowerCase());
+
 // Whether a car is away: its location (`location_entity`, or the entity itself when it is a
 // device tracker or a person) is known and isn't `home`.
 function isAway(hass, conf) {
@@ -1293,6 +1299,52 @@ function fireWindow(F, x, y, w, z0, z1, fire) {
   return new Mesh(MODE.flame, { animated: true }).poly(pts, [0.12, 0.05, 0.03, 1], [[0, 1, 0, 0], [1, 1, 0, 0], [1, 0, 0, 0], [0, 0, 0, 0]]);
 }
 
+// A car's battery badge (canvas): a battery filled to `level` % (null: unknown) in red, orange or
+// green, its level, and a bolt while charging or a plug while plugged in.
+function batteryBadge(level, charging, plugged, font) {
+  const [c, ctx] = canvas2d(520, 200);
+  ctx.fillStyle = 'rgba(16, 20, 24, 0.82)';
+  ctx.beginPath();
+  ctx.roundRect(4, 4, 512, 192, 40);
+  ctx.fill();
+  const fill = level === null ? '#9aa4ae' : level < 20 ? '#e5484d' : level < 50 ? '#f5a524' : '#46c35a';
+  // The battery: its body and its tip.
+  ctx.strokeStyle = '#e8eaec';
+  ctx.lineWidth = 10;
+  ctx.beginPath();
+  ctx.roundRect(36, 52, 170, 96, 14);
+  ctx.stroke();
+  ctx.fillStyle = '#e8eaec';
+  ctx.fillRect(206, 80, 16, 40);
+  ctx.fillStyle = fill;
+  if (level !== null) ctx.fillRect(48, 64, Math.max(0, Math.min(100, level)) * 1.46, 72);
+  ctx.font = `700 76px ${font}`;
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(level === null ? '--' : `${Math.round(level)}%`, 244, 104, 190);
+  if (charging) {
+    // A bolt over the battery.
+    ctx.fillStyle = '#ffe14d';
+    ctx.strokeStyle = 'rgba(16, 20, 24, 0.9)';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    for (const [px, py] of [[136, 34], [92, 108], [124, 108], [108, 168], [158, 88], [126, 88], [148, 34]]) ctx.lineTo(px, py);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.fill();
+  } else if (plugged) {
+    // A plug in the corner.
+    ctx.fillStyle = '#7fb8ff';
+    ctx.fillRect(452, 30, 10, 26);
+    ctx.fillRect(476, 30, 10, 26);
+    ctx.beginPath();
+    ctx.roundRect(440, 54, 58, 40, 10);
+    ctx.fill();
+    ctx.fillRect(462, 92, 14, 30);
+  }
+  return c;
+}
+
 // Meshes of a model (see MODELS) standing at (x, y, z), its front facing `direction`. `o`: its
 // options and state: `variant`, `color` (RGBA), `length`, `ceiling` (height of the ceiling above
 // z, for a stove's flue pipe), `heating`, the aquarium's `light`, `co2` and `air` (true / false
@@ -1300,8 +1352,9 @@ function fireWindow(F, x, y, w, z0, z1, fire) {
 // drawn in `font`). Each mesh is see-through (see GlScene.draw()) unless `solid`.
 function modelMeshes(model, x, y, z, direction, o) {
   const F = modelFrame(x, y, z, direction);
-  const body = new Mesh();
+  const body = new Mesh(MODE.flat, { kind: model });
   const out = [body];
+  const extra = out;
   if (model === 'aquarium') {
     const L = o.length;
     const D = clamp(L * 0.35 + 0.05, 0.25, 0.65);
@@ -1426,6 +1479,37 @@ function modelMeshes(model, x, y, z, direction, o) {
       for (const sy of [-1, 1]) box(body, F, 0, sy * axle, c.w + 0.05, 2 * c.r + 0.12, low + 0.17, c.r * 0.55, dark, { bottom: false });
     }
     if (c.rails) for (const sx of [-1, 1]) box(body, F, sx * (cw - 0.12), (front + rear) / 2, 0.04, c.cabin - 0.1, c.h, 0.05, dark, { bottom: false });
+    // Charging: the charge port (in the front grille of a Dacia Spring, on the rear left wing
+    // otherwise), its light (pulsing green while charging, steady blue while only plugged in) and
+    // the cable hanging from it down to the floor.
+    if (o.plugged || o.charging) {
+      const spring = o.variant === undefined || o.variant === 'dacia_spring' || !(o.variant in CARS);
+      const port = spring ? [0, c.l / 2 + 0.02, c.belt - 0.12] : [-hw - 0.02, -c.l / 2 + 0.65, c.belt - 0.08];
+      const away = spring ? [0, 0.35, 0] : [-0.35, 0, 0];
+      const light = new Mesh(o.charging ? MODE.pulse : MODE.flat, { emissive: true, animated: !!o.charging, kind: 'charge-light' });
+      box(light, F, port[0] + away[0] * 0.05, port[1] + away[1] * 0.05, 0.1, 0.1, port[2] - 0.05, 0.1, o.charging ? [0.25, 1, 0.35, 1] : [0.35, 0.6, 1, 1]);
+      extra.push(light);
+      const bend = add3(port, away);
+      const cable = [0.08, 0.08, 0.09, 1];
+      tube(body, F, port, bend, 0.025, cable, 8);
+      tube(body, F, bend, [bend[0], bend[1], 0.03], 0.025, cable, 8);
+      tube(body, F, [bend[0], bend[1], 0.03], add3([bend[0], bend[1], 0.03], mul3(away, 2)), 0.025, cable, 8);
+    }
+    // Its battery: a badge floating over the roof, flat and turned by `turn` to read upright.
+    if (o.battery !== null) {
+      const { level, charging, plugged } = o.battery;
+      const W = 1.3;
+      const Hb = 0.5;
+      const th = toRad(o.turn || 0);
+      const ex = [Math.cos(th), Math.sin(th), 0];
+      const ey = [-Math.sin(th), Math.cos(th), 0];
+      const center = [x, y, z + c.h + 0.35];
+      const corner = add3(add3(center, mul3(ex, -W / 2)), mul3(ey, -Hb / 2));
+      const key = `battery:${level}:${charging}:${plugged}:${o.font}`;
+      const badge = new Mesh(MODE.texture, { tex: { key, source: () => batteryBadge(level, charging, plugged, o.font) }, transparent: true, kind: 'battery' });
+      badge.poly(quad(corner, mul3(ex, W), mul3(ey, Hb)), [1, 1, 1, 1], UV_QUAD);
+      extra.push(badge);
+    }
   } else if (model === 'pellet_stove') {
     const v = o.variant in STOVES ? o.variant : 'slim';
     const s = STOVES[v];
@@ -1681,6 +1765,7 @@ const MODE = {
   picture: 5, // the camera picture that `proj` casts onto the mesh; uv.xyz: the surface normal (set by poly())
   flame: 6, // flames over the color, flickering (animated); uv.xy: across (0-1) and up (0-1) the fire
   bubbles: 7, // bubbles rising (animated); uv: across and up the column (grid units), bubble size, seed
+  pulse: 8, // the color, pulsing (animated): a charging car's light
 };
 
 const GL_VERTEX = `
@@ -1793,6 +1878,8 @@ void main() {
     float embers = clamp(1.0 - p.y * 5.0, 0.0, 1.0) * (0.7 + 0.3 * sin(uTime * 2.0 + p.x * 9.0));
     vec3 hot = mix(vec3(0.95, 0.25, 0.03), vec3(1.0, 0.85, 0.35), clamp(fire * 1.4 - p.y * 0.6, 0.0, 1.0));
     c.rgb = mix(c.rgb, hot, max(fire, embers * 0.8));
+  } else if (uMode == 8) {
+    c.rgb *= 0.45 + 0.55 * (0.5 + 0.5 * sin(uTime * 4.0));
   } else if (uMode == 7) {
     // A bubble in some of the cells of the column, each cell rising at 0.3 units a second.
     float size = vUV.z;
@@ -4535,6 +4622,10 @@ class HaPlooumFloorplanCard extends LitElement {
           light: sub(it.conf.light_entity),
           co2: sub(it.conf.co2_entity),
           air: sub(it.conf.air_entity),
+          battery: model === 'car' ? this._carBattery(it) : null,
+          plugged: model === 'car' && isOnState(this.hass.states[it.conf.plug_entity], PLUGGED_STATES),
+          charging: model === 'car' && isOnState(this.hass.states[it.conf.charging_entity], CHARGING_STATES),
+          turn: labelTurn,
           temperature: model === 'aquarium' ? this._modelTemperature(it) : null,
           font: colors.font,
         };
@@ -4565,6 +4656,20 @@ class HaPlooumFloorplanCard extends LitElement {
     }
     const radius = Math.hypot(g.maxX - g.minX, g.maxY - g.minY, s.all.length * (H + SLAB) + H);
     return { meshes, occluders, screens, radius };
+  }
+
+  // A car's battery badge: its level (`battery_entity`, or the car's own entity when it is a
+  // battery or a percentage) and whether it charges or is plugged in; null with neither.
+  _carBattery(it) {
+    const conf = it.conf;
+    const own = it.st && (it.st.attributes.device_class === 'battery' || it.st.attributes.unit_of_measurement === '%') ? it.id : null;
+    const id = conf.battery_entity || own;
+    const st = id && this.hass.states[id];
+    const value = st && !isUnavailable(st) ? parseFloat(st.state) : NaN;
+    const charging = isOnState(this.hass.states[conf.charging_entity], CHARGING_STATES);
+    const plugged = charging || isOnState(this.hass.states[conf.plug_entity], PLUGGED_STATES);
+    if (!id && !conf.charging_entity && !conf.plug_entity) return null;
+    return { level: Number.isFinite(value) ? clamp(value, 0, 100) : null, charging, plugged };
   }
 
   // What an aquarium's thermometer reads (`temperature_entity`, or its own entity when it is a
@@ -7206,7 +7311,10 @@ class HaPlooumFloorplanCardEditor extends LitElement {
         if (model === 'car') {
           schema.push(
             { name: 'color', label: 'Body color', selector: { color_rgb: {} } },
-            { name: 'location_entity', label: 'Location (optional: the car only shows at its place when it is home)', selector: { entity: { filter: [{ domain: 'device_tracker' }, { domain: 'person' }, { domain: 'sensor' }] } } }
+            { name: 'location_entity', label: 'Location (optional: the car only shows at its place when it is home)', selector: { entity: { filter: [{ domain: 'device_tracker' }, { domain: 'person' }, { domain: 'sensor' }] } } },
+            { name: 'battery_entity', label: 'Battery level (optional; default: this entity if it is a battery)', selector: { entity: { filter: [{ domain: 'sensor' }, { domain: 'input_number' }] } } },
+            { name: 'charging_entity', label: 'Charging (optional: on, or a charge state)', selector: { entity: { filter: [{ domain: 'binary_sensor' }, { domain: 'sensor' }, { domain: 'input_boolean' }] } } },
+            { name: 'plug_entity', label: 'Plugged in (optional: on, or a plug state)', selector: { entity: { filter: [{ domain: 'binary_sensor' }, { domain: 'sensor' }, { domain: 'input_boolean' }] } } }
           );
         }
         if (model === 'aquarium') {
@@ -8092,8 +8200,8 @@ class HaPlooumFloorplanCardEditor extends LitElement {
       // A model's options: only those of its model, without their defaults.
       const model = value.model in MODELS ? value.model : null;
       if (!model) delete value.model;
-      const own = { aquarium: ['variant', 'length', 'temperature_entity', 'light_entity', 'co2_entity', 'air_entity'], car: ['variant', 'color', 'location_entity'], pellet_stove: ['variant'] }[model] || [];
-      for (const key of ['variant', 'color', 'temperature_entity', 'light_entity', 'co2_entity', 'air_entity', 'location_entity']) if (!own.includes(key)) delete value[key];
+      const own = { aquarium: ['variant', 'length', 'temperature_entity', 'light_entity', 'co2_entity', 'air_entity'], car: ['variant', 'color', 'location_entity', 'battery_entity', 'charging_entity', 'plug_entity'], pellet_stove: ['variant'] }[model] || [];
+      for (const key of ['variant', 'color', 'temperature_entity', 'light_entity', 'co2_entity', 'air_entity', 'location_entity', 'battery_entity', 'charging_entity', 'plug_entity']) if (!own.includes(key)) delete value[key];
       if (model && (!MODELS[model].includes(value.variant) || value.variant === MODELS[model][0])) delete value.variant;
       if (model && num(value.direction, MODEL_DIRECTION) === MODEL_DIRECTION) delete value.direction;
       // A new size brings its own length: the form still holds the default of the size before.

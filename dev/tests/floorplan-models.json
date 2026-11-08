@@ -23,16 +23,28 @@
       "steps": [
         { "js": "S.card = await waitFor(() => T.card.all('ha-plooum-floorplan-card').find((c) => c.config.title === '3D models' && c._frame3d), 15000, 'the 3D models card'); S.modes = () => S.card._frame3d.meshes.reduce((n, m) => ((n[m.mode] = (n[m.mode] || 0) + 1), n), {}); await T.card.call('input_boolean', 'turn_off', { entity_id: ['input_boolean.pellet_stove', 'input_boolean.aquarium_co2', 'input_boolean.aquarium_60_air'] });" },
         { "js": "await waitFor(() => !S.modes()[6] && !S.modes()[7], 8000, 'no fire, no bubbles');" },
-        { "assert": "!S.card._frame3d.animated", "msg": "nothing animated: no redraw loop" },
+        { "assert": "!S.card._frame3d.meshes.some((m) => m.animated && m.kind !== 'charge-light')", "msg": "no fire, no bubbles left animated" },
         { "js": "await T.card.call('input_boolean', 'turn_on', { entity_id: ['input_boolean.pellet_stove', 'input_boolean.aquarium_co2', 'input_boolean.aquarium_60_air'] }); await waitFor(() => S.modes()[6] === 3 && S.modes()[7] >= 4, 8000, 'fires and bubbles back');" }
       ]
     },
     {
       "name": "the car only shows when home",
       "steps": [
-        { "js": "S.card = await waitFor(() => T.card.all('ha-plooum-floorplan-card').find((c) => c.config.title === 'Home in 3D' && c._frame3d), 15000, 'the 3D card'); S.xray = () => S.card._frame3d.meshes.filter((m) => m.xray).length; await T.card.call('input_boolean', 'turn_on', { entity_id: 'input_boolean.car_home' }); await waitFor(() => T.hass().states['sensor.car_location'].state === 'home', 8000, 'car home'); S.card.requestUpdate(); await S.card.updateComplete; S.home = S.xray();" },
+        { "js": "S.card = await waitFor(() => T.card.all('ha-plooum-floorplan-card').find((c) => c.config.title === 'Home in 3D' && c._frame3d), 15000, 'the 3D card'); S.xray = () => S.card._frame3d.meshes.filter((m) => m.kind === 'car').length; await T.card.call('input_boolean', 'turn_on', { entity_id: 'input_boolean.car_home' }); await waitFor(() => T.hass().states['sensor.car_location'].state === 'home', 8000, 'car home'); S.card.requestUpdate(); await S.card.updateComplete; S.home = S.xray();" },
         { "js": "await T.card.call('input_boolean', 'turn_off', { entity_id: 'input_boolean.car_home' }); await waitFor(() => S.xray() === S.home - 1, 8000, 'the car gone');" },
         { "js": "await T.card.call('input_boolean', 'turn_on', { entity_id: 'input_boolean.car_home' }); await waitFor(() => S.xray() === S.home, 8000, 'the car back');" }
+      ]
+    },
+    {
+      "name": "a car shows its battery: level, charging, plugged in",
+      "steps": [
+        { "js": "S.card = await waitFor(() => T.card.all('ha-plooum-floorplan-card').find((c) => c.config.title === '3D models' && c._frame3d), 15000, 'the 3D models card'); S.was = ['car_plugged', 'car_charging'].map((k) => T.hass().states['input_boolean.' + k].state); S.badges = () => S.card._frame3d.meshes.filter((m) => m.kind === 'battery').map((m) => m.tex.key); S.lights = () => S.card._frame3d.meshes.filter((m) => m.kind === 'charge-light').map((m) => m.mode); await T.card.call('input_boolean', 'turn_on', { entity_id: ['input_boolean.car_plugged', 'input_boolean.car_charging'] }); await T.card.call('input_number', 'set_value', { entity_id: 'input_number.car_battery', value: 15 }); await waitFor(() => S.badges().length === 3 && S.badges().every((k) => k.startsWith('battery:15:')), 8000, 'three badges at 15 %');" },
+        { "assert": "S.badges().filter((k) => k.startsWith('battery:15:true:true')).length === 1 && S.badges().filter((k) => k.startsWith('battery:15:false:true')).length === 1 && S.badges().filter((k) => k.startsWith('battery:15:false:false')).length === 1", "msg": "the Spring charges, the city car is plugged in, the sedan shows its level only (the SUV, on a switch, has no badge)" },
+        { "assert": "S.lights().sort().join() === '0,8'", "msg": "a pulsing light on the charging car, a steady one on the plugged one" },
+        { "js": "await T.card.call('input_boolean', 'turn_off', { entity_id: 'input_boolean.car_plugged' }); await waitFor(() => S.badges().every((k) => k.startsWith('battery:15:false:false')) && !S.lights().length, 8000, 'unplugged: no charge, no light');" }
+      ],
+      "finally": [
+        { "js": "for (const [i, k] of ['car_plugged', 'car_charging'].entries()) await T.card.call('input_boolean', S.was[i] === 'on' ? 'turn_on' : 'turn_off', { entity_id: 'input_boolean.' + k }); await T.card.call('input_number', 'set_value', { entity_id: 'input_number.car_battery', value: 72 });" }
       ]
     },
     {
