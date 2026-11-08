@@ -9,7 +9,9 @@ Also serves the live UI test runner (dev/runner.html, dev/ui_runner.js) with the
 (dev/ui_helpers.js) and the suites (dev/tests/<name>.json), read-only and no-store: only those
 paths, nothing else of dev/.
 
-Also sets up fake cameras (camera.py) for the floorplan card's 3D view.
+Also sets up fake cameras (camera.py) for the floorplan card's 3D view, and fake PC agents (pc.py,
+binary_sensor.py, button.py) for the PC card: they need a config entry (config_flow.py, import only)
+to own their devices.
 """
 
 from pathlib import Path
@@ -19,9 +21,13 @@ import re
 from aiohttp import web
 
 from homeassistant.components.http import HomeAssistantView
+from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import discovery
 from homeassistant.helpers.typing import ConfigType
+
+from .pc import setup_pcs
 
 DOMAIN = "plooum_dev"
 BASE_URL = "/plooum_dev"
@@ -92,4 +98,14 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     hass.http.register_view(SuiteView(hass, repo_root))
     _LOGGER.info("Serving %s/ha-plooum-cards.js at %s", repo_root, BASE_URL)
     hass.async_create_task(discovery.async_load_platform(hass, "camera", DOMAIN, {}, config))
+    hass.data[DOMAIN] = {"pcs": setup_pcs(hass)}
+    if not hass.config_entries.async_entries(DOMAIN):
+        hass.async_create_task(
+            hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_IMPORT}, data={})
+        )
+    return True
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    await hass.config_entries.async_forward_entry_setups(entry, [Platform.BINARY_SENSOR, Platform.BUTTON])
     return True

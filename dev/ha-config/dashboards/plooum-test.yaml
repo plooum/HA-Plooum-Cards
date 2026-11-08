@@ -99,6 +99,10 @@ views:
       - type: custom:ha-plooum-sky-card
       - type: custom:ha-plooum-gallery-card
         media_source: media-source://media_source/rec_cam_entree/videos
+      - type: custom:ha-plooum-pc-card
+        entity: binary_sensor.bureau_en_ligne
+        mac: "02:00:00:00:00:01"
+        broadcast_address: 127.0.0.1
 
   - title: D-Pad
     path: dpad
@@ -786,3 +790,46 @@ views:
       - type: custom:ha-plooum-gallery-card
         media_source: media-source://media_source/rec_cam_entree/epoch
         filename_format: "{start:X}-{end:X}"
+
+  # Fake PC agents (plooum_dev/pc.py): bureau starts on and wakes with wake_on_lan.send_magic_packet on its
+  # MAC (sent to 127.0.0.1), nas starts off and wakes with button.nas_wake_on_lan. Shutdown takes 3 s,
+  # booting 4 s.
+  - title: PC
+    path: pc
+    cards:
+      - type: grid
+        columns: 3
+        square: false
+        cards:
+          # Main case: auto-discovered buttons, Wake on LAN by MAC.
+          - type: custom:ha-plooum-pc-card
+            entity: binary_sensor.bureau_en_ligne
+            mac: "02:00:00:00:00:01"
+            broadcast_address: 127.0.0.1
+          # Wake on LAN entity, name shown, short timeout.
+          - type: custom:ha-plooum-pc-card
+            entity: binary_sensor.nas_en_ligne
+            wol_entity: button.nas_wake_on_lan
+            name: NAS
+            icon: mdi:nas
+            show_name: true
+            timeout: 30
+          # Missing entity.
+          - type: custom:ha-plooum-pc-card
+            entity: binary_sensor.does_not_exist
+            name: Missing
+          # No Wake on LAN set: the dialog says so when the PC is off.
+          - type: custom:ha-plooum-pc-card
+            entity: binary_sensor.nas_en_ligne
+            name: NAS without WOL
+            show_name: true
+      - type: entities
+        title: Test controls
+        entities:
+          - binary_sensor.bureau_en_ligne
+          - button.bureau_eteindre
+          - button.bureau_redemarrer
+          - binary_sensor.nas_en_ligne
+          - button.nas_wake_on_lan
+          - button.nas_eteindre
+          - button.nas_redemarrer
