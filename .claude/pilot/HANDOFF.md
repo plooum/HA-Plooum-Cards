@@ -88,9 +88,9 @@ L'utilisateur travaille sur deux PC ; le pilote peut démarrer sur l'un ou l'aut
 | Carte galerie de vidéos (prompt 36, Sonnet, worktree, HA 8124) | `feature/gallery-card`, [#71](https://github.com/plooum/HA-Plooum-Cards/pull/71) | mergée le 2026-11-07 (worktree, branches, HA nettoyés ; pas de release). 5,4 + 0,6 min, 45 + 6 appels, 1 aller-retour (`drawtext` : `:` non échappés) |
 | Skills : sous-agents dans le navigateur intégré + frictions du prompt 36 | [#70](https://github.com/plooum/HA-Plooum-Cards/pull/70) | mergée le 2026-11-07 |
 | Galerie : clips à plat nommés en timestamps Unix (le vrai format de l'utilisateur ; prompt 37) | `feature/gallery-epoch-files`, [#72](https://github.com/plooum/HA-Plooum-Cards/pull/72) ; skills [#73](https://github.com/plooum/HA-Plooum-Cards/pull/73) (worktree `../HA-Plooum-Cards-skills`) | mergées le 2026-11-07 (+ `filename_format` / `folder_format`), galerie 1.1.0 [#74](https://github.com/plooum/HA-Plooum-Cards/pull/74), [release V1.8.0](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.8.0) publiée (2 assets). 2,4 + 2,3 min, 34 + 22 appels |
-| Floorplan : sol projeté jusqu'à 30 m (prompt 38, Sonnet, worktree) | `feature/floor-projection` | sous-agent au travail |
-| Floorplan : lampe suspendue de l'aquarium (prompt 39, Sonnet, worktree) | `feature/aquarium-lamp` | sous-agent au travail |
-| Retrait de l'agent board (pilote) | `feature/sans-agent-board`, [#96](https://github.com/plooum/HA-Plooum-Cards/pull/96) | en attente d'approbation |
+| Floorplan : sol projeté jusqu'à 30 m (prompt 38, Sonnet, worktree) | `feature/floor-projection`, [#97](https://github.com/plooum/HA-Plooum-Cards/pull/97) | mergée le 2026-11-10 (5,7 min, 42 appels, aucun aller-retour) |
+| Floorplan : lampe suspendue de l'aquarium (prompt 39, Sonnet, worktree) | `feature/aquarium-lamp`, [#98](https://github.com/plooum/HA-Plooum-Cards/pull/98) | mergée le 2026-11-10 (7,2 min, 47 appels, aucun aller-retour ; nouveau `MODE.shimmer`) |
+| Retrait de l'agent board (pilote) | `feature/sans-agent-board`, [#96](https://github.com/plooum/HA-Plooum-Cards/pull/96) | mergée le 2026-11-10 |
 
 ## Décisions (utilisateur)
 
