@@ -1377,7 +1377,8 @@ function climateLabel(temp, hum, humid, font) {
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.95)';
   ctx.lineWidth = 6;
   ctx.beginPath();
-  ctx.roundRect(4, 4, 272, 162, 30);
+  if (ctx.roundRect) ctx.roundRect(4, 4, 272, 162, 30);
+  else ctx.rect(4, 4, 272, 162);
   ctx.fill();
   ctx.stroke();
   ctx.textAlign = 'center';
@@ -1393,9 +1394,9 @@ function climateLabel(temp, hum, humid, font) {
 
 const JAR_HUMID_CSS = '#7F77DD';
 const JAR_HUMID = [0.498, 0.467, 0.867];
-const JAR_R = 0.11; // radius of the jar
-const JAR_H = 0.45; // its height
-const JAR_THERMO = 0.55; // height of the thermometer's tube
+const JAR_R = 0.17; // radius of the jar
+const JAR_H = 0.7; // its height
+const JAR_THERMO = 1.05; // height of the thermometer's tube
 
 // A room's climate in 3D, standing at (x, y, z): a misted glass jar of water as high as the
 // humidity (violet with rising bubbles when it is `humMax` or more), a thermometer through it whose
@@ -1410,26 +1411,29 @@ function climateJar(x, y, z, o) {
     const t = clamp((o.temp - o.min) / (o.max - o.min || 1), 0, 1);
     const liquid = [...tempRgb(o.temp, o.min, o.max).map((v) => v / 255), 1];
     const column = new Mesh(MODE.flat, { kind: 'climate-thermometer' });
-    sphere(column, F, [0, 0, 0.045], 0.032, liquid);
-    tube(column, F, [0, 0, 0.045], [0, 0, JAR_THERMO * (0.1 + 0.8 * t)], 0.011, liquid, 8);
+    sphere(column, F, [0, 0, 0.07], 0.05, liquid);
+    tube(column, F, [0, 0, 0.07], [0, 0, JAR_THERMO * (0.1 + 0.8 * t)], 0.02, liquid, 8);
     out.push(column);
-    out.push(tube(new Mesh(MODE.flat, { transparent: true, kind: 'climate-tube' }), F, [0, 0, 0.02], [0, 0, JAR_THERMO], 0.02, [0.88, 0.96, 1, 0.3], 10));
+    out.push(tube(new Mesh(MODE.flat, { transparent: true, kind: 'climate-tube' }), F, [0, 0, 0.03], [0, 0, JAR_THERMO], 0.032, [0.88, 0.96, 1, 0.18], 12));
   }
   if (o.hum !== null) {
     const level = (clamp(o.hum, 0, 100) / 100) * JAR_H;
-    const color = humid ? [...JAR_HUMID, 0.5] : [0.45, 0.8, 1, 0.38];
+    const color = humid ? [...JAR_HUMID, 0.7] : [0.35, 0.72, 1, 0.55];
     if (level > 0.01) out.push(tube(new Mesh(MODE.flat, { transparent: true, kind: 'climate-water' }), F, [0, 0, 0.008], [0, 0, level], JAR_R - 0.008, color, 14));
-    if (humid) out.push(Object.assign(bubbles(F, [0.04, 0.025, 0.012], Math.max(level, 0.02), 0.03, 3.7), { kind: 'climate-bubbles' }));
+    if (humid) {
+      // Three columns of bubbles.
+      [[0.09, 0.03], [-0.08, 0.07], [0, -0.1]].forEach(([bx, by], i) => out.push(Object.assign(bubbles(F, [bx, by, 0.012], Math.max(level, 0.02), 0.045, 3.7 + i * 2.3), { kind: 'climate-bubbles' })));
+    }
     // The glass mists up from 35 % to 65 %.
     const mist = clamp((o.hum - 35) / 30, 0, 1);
-    out.push(tube(new Mesh(MODE.flat, { transparent: true, kind: 'climate-glass' }), F, [0, 0, 0], [0, 0, JAR_H], JAR_R, [0.85 + 0.15 * mist, 0.95 + 0.05 * mist, 1, 0.12 + 0.33 * mist], 14));
+    out.push(tube(new Mesh(MODE.flat, { transparent: true, kind: 'climate-glass' }), F, [0, 0, 0], [0, 0, JAR_H], JAR_R, [0.85 + 0.15 * mist, 0.95 + 0.05 * mist, 1, 0.12 + 0.3 * mist], 14));
   }
   // The plate: upright, beside the jar, its width along the viewer's right.
   const th = toRad(o.turn || 0);
   const ex = [Math.cos(th), Math.sin(th), 0];
-  const W = 0.5;
-  const Hp = 0.3;
-  const top = add3([x, y, z + 0.5], mul3(ex, 0.18 + W / 2 + JAR_R));
+  const W = 0.65;
+  const Hp = 0.39;
+  const top = add3([x, y, z + JAR_THERMO], mul3(ex, 0.25 + W / 2 + JAR_R));
   const key = `climate:${o.tempText}:${o.humText}:${humid}:${o.font}`;
   const plate = new Mesh(MODE.texture, { tex: { key, source: () => climateLabel(o.tempText, o.humText, humid, o.font) }, transparent: true, kind: 'climate-label' });
   plate.poly(quad(add3(top, mul3(ex, -W / 2)), mul3(ex, W), [0, 0, -Hp]), [1, 1, 1, 1], UV_QUAD);
