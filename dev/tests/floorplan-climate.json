@@ -1,0 +1,31 @@
+// Floorplan card: the room climate jar in 3D (`climate_display`, `humidity_max`).
+// dev/.venv/bin/python dev/ui_test.py dev/tests/floorplan-climate.json
+{
+  "path": "/plooum-test/floorplan",
+  "viewport": [1700, 1050],
+  "tests": [
+    {
+      "name": "jar: water and thermometer, bubbles only when too humid",
+      "steps": [
+        { "js": "S.card = await waitFor(() => T.card.all('ha-plooum-floorplan-card').find((c) => c.config.title === 'Home in 3D' && c._frame3d), 15000, 'the 3D card'); S.cfg = JSON.parse(JSON.stringify(S.card.config)); S.card.setConfig({ ...S.cfg, roof: false }); S.card._level3d = 0; S.jar = (room) => S.card.shadowRoot.querySelector(`.jar[data-room='${room}']`); S.set = async (h, t) => { await T.card.call('input_number', 'set_value', { entity_id: 'input_number.living_room_humidity', value: h }); await T.card.call('input_number', 'set_value', { entity_id: 'input_number.living_room_temperature', value: t }); await waitFor(() => S.jar('Living Room') && S.jar('Living Room').querySelector('.hum').textContent.includes(h + ' %'), 8000, 'the jar at ' + h + ' %'); }; await S.set(50, 21);" },
+        { "assert": "['.water', '.stem .liquid', '.tag'].every((q) => S.jar('Living Room').querySelector(q))", "msg": "Living Room has its jar, water and thermometer" },
+        { "assert": "!S.jar('Living Room').classList.contains('humid') && !S.jar('Living Room').querySelector('.bubble')", "msg": "normal humidity: no bubbles" },
+        { "js": "await S.set(75, 26);" },
+        { "assert": "S.jar('Living Room').classList.contains('humid') && S.jar('Living Room').querySelectorAll('.bubble').length === 3", "msg": "too humid: violet, with bubbles" },
+        { "assert": "S.jar('Kitchen') && S.jar('Kitchen').querySelector('.stem') && !S.jar('Kitchen').querySelector('.water')", "msg": "Kitchen (temperature only) has the thermometer and no water" }
+      ],
+      "finally": [{ "js": "await S.set(50, 21); S.card.setConfig(S.cfg);" }]
+    },
+    {
+      "name": "climate_display: label keeps the old floor label",
+      "steps": [
+        { "js": "S.card = await waitFor(() => T.card.all('ha-plooum-floorplan-card').find((c) => c.config.title === 'Home in 3D' && c._frame3d), 15000, 'the 3D card'); S.cfg = JSON.parse(JSON.stringify(S.card.config)); S.labels = () => S.card._frame3d.meshes.flatMap((m) => [m, ...m.overlays]).filter((m) => m.tex && m.tex.key.startsWith('label:Living Room')).map((m) => m.tex.key); S.card.setConfig({ ...S.cfg, roof: false }); S.card._level3d = 0; await waitFor(() => S.labels().length, 8000, 'the label');" },
+        { "assert": "!S.labels()[0].includes('°') && !S.labels()[0].includes('%')", "msg": "with the jar the floor label is the name only", "show": "S.labels()" },
+        { "js": "S.card.setConfig({ ...S.cfg, roof: false, climate_display: 'label' }); S.card._level3d = 0; await waitFor(() => S.labels()[0] && S.labels()[0].includes('%'), 8000, 'the climate line');" },
+        { "assert": "!S.card.shadowRoot.querySelector('.jar')", "msg": "label: no jar" },
+        { "assert": "S.labels()[0].includes('°')", "msg": "label: its climate line is back", "show": "S.labels()" }
+      ],
+      "finally": [{ "js": "S.card.setConfig(S.cfg);" }]
+    }
+  ]
+}

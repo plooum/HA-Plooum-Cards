@@ -65,7 +65,7 @@ const PALETTE_FILTERS = [
 ];
 
 // Card options shown in the editor with their default value, and left out of the config when unchanged.
-const CARD_DEFAULTS = { view: '2d', camera_view: 'snapshot', camera_previews: 'hover', projection_picture: 'frozen', projected_windows: 'overlay', screen_mode: 'world', roof: true, see_through: true, lighting: 'sun' };
+const CARD_DEFAULTS = { view: '2d', camera_view: 'snapshot', camera_previews: 'hover', projection_picture: 'frozen', projected_windows: 'overlay', screen_mode: 'world', roof: true, see_through: true, lighting: 'sun', climate_display: 'thermometer' };
 // Where camera screens are shown in 3D: in the scene in front of their camera, floating flat on the
 // view next to it, or nowhere (the camera bar still flies to them).
 const SCREEN_MODES = ['world', 'billboard', 'none'];
@@ -633,8 +633,14 @@ function roomClimate(hass, room) {
   }
   let hum = '';
   if (room.hums.length === 1) hum = formatState(hass, room.hums[0].st);
-  else if (room.hums.length > 1) hum = `${Math.round(room.hums.reduce((s, it) => s + parseFloat(it.st.state), 0) / room.hums.length)} %`;
+  else if (room.hums.length > 1) hum = `${Math.round(roomHumidity(room))} %`;
   return { temp, hum };
+}
+
+// A room's humidity (average of its sensors), null without one.
+function roomHumidity(room) {
+  if (!room.hums.length) return null;
+  return room.hums.reduce((s, it) => s + parseFloat(it.st.state), 0) / room.hums.length;
 }
 
 // --- Cameras ----------------------------------------------------------------
@@ -1345,6 +1351,10 @@ function batteryBadge(level, charging, plugged, font) {
   }
   return c;
 }
+
+// Where the drops sit on a misted climate jar (% of its width and height), shown one by one as the
+// humidity rises.
+const JAR_DROPS = [[10, 8], [70, 14], [30, 30], [80, 46], [15, 58], [55, 70], [35, 84], [75, 90], [50, 20], [20, 42]];
 
 // Meshes of a model (see MODELS) standing at (x, y, z), its front facing `direction`. `o`: its
 // options and state: `variant`, `color` (RGBA), `length`, `ceiling` (height of the ceiling above
@@ -4112,7 +4122,7 @@ class HaPlooumFloorplanCard extends LitElement {
     ];
     const mode = this.config.screen_mode || 'world';
     const dark = !!(this.hass.themes && this.hass.themes.darkMode);
-    const { meshes, occluders, screens, radius } = this._buildScene(s, eye, [Math.sin(a), Math.cos(a)], mode, this._colors3d(dark));
+    const { meshes, occluders, screens, jars, radius } = this._buildScene(s, eye, [Math.sin(a), Math.cos(a)], mode, this._colors3d(dark));
     // Every camera of the home, for the camera bar, even those whose floor isn't shown.
     const cameras = s.all.flatMap((p) => p.items.filter((it) => it.role === 'camera').map((it) => ({ id: it.id, item: it, k: p.k })));
     this._scene3dState = { vp, home, screens, cameras, floors: floors.length, orbit };
@@ -4137,6 +4147,7 @@ class HaPlooumFloorplanCard extends LitElement {
         <canvas class="gl3d"></canvas>
         ${this._glFailed ? html`<div class="gl-error">The 3D view needs WebGL, which this browser doesn't provide.</div>` : nothing}
         ${focused ? this._renderFocusScreen(focused, orbit, vp) : nothing}
+        ${jars.length && !focused ? this._renderJars(jars, orbit, vp) : nothing}
         ${boards.length ? this._renderBillboards(boards) : nothing}
         ${this._renderCameraBar()}
         ${this._renderSetupBadge()}
@@ -4387,6 +4398,7 @@ class HaPlooumFloorplanCard extends LitElement {
     const H = s.H;
     const meshes = [];
     const screens = [];
+    const jars = [];
     const { min, max } = this._tempRange();
     const X = [1, 0, 0];
     const Y = [0, 1, 0];
@@ -4527,7 +4539,25 @@ class HaPlooumFloorplanCard extends LitElement {
           floor.overlay(new Mesh(MODE.glow).poly(pts, [...c, 0.35 + 0.5 * b], pts.map((q) => [(q[0] - it.x) / R, (q[1] - it.y) / R, 0, 0])));
         }
         project(floor, room.outdoor ? outdoorProjectors(p.k) : indoorProjectors(p.k, room), pts);
-        if (cutaway && room.main && (room.name || room.temps.length || room.hums.length)) this._roomLabel(floor, room, f0z, labelTurn, colors);
+        // Its climate as a glass jar and thermometer (`climate_display`), else in its label.
+        const hum = room.outdoor ? null : roomHumidity(room);
+        const jarTemp = Number.isFinite(temp) ? temp : null;
+        const jar = this.config.climate_display !== 'label' && cutaway && room.main && !room.outdoor && (jarTemp !== null || Number.isFinite(hum));
+        if (jar) {
+          const at = room.temps[0] || room.hums[0] || { x: room.x + room.w / 2, y: room.y + room.h / 2 };
+          const h = Number.isFinite(hum) ? hum : null;
+          jars.push({
+            key: `${p.k}:${room.name}:${at.x}:${at.y}`,
+            room: room.name,
+            P: [at.x, at.y, f0z],
+            temp: jarTemp,
+            hum: h,
+            humid: h !== null && h >= num(this.config.humidity_max, 60),
+            color: jarTemp === null ? null : `rgb(${tempRgb(jarTemp, min, max).join(', ')})`,
+            fill: jarTemp === null ? 0 : clamp((jarTemp - min) / (max - min || 1), 0, 1),
+          });
+        }
+        if (cutaway && room.main && (room.name || (!jar && (room.temps.length || room.hums.length)))) this._roomLabel(floor, room, f0z, labelTurn, colors, !jar);
       }
 
       // Walls: the outer ones on every floor shown (they also cover the slab), the inner ones only
@@ -4693,7 +4723,7 @@ class HaPlooumFloorplanCard extends LitElement {
       }
     }
     const radius = Math.hypot(g.maxX - g.minX, g.maxY - g.minY, s.all.length * (H + SLAB) + H);
-    return { meshes, occluders, screens, radius };
+    return { meshes, occluders, screens, jars, radius };
   }
 
   // A car's battery badge: its level (`battery_entity`, or the car's own entity when it is a
@@ -4766,7 +4796,7 @@ class HaPlooumFloorplanCard extends LitElement {
 
   // Name of a room on its floor (at height z), turned by `turn` degrees (a multiple of 90) around
   // the room, so that it reads upright from the viewer.
-  _roomLabel(floor, room, z, turn, colors) {
+  _roomLabel(floor, room, z, turn, colors, showClimate = true) {
     const PX = 200; // label px per grid unit
     const along = turn % 180 ? room.h : room.w;
     const maxWidth = Math.max(0, along - 0.32) * PX;
@@ -4782,7 +4812,7 @@ class HaPlooumFloorplanCard extends LitElement {
     // Its temperature and humidity on a second line, when the room is deep enough.
     const { temp, hum } = roomClimate(this.hass, room);
     const across = turn % 180 ? room.w : room.h;
-    const climate = (temp || hum) && across >= 1.2 ? [temp, hum].filter(Boolean).join('  ·  ') : '';
+    const climate = showClimate && (temp || hum) && across >= 1.2 ? [temp, hum].filter(Boolean).join('  ·  ') : '';
     measure.font = small;
     const climateText = climate ? fitText(measure, climate, maxWidth) : '';
     if (climateText) w = Math.max(w, measure.measureText(climateText).width + 4);
@@ -5019,6 +5049,44 @@ class HaPlooumFloorplanCard extends LitElement {
     return html`<div class="screen-inner">
       ${content}<div class="screen-name">${this._cameraName(item)}</div>
       ${this._cameraMoved(item) ? html`<div class="screen-warn">${MOVED_MESSAGE}</div>` : nothing}
+    </div>`;
+  }
+
+  // Rooms' climate (`climate_display: thermometer`): a misted glass jar standing where the room's
+  // sensor is, flat on the view and sized by its distance. The water is as high as the humidity
+  // (violet with bubbles when too humid), the thermometer's liquid has the color of the floor.
+  _renderJars(jars, orbit, vp) {
+    return html`<div class="jars">
+      ${repeat(
+        jars.map((j) => ({ ...j, at: this._project(orbit, vp, j.P), top: this._project(orbit, vp, add3(j.P, [0, 0, 1])) })).filter((j) => j.at && j.top),
+        (j) => j.key,
+        (j) => {
+          const k = clamp(Math.hypot(j.top[0] - j.at[0], j.top[1] - j.at[1]) / 110, 0.4, 1.5);
+          const mist = j.hum === null ? 0 : clamp((j.hum - 35) / 30, 0, 1);
+          return html`<div class="jar ${j.humid ? 'humid' : ''} ${j.hum === null ? 'dry' : ''}" data-room=${j.room}
+            style="left: ${Math.round(j.at[0])}px; top: ${Math.round(j.at[1])}px; transform: translate(-50%, -100%) scale(${k.toFixed(3)});">
+            ${j.hum === null
+              ? nothing
+              : html`<div class="glass bowl">
+                  <div class="water" style="height: ${clamp(j.hum, 0, 100)}%;"></div>
+                  ${j.humid ? html`<i class="bubble"></i><i class="bubble"></i><i class="bubble"></i>` : nothing}
+                  <div class="mist" style="background: rgba(255, 255, 255, ${(mist * 0.4).toFixed(2)});">
+                    ${JAR_DROPS.map(([x, y], i) => html`<i style="left: ${x}%; top: ${y}%; opacity: ${mist > i / JAR_DROPS.length ? 1 : 0};"></i>`)}
+                  </div>
+                  <div class="shine"></div>
+                </div>`}
+            ${j.temp === null
+              ? nothing
+              : html`<div class="glass stem"><div class="liquid" style="height: ${(10 + 80 * j.fill).toFixed(1)}%; background: ${j.color};"></div><div class="shine"></div></div>`}
+            <div class="glass tag">
+              ${j.temp === null ? nothing : html`<span>${j.temp.toFixed(1)}°</span>`}
+              ${j.hum === null
+                ? nothing
+                : html`<span class="hum"><ha-icon icon="mdi:water-outline"></ha-icon>${Math.round(j.hum)} %${j.humid ? html`<ha-icon icon="mdi:alert-outline"></ha-icon>` : nothing}</span>`}
+            </div>
+          </div>`;
+        }
+      )}
     </div>`;
   }
 
@@ -6254,6 +6322,156 @@ class HaPlooumFloorplanCard extends LitElement {
         cursor: pointer;
         --mdc-icon-size: 20px;
       }
+      /* Rooms' climate jars, flat on the view (see _renderJars). */
+      .jars {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        overflow: hidden;
+      }
+      .jar {
+        position: absolute;
+        width: 44px;
+        height: 104px;
+        transform-origin: 50% 100%;
+      }
+      .jar .glass {
+        position: absolute;
+        box-sizing: border-box;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.38);
+        -webkit-backdrop-filter: blur(8px) saturate(1.5);
+        backdrop-filter: blur(8px) saturate(1.5);
+        border: 1px solid rgba(255, 255, 255, 0.75);
+        box-shadow: 0 8px 18px rgba(30, 20, 10, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+        color: #2c2c2a;
+      }
+      .jar .bowl {
+        left: 0;
+        top: 14px;
+        width: 44px;
+        height: 90px;
+        border-radius: 12px 12px 16px 16px;
+      }
+      .jar.humid .bowl {
+        border: 1.5px solid #7f77dd;
+      }
+      .jar .water {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(133, 183, 235, 0.85);
+        opacity: 0.75;
+      }
+      .jar.humid .water {
+        background: rgba(127, 119, 221, 0.9);
+      }
+      .jar .mist {
+        position: absolute;
+        inset: 0;
+      }
+      .jar .mist i {
+        position: absolute;
+        width: 4px;
+        height: 5px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.85);
+        box-shadow: inset -1px -1px 0 rgba(60, 60, 80, 0.25);
+      }
+      .jar .bubble {
+        position: absolute;
+        bottom: 6px;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        border: 1px solid rgba(255, 255, 255, 0.9);
+        box-sizing: border-box;
+        animation: jar-rise 2s linear infinite;
+      }
+      .jar .bubble:nth-child(2) {
+        left: 8px;
+      }
+      .jar .bubble:nth-child(3) {
+        left: 30px;
+        bottom: 12px;
+        animation-delay: 0.7s;
+      }
+      .jar .bubble:nth-child(4) {
+        left: 18px;
+        bottom: 4px;
+        animation-delay: 1.3s;
+      }
+      @keyframes jar-rise {
+        from {
+          transform: translateY(0);
+          opacity: 0.9;
+        }
+        to {
+          transform: translateY(-40px);
+          opacity: 0;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .jar .bubble {
+          animation: none;
+        }
+      }
+      .jar .shine {
+        position: absolute;
+        left: 3px;
+        top: 6px;
+        width: 3px;
+        height: 70%;
+        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.8);
+      }
+      .jar .stem {
+        left: 13px;
+        top: 0;
+        width: 18px;
+        height: 92px;
+        border-radius: 9px;
+      }
+      .jar.dry .stem {
+        top: 12px;
+      }
+      .jar .stem .shine {
+        height: 60%;
+      }
+      .jar .liquid {
+        position: absolute;
+        left: 5px;
+        right: 5px;
+        bottom: 0;
+        border-radius: 4px;
+      }
+      .jar .tag {
+        left: 52px;
+        top: 18px;
+        padding: 4px 9px;
+        border-radius: 9px;
+        font-size: 13px;
+        font-weight: 500;
+        white-space: nowrap;
+        line-height: 1.35;
+        display: flex;
+        flex-direction: column;
+      }
+      .jar .hum {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        font-size: 12px;
+        color: #444441;
+        --mdc-icon-size: 13px;
+      }
+      .jar.humid .hum {
+        color: #534ab7;
+      }
+      .jar .hum ha-icon {
+        color: inherit;
+      }
       /* Billboards: camera screens flat on the view, linked to their camera. */
       .boards {
         position: absolute;
@@ -6724,6 +6942,12 @@ class HaPlooumFloorplanCardEditor extends LitElement {
         schema: [
           { name: 'temp_min', label: 'Coldest temperature (blue floor)', selector: { number: { mode: 'box', step: 0.5 } } },
           { name: 'temp_max', label: 'Warmest temperature (red floor)', selector: { number: { mode: 'box', step: 0.5 } } },
+          {
+            name: 'climate_display',
+            label: 'Room climate in 3D',
+            selector: { select: { mode: 'dropdown', options: [{ value: 'thermometer', label: 'Glass thermometer' }, { value: 'label', label: 'Floor label' }] } },
+          },
+          { name: 'humidity_max', label: 'Too humid from (%)', selector: { number: { min: 0, max: 100, step: 1, mode: 'box' } } },
           {
             name: 'view',
             label: 'Opens in',
@@ -8214,7 +8438,7 @@ class HaPlooumFloorplanCardEditor extends LitElement {
 
   _formChanged(ev) {
     const value = { ...ev.detail.value };
-    for (const key of ['temp_min', 'temp_max', 'title', 'wall_height', 'refresh_interval']) {
+    for (const key of ['temp_min', 'temp_max', 'humidity_max', 'title', 'wall_height', 'refresh_interval']) {
       if (value[key] === '' || value[key] === undefined || value[key] === null) delete value[key];
     }
     for (const [key, def] of Object.entries(CARD_DEFAULTS)) {
