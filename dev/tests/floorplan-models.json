@@ -19,11 +19,23 @@
       ]
     },
     {
+      "name": "the aquarium's hanging lamp has animated rays and a ghost only while lit",
+      "steps": [
+        { "js": "S.card = await waitFor(() => T.card.all('ha-plooum-floorplan-card').find((c) => c.config.title === '3D models' && c._frame3d), 15000, 'the 3D models card'); S.lamp = () => { const ms = S.card._frame3d.meshes; return { rays: ms.filter((m) => m.kind === 'rays' && m.animated).length, ghost: ms.filter((m) => (m.kind === 'aquarium-lamp' || m.kind === 'halo') && m.ghost).length }; }; await T.card.call('input_number', 'set_value', { entity_id: 'input_number.aquarium_light_level', value: 80 }); await waitFor(() => S.lamp().rays > 0, 8000, 'rays');" },
+        { "assert": "S.lamp().ghost >= 2", "msg": "lit: the lamp underside and its halo are ghosts", "show": "S.lamp()" },
+        { "js": "await T.card.call('input_number', 'set_value', { entity_id: 'input_number.aquarium_light_level', value: 0 }); await waitFor(() => S.lamp().rays === 0, 8000, 'no rays');" },
+        { "assert": "S.lamp().ghost === 0 && S.lamp().rays === 0", "msg": "off: no animated rays, no ghost", "show": "S.lamp()" }
+      ],
+      "finally": [
+        { "js": "await T.card.call('input_number', 'set_value', { entity_id: 'input_number.aquarium_light_level', value: 80 });" }
+      ]
+    },
+    {
       "name": "the stove's fire and the aquarium's bubbles follow their entities",
       "steps": [
         { "js": "S.card = await waitFor(() => T.card.all('ha-plooum-floorplan-card').find((c) => c.config.title === '3D models' && c._frame3d), 15000, 'the 3D models card'); S.modes = () => S.card._frame3d.meshes.reduce((n, m) => ((n[m.mode] = (n[m.mode] || 0) + 1), n), {}); await T.card.call('input_boolean', 'turn_off', { entity_id: ['input_boolean.pellet_stove', 'input_boolean.aquarium_co2', 'input_boolean.aquarium_60_air'] });" },
         { "js": "await waitFor(() => !S.modes()[6] && !S.modes()[7], 8000, 'no fire, no bubbles');" },
-        { "assert": "!S.card._frame3d.meshes.some((m) => m.animated && m.kind !== 'charge-light')", "msg": "no fire, no bubbles left animated" },
+        { "assert": "!S.card._frame3d.meshes.some((m) => m.animated && m.kind !== 'charge-light' && m.kind !== 'rays')", "msg": "no fire, no bubbles left animated" },
         { "js": "await T.card.call('input_boolean', 'turn_on', { entity_id: ['input_boolean.pellet_stove', 'input_boolean.aquarium_co2', 'input_boolean.aquarium_60_air'] }); await waitFor(() => S.modes()[6] === 3 && S.modes()[7] >= 4, 8000, 'fires and bubbles back');" }
       ]
     },
