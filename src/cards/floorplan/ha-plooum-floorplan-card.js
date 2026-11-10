@@ -1381,20 +1381,43 @@ function modelMeshes(model, x, y, z, direction, o) {
       box(body, F, fx, D * (0.1 - 0.08 * i), 0.06, 0.015, S + T * (0.35 + 0.15 * i), 0.03, i === 1 ? [0.2, 0.55, 0.95, 1] : [0.98, 0.5, 0.1, 1]);
     }
     const lit = o.light === true;
-    out.push(box(new Mesh(MODE.flat, { transparent: true }), F, 0, 0, L - 0.02, D - 0.02, S + 0.03, water - S - 0.03, lit ? [0.45, 0.78, 0.95, 0.32] : [0.2, 0.45, 0.65, 0.3]));
+    out.push(box(new Mesh(MODE.flat, { transparent: true }), F, 0, 0, L - 0.02, D - 0.02, S + 0.03, water - S - 0.03, lit ? [0.45, 0.8, 1, 0.36] : [0.3, 0.38, 0.44, 0.26]));
     out.push(box(new Mesh(MODE.flat, { transparent: true }), F, 0, 0, L, D, S + 0.03, T - 0.03, [0.85, 0.95, 1, 0.12], { top: false, bottom: false }));
     for (const [cx, cy, w, d] of [[0, -D / 2, L, 0.02], [0, D / 2, L, 0.02], [-L / 2, 0, 0.02, D], [L / 2, 0, 0.02, D]]) box(body, F, cx, cy, w, d, S + T - 0.02, 0.02, [0.1, 0.1, 0.1, 1]);
     if (o.light !== null) {
-      box(body, F, 0, 0, L * 0.9, 0.12, S + T + 0.01, 0.03, [0.12, 0.12, 0.13, 1]);
-      for (const side of [-1, 1]) box(body, F, (side * L * 0.4), 0, 0.02, D, S + T, 0.01, [0.6, 0.6, 0.62, 1]);
+      // A flat lamp hung over the tank by two thin cables up to the ceiling (short ones without).
+      const zl = S + T + 0.28;
+      const lw = L * 0.9;
+      const ld = 0.14;
+      const zc = o.ceiling > zl + 0.1 ? o.ceiling : zl + 0.3;
+      for (const side of [-1, 1]) tube(body, F, [side * lw * 0.4, 0, zl + 0.04], [side * lw * 0.4, 0, zc], 0.006, [0.2, 0.2, 0.2, 1], 6);
+      box(body, F, 0, 0, lw, ld, zl, 0.04, [0.14, 0.14, 0.15, 1], { bottom: false });
+      // Its underside, glowing while on.
+      const under = new Mesh(MODE.flat, { emissive: lit, kind: 'aquarium-lamp', on: lit });
+      under.poly(quad([-lw / 2, -ld / 2, zl - 0.001], [lw, 0, 0], [0, ld, 0]).map(F.at), lit ? [1, 0.97, 0.85, 1] : [0.2, 0.2, 0.21, 1]);
+      if (lit) under.ghost = LAMP_GHOST;
+      out.push(under);
       if (lit) {
-        // The lit strip under the ramp, and its light falling through the water.
-        out.push(new Mesh().poly(quad([-L * 0.43, -0.05, S + T + 0.005], [L * 0.86, 0, 0], [0, 0.1, 0]).map(F.at), [1, 0.97, 0.85, 1]));
-        const beam = new Mesh(MODE.flat, { transparent: true });
-        hexa(beam, F, [[-L * 0.43, -0.05, S + T], [L * 0.43, -0.05, S + T], [L * 0.43, 0.05, S + T], [-L * 0.43, 0.05, S + T]],
-          [[-L / 2 + 0.02, -D / 2 + 0.02, S + 0.08], [L / 2 - 0.02, -D / 2 + 0.02, S + 0.08], [L / 2 - 0.02, D / 2 - 0.02, S + 0.08], [-L / 2 + 0.02, D / 2 - 0.02, S + 0.08]],
-          [1, 0.96, 0.8, 0.1], { top: false });
-        out.push(beam);
+        // Its halo, like a ceiling lamp's, and rays of light falling into the water, shimmering.
+        const R = L * 0.7 + 0.3;
+        const pts = quad([-R, -R, zl - 0.02], [2 * R, 0, 0], [0, 2 * R, 0]).map(F.at);
+        const halo = new Mesh(MODE.glow, { transparent: true, kind: 'halo' }).poly(pts, [1, 0.95, 0.75, 1], [[-1, -1, 0, 0], [1, -1, 0, 0], [1, 1, 0, 0], [-1, 1, 0, 0]]);
+        halo.ghost = LAMP_GHOST;
+        out.push(halo);
+        const rays = new Mesh(MODE.shimmer, { transparent: true, emissive: true, animated: true, kind: 'rays' });
+        const bottom = S + 0.08;
+        const n = Math.max(4, Math.round(L * 5));
+        for (let i = 0; i < n; i++) {
+          const x = -lw / 2 + (lw * (i + 0.5)) / n;
+          const x1 = x * (1 + 0.1 / L);
+          const w1 = 0.05 + 0.03 * fract(Math.sin(i * 12.9898) * 43758.5453);
+          const uv = [[i * 1.7, 0, 0, 0], [i * 1.7, 0, 0, 0], [i * 1.7, 1, 0, 0], [i * 1.7, 1, 0, 0]];
+          // One strip across the model (x) and one along it (y), narrow at the lamp and wider below.
+          const strip = (at) => [at(x - 0.02, zl - 0.01), at(x + 0.02, zl - 0.01), at(x1 + w1, bottom), at(x1 - w1, bottom)].map(F.at);
+          rays.poly(strip((u, z) => [u, 0, z]), [1, 0.96, 0.8, 0.4], uv);
+          rays.poly(strip((u, z) => [x, u - x, z]), [1, 0.96, 0.8, 0.4], uv);
+        }
+        out.push(rays);
       }
     }
     if (o.co2 !== null) {
@@ -1767,6 +1790,7 @@ const MODE = {
   flame: 6, // flames over the color, flickering (animated); uv.xy: across (0-1) and up (0-1) the fire
   bubbles: 7, // bubbles rising (animated); uv: across and up the column (grid units), bubble size, seed
   pulse: 8, // the color, pulsing (animated): a charging car's light
+  shimmer: 9, // the color, fading out down uv.y (0-1) and shimmering with phase uv.x (animated): light rays in water
 };
 
 const GL_VERTEX = `
@@ -1885,6 +1909,8 @@ void main() {
     c.rgb = mix(c.rgb, hot, max(fire, embers * 0.8));
   } else if (uMode == 8) {
     c.rgb *= 0.45 + 0.55 * (0.5 + 0.5 * sin(uTime * 4.0));
+  } else if (uMode == 9) {
+    c.a *= (1.0 - 0.8 * vUV.y) * (0.6 + 0.4 * sin(uTime * 1.6 + vUV.x));
   } else if (uMode == 7) {
     // A bubble in some of the cells of the column, each cell rising at 0.3 units a second.
     float size = vUV.z;
