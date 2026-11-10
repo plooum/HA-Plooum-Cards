@@ -91,11 +91,11 @@ L'utilisateur travaille sur deux PC ; le pilote peut démarrer sur l'un ou l'aut
 | Floorplan : sol projeté jusqu'à 30 m (prompt 38, Sonnet, worktree) | `feature/floor-projection`, [#97](https://github.com/plooum/HA-Plooum-Cards/pull/97) | mergée le 2026-11-10 (5,7 min, 42 appels, aucun aller-retour) |
 | Floorplan : lampe suspendue de l'aquarium (prompt 39, Sonnet, worktree) | `feature/aquarium-lamp`, [#98](https://github.com/plooum/HA-Plooum-Cards/pull/98) | mergée le 2026-11-10 (7,2 min, 47 appels, aucun aller-retour ; nouveau `MODE.shimmer`) |
 | Retrait de l'agent board (pilote) | `feature/sans-agent-board`, [#96](https://github.com/plooum/HA-Plooum-Cards/pull/96) | mergée le 2026-11-10 |
-| Floorplan 3D : bocal embué (température + humidité par pièce, option `climate_display`, `humidity_max`) — prompt 40 | `feature/climate-jar`, [#99](https://github.com/plooum/HA-Plooum-Cards/pull/99) ; skills [#100](https://github.com/plooum/HA-Plooum-Cards/pull/100) | 1re relecture : bocal trop petit / discret, renvoyé au sous-agent (×1,6, plus saturé, captures recadrées + étage) |
+| Floorplan 3D : bocal embué (température + humidité par pièce, en HTML/CSS par-dessus la vue 3D, options `climate_display`, `humidity_max`) — prompt 40 | [#99](https://github.com/plooum/HA-Plooum-Cards/pull/99), skills [#100](https://github.com/plooum/HA-Plooum-Cards/pull/100) ; version floorplan 1.13.0 [#101](https://github.com/plooum/HA-Plooum-Cards/pull/101) | #99 et #100 mergées le 2026-11-10 ; #101 en attente de l'accord explicite de merge, puis release V1.14.0 (demandée par l'utilisateur) |
 
 ## Décisions (utilisateur)
 
-- 2026-11-10 : température + humidité en 3D du floorplan = **bocal embué** (tube thermomètre coloré comme le sol dans un bocal dont l'eau = humidité, buée qui monte avec l'humidité, eau violette + bulles au-delà de `humidity_max` (60 %), plaque de verre avec les valeurs), choisi sur maquettes après 3 tours de 5 propositions.
+- 2026-11-10 : température + humidité en 3D du floorplan = **bocal embué** (tube thermomètre coloré comme le sol dans un bocal dont l'eau = humidité, buée qui monte avec l'humidité, eau violette + bulles au-delà de `humidity_max` (60 %), plaque de verre avec les valeurs), choisi sur maquettes après 3 tours de 5 propositions. **Rendu en HTML/CSS par-dessus la vue (pas en meshes 3D)** : l'utilisateur veut l'aspect exact de la maquette (verre dépoli, reflets) ; les meshes plats ont été refusés.
 
 - 2026-11-10 : **INTERDICTION TOTALE DE L'AGENT BOARD.** Ne jamais le démarrer, ni appeler `board.py`, ni ouvrir 127.0.0.1:8120, ni charger le skill `agent-board`, même en pilote. Retiré partout : hook de `~/.claude/settings.json`, lien du skill, claude-pilot installé, `dev/ha.sh` / `ui_test.py` / `shot.py` / `ui_runner.js`, skills ([#96](https://github.com/plooum/HA-Plooum-Cards/pull/96)). Remplace toutes les décisions plus bas qui parlent du board. L'avancement des sous-agents se donne dans le chat.
 - 2026-11-10 : floorplan 3D : le sol projeté sans fondu d'angle jusqu'à 30 m, murs inchangés (prompt 38) ; aquarium allumé = lampe suspendue avec halo et rayons animés, proposition C (prompt 39) ; température des pièces en 3D : visuel proche de la bande climat (temp + humidité), humidité aussi pour les pièces, en discussion.
@@ -177,7 +177,7 @@ Comment faire tourner la boucle maintenant (tout est dans les skills globaux `pi
 
 ## Notes sur les sous-agents
 
-- Prompt 40 (Sonnet, 1er tour) : **12,6 min**, 80 appels, modèle 3,7 min, outils 9,1 (lectures shell 268 s), 6 erreurs. Captures pleine page non recadrées, rendu trop petit pour juger : demander dans le prompt une taille minimale à l'écran de l'objet à juger.
+- Prompt 40 (Sonnet, 1er tour) : **12,6 min**, 80 appels, modèle 3,7 min, outils 9,1 (lectures shell 268 s), 6 erreurs. Captures pleine page non recadrées, rendu trop petit pour juger : demander dans le prompt une taille minimale à l'écran de l'objet à juger. Le pilote a repris lui-même le travail à la demande de l'utilisateur. Leçon : quand l'utilisateur choisit une maquette HTML, le prompt doit exiger de **reproduire la maquette** (et la joindre), pas la retraduire en 3D.
 
 - Prompts 24 / 25 (Sonnet, en parallèle) : 24 (autre dépôt, pas de worktree) 2,2 min, 19 appels + un aller-retour ; 25 0,9 min, 13 appels. Leçon : un skill lié dans `~/.claude/skills` doit utiliser des chemins absolus (les relatifs se résolvent par rapport au lien).
 
