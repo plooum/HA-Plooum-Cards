@@ -15,10 +15,6 @@ La section **Testing** de CLAUDE.md est la référence (démarrage / arrêt, tab
 - `dev/ha.sh status` affiche ton URL ; `dev/ha.sh list` liste toutes les instances qui tournent (port, pid, checkout). `dev/shot.py`, `dev/ui_test.py`, `dev/api.sh`, `dev/bootstrap.py` choisissent ton instance tout seuls (`--url` / `HA_URL` forcent autre chose). **Lance-les depuis ton propre checkout.** Plusieurs instances à la fois se ralentissent mutuellement (une suite a pris 28 s seule, 60 s avec trois en même temps) : ça va, ne baisse pas les délais.
 - **Quand tu as fini, `dev/ha.sh stop` dans ton worktree** (le pilote supprime le worktree après la fusion ; une instance laissée en route garde ~270 Mo).
 
-## Le tableau des agents
-
-Le tableau est `plooum/agent-board`, installé dans `~/.local/opt/agent-board` (`AGENT_BOARD_HOME`), facultatif (rien n'échoue sans lui) : une page générique (par défaut http://127.0.0.1:8120, voir son README) où l'utilisateur suit les agents, **y compris une vue en direct, en lecture seule, du navigateur de chaque agent**. `dev/ha.sh start` y enregistre ton checkout (worktrees de sous-agents seulement, pas le checkout principal). `dev/ui_test.py` rapporte tout seul ses exécutions et ses tests, résolus à partir de ton port HA, **diffuse son Chrome sans interface** vers le tableau (un screencast, `board_stream.py` ; les exécutions portent le projet, le chemin du checkout principal) et poste une capture par test terminé ; `dev/shot.py` diffuse aussi ses images en direct. Rien à faire. Si le tableau ne tourne pas, rien ne se passe et rien n'est plus lent. `--board <url>` sur l'un ou l'autre script poste vers un autre tableau. Le tableau garde chaque exécution dans son historique de tests (30 jours) : une suite jetable (un JSON de brouillon pour déboguer une étape) se lance avec `--board ''`, pour qu'elle n'y atterrisse pas ; les suites de ta PR se lancent avec le tableau par défaut.
-
 ## Quel navigateur
 
 - **Les sous-agents utilisent le navigateur intégré de Claude** (`mcp__Claude_Browser__*` ; utilisateur, 2026-11-07, remplace la décision du 2026-10-12) : l'utilisateur les regarde dans le panneau.
@@ -27,7 +23,7 @@ Le tableau est `plooum/agent-board`, installé dans `~/.local/opt/agent-board` (
   - Erreurs de console : `read_console_messages` (onlyErrors) ; le tampon garde les messages des chargements précédents.
   - Helpers `T` dans le panneau, hors `runner.html` : injecte-les dans ton onglet avec `javascript_tool` : `eval(await (await fetch('/plooum_dev/ui_helpers.js', {cache: 'no-store'})).text())`, puis `T.openEditor(...)`, `T.editor()`, `T.deep(...)` (sinon il faut parcourir les shadow roots à la main, prompt 36).
   - Le panneau n'enregistre pas ses captures dans un fichier : pour un fichier (aperçu du README), `dev/shot.py` sans interface.
-  - Repli sans interface (Chrome via Playwright, diffusé vers le tableau), **seulement si les outils du navigateur intégré ne te sont pas accessibles** : `dev/shot.py` (`--js`, `-e`, code de sortie 1 en cas d'erreurs de console) et `dev/ui_test.py` (les suites, plus bas). Dis-le dans ton rapport.
+  - Repli sans interface (Chrome via Playwright), **seulement si les outils du navigateur intégré ne te sont pas accessibles** : `dev/shot.py` (`--js`, `-e`, code de sortie 1 en cas d'erreurs de console) et `dev/ui_test.py` (les suites, plus bas). Dis-le dans ton rapport.
 - Disposition téléphone : `--width 420 --height 900`. HA 2026.10 **empile alors l'aperçu de la boîte de dialogue de l'éditeur sous l'éditeur** (rendu, ~2900 px plus bas, hors de vue), il ne le cache pas : « rendu avec une taille non nulle » ne dit pas si la boîte est étroite. Vérifie plutôt si l'aperçu est *à côté* de l'éditeur (pas de chevauchement horizontal).
 
 ## Suites
