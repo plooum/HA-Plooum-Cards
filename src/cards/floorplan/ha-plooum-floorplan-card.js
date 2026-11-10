@@ -65,7 +65,7 @@ const PALETTE_FILTERS = [
 ];
 
 // Card options shown in the editor with their default value, and left out of the config when unchanged.
-const CARD_DEFAULTS = { view: '2d', camera_view: 'snapshot', camera_previews: 'hover', projection_picture: 'frozen', projected_windows: 'overlay', screen_mode: 'world', roof: true, see_through: true, lighting: 'sun' };
+const CARD_DEFAULTS = { view: '2d', camera_view: 'snapshot', camera_previews: 'hover', projection_picture: 'frozen', projected_windows: 'overlay', screen_mode: 'world', roof: true, see_through: true, lighting: 'sun', climate_display: 'thermometer' };
 // Where camera screens are shown in 3D: in the scene in front of their camera, floating flat on the
 // view next to it, or nowhere (the camera bar still flies to them).
 const SCREEN_MODES = ['world', 'billboard', 'none'];
@@ -633,8 +633,14 @@ function roomClimate(hass, room) {
   }
   let hum = '';
   if (room.hums.length === 1) hum = formatState(hass, room.hums[0].st);
-  else if (room.hums.length > 1) hum = `${Math.round(room.hums.reduce((s, it) => s + parseFloat(it.st.state), 0) / room.hums.length)} %`;
+  else if (room.hums.length > 1) hum = `${Math.round(roomHumidity(room))} %`;
   return { temp, hum };
+}
+
+// A room's humidity (average of its sensors), null without one.
+function roomHumidity(room) {
+  if (!room.hums.length) return null;
+  return room.hums.reduce((s, it) => s + parseFloat(it.st.state), 0) / room.hums.length;
 }
 
 // --- Cameras ----------------------------------------------------------------
@@ -1344,6 +1350,91 @@ function batteryBadge(level, charging, plugged, font) {
     ctx.fillRect(462, 92, 14, 30);
   }
   return c;
+}
+
+// A sphere of radius `rad` at the local point `c`, `n` segments around.
+function sphere(mesh, F, c, rad, color, n = 8) {
+  const p = (a, b) => {
+    const th = (a / n) * 2 * Math.PI;
+    const ph = -Math.PI / 2 + (b / (n / 2)) * Math.PI;
+    return [Math.cos(ph) * Math.cos(th), Math.cos(ph) * Math.sin(th), Math.sin(ph)];
+  };
+  for (let a = 0; a < n; a++) {
+    for (let b = 0; b < n / 2; b++) {
+      const dirs = [p(a, b), p(a + 1, b), p(a + 1, b + 1), p(a, b + 1)];
+      const mid = norm3(dirs.reduce((s, d) => add3(s, d), [0, 0, 0]));
+      mesh.poly(dirs.map((d) => F.at(add3(c, mul3(d, rad)))), darken(color, shade(mid)));
+    }
+  }
+  return mesh;
+}
+
+// A room's climate plate (canvas): its temperature, and its humidity under it (violet with a
+// warning sign when too humid).
+function climateLabel(temp, hum, humid, font) {
+  const [c, ctx] = canvas2d(280, 170);
+  ctx.fillStyle = 'rgba(236, 246, 252, 0.74)';
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.95)';
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.roundRect(4, 4, 272, 162, 30);
+  ctx.fill();
+  ctx.stroke();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const rows = [temp && { text: temp, font: `700 68px ${font}`, color: '#26323c' }, hum && { text: humid ? `⚠ ${hum}` : hum, font: `600 54px ${font}`, color: humid ? JAR_HUMID_CSS : '#3b6f94' }].filter(Boolean);
+  rows.forEach((row, i) => {
+    ctx.font = row.font;
+    ctx.fillStyle = row.color;
+    ctx.fillText(row.text, 140, 85 + (i - (rows.length - 1) / 2) * 66, 250);
+  });
+  return c;
+}
+
+const JAR_HUMID_CSS = '#7F77DD';
+const JAR_HUMID = [0.498, 0.467, 0.867];
+const JAR_R = 0.11; // radius of the jar
+const JAR_H = 0.45; // its height
+const JAR_THERMO = 0.55; // height of the thermometer's tube
+
+// A room's climate in 3D, standing at (x, y, z): a misted glass jar of water as high as the
+// humidity (violet with rising bubbles when it is `humMax` or more), a thermometer through it whose
+// liquid has the color of the floor, and a plate beside it with the two readings. `o`: `temp` and
+// `hum` (numbers, null without), `min`, `max` (temperature range), `humMax`, `tempText`,
+// `humText`, `turn` (degrees the plate turns to face the viewer), `font`. Null readings are left out.
+function climateJar(x, y, z, o) {
+  const F = modelFrame(x, y, z, 0);
+  const out = [];
+  const humid = o.hum !== null && o.hum >= o.humMax;
+  if (o.temp !== null) {
+    const t = clamp((o.temp - o.min) / (o.max - o.min || 1), 0, 1);
+    const liquid = [...tempRgb(o.temp, o.min, o.max).map((v) => v / 255), 1];
+    const column = new Mesh(MODE.flat, { kind: 'climate-thermometer' });
+    sphere(column, F, [0, 0, 0.045], 0.032, liquid);
+    tube(column, F, [0, 0, 0.045], [0, 0, JAR_THERMO * (0.1 + 0.8 * t)], 0.011, liquid, 8);
+    out.push(column);
+    out.push(tube(new Mesh(MODE.flat, { transparent: true, kind: 'climate-tube' }), F, [0, 0, 0.02], [0, 0, JAR_THERMO], 0.02, [0.88, 0.96, 1, 0.3], 10));
+  }
+  if (o.hum !== null) {
+    const level = (clamp(o.hum, 0, 100) / 100) * JAR_H;
+    const color = humid ? [...JAR_HUMID, 0.5] : [0.45, 0.8, 1, 0.38];
+    if (level > 0.01) out.push(tube(new Mesh(MODE.flat, { transparent: true, kind: 'climate-water' }), F, [0, 0, 0.008], [0, 0, level], JAR_R - 0.008, color, 14));
+    if (humid) out.push(Object.assign(bubbles(F, [0.04, 0.025, 0.012], Math.max(level, 0.02), 0.03, 3.7), { kind: 'climate-bubbles' }));
+    // The glass mists up from 35 % to 65 %.
+    const mist = clamp((o.hum - 35) / 30, 0, 1);
+    out.push(tube(new Mesh(MODE.flat, { transparent: true, kind: 'climate-glass' }), F, [0, 0, 0], [0, 0, JAR_H], JAR_R, [0.85 + 0.15 * mist, 0.95 + 0.05 * mist, 1, 0.12 + 0.33 * mist], 14));
+  }
+  // The plate: upright, beside the jar, its width along the viewer's right.
+  const th = toRad(o.turn || 0);
+  const ex = [Math.cos(th), Math.sin(th), 0];
+  const W = 0.5;
+  const Hp = 0.3;
+  const top = add3([x, y, z + 0.5], mul3(ex, 0.18 + W / 2 + JAR_R));
+  const key = `climate:${o.tempText}:${o.humText}:${humid}:${o.font}`;
+  const plate = new Mesh(MODE.texture, { tex: { key, source: () => climateLabel(o.tempText, o.humText, humid, o.font) }, transparent: true, kind: 'climate-label' });
+  plate.poly(quad(add3(top, mul3(ex, -W / 2)), mul3(ex, W), [0, 0, -Hp]), [1, 1, 1, 1], UV_QUAD);
+  out.push(plate);
+  return out;
 }
 
 // Meshes of a model (see MODELS) standing at (x, y, z), its front facing `direction`. `o`: its
@@ -4527,7 +4618,17 @@ class HaPlooumFloorplanCard extends LitElement {
           floor.overlay(new Mesh(MODE.glow).poly(pts, [...c, 0.35 + 0.5 * b], pts.map((q) => [(q[0] - it.x) / R, (q[1] - it.y) / R, 0, 0])));
         }
         project(floor, room.outdoor ? outdoorProjectors(p.k) : indoorProjectors(p.k, room), pts);
-        if (cutaway && room.main && (room.name || room.temps.length || room.hums.length)) this._roomLabel(floor, room, f0z, labelTurn, colors);
+        // Its climate as a glass jar and thermometer (`climate_display`), else in its label.
+        const hum = room.outdoor ? null : roomHumidity(room);
+        const jarTemp = Number.isFinite(temp) ? temp : null;
+        const jar = this.config.climate_display !== 'label' && cutaway && room.main && !room.outdoor && (jarTemp !== null || Number.isFinite(hum));
+        if (jar) {
+          const at = room.temps[0] || room.hums[0] || { x: room.x + room.w / 2, y: room.y + room.h / 2 };
+          const { temp: tempText, hum: humText } = roomClimate(this.hass, room);
+          const opts = { temp: jarTemp, hum: Number.isFinite(hum) ? hum : null, min, max, humMax: num(this.config.humidity_max, 60), tempText, humText, turn: labelTurn, font: colors.font };
+          for (const mesh of climateJar(at.x, at.y, f0z, opts)) if (mesh.data.length) add(mesh);
+        }
+        if (cutaway && room.main && (room.name || (!jar && (room.temps.length || room.hums.length)))) this._roomLabel(floor, room, f0z, labelTurn, colors, !jar);
       }
 
       // Walls: the outer ones on every floor shown (they also cover the slab), the inner ones only
@@ -4766,7 +4867,7 @@ class HaPlooumFloorplanCard extends LitElement {
 
   // Name of a room on its floor (at height z), turned by `turn` degrees (a multiple of 90) around
   // the room, so that it reads upright from the viewer.
-  _roomLabel(floor, room, z, turn, colors) {
+  _roomLabel(floor, room, z, turn, colors, showClimate = true) {
     const PX = 200; // label px per grid unit
     const along = turn % 180 ? room.h : room.w;
     const maxWidth = Math.max(0, along - 0.32) * PX;
@@ -4782,7 +4883,7 @@ class HaPlooumFloorplanCard extends LitElement {
     // Its temperature and humidity on a second line, when the room is deep enough.
     const { temp, hum } = roomClimate(this.hass, room);
     const across = turn % 180 ? room.w : room.h;
-    const climate = (temp || hum) && across >= 1.2 ? [temp, hum].filter(Boolean).join('  ·  ') : '';
+    const climate = showClimate && (temp || hum) && across >= 1.2 ? [temp, hum].filter(Boolean).join('  ·  ') : '';
     measure.font = small;
     const climateText = climate ? fitText(measure, climate, maxWidth) : '';
     if (climateText) w = Math.max(w, measure.measureText(climateText).width + 4);
@@ -6725,6 +6826,12 @@ class HaPlooumFloorplanCardEditor extends LitElement {
           { name: 'temp_min', label: 'Coldest temperature (blue floor)', selector: { number: { mode: 'box', step: 0.5 } } },
           { name: 'temp_max', label: 'Warmest temperature (red floor)', selector: { number: { mode: 'box', step: 0.5 } } },
           {
+            name: 'climate_display',
+            label: 'Room climate in 3D',
+            selector: { select: { mode: 'dropdown', options: [{ value: 'thermometer', label: 'Glass thermometer' }, { value: 'label', label: 'Floor label' }] } },
+          },
+          { name: 'humidity_max', label: 'Too humid from (%)', selector: { number: { min: 0, max: 100, step: 1, mode: 'box' } } },
+          {
             name: 'view',
             label: 'Opens in',
             selector: { select: { mode: 'dropdown', options: [{ value: '2d', label: '2D plan' }, { value: '3d', label: '3D view' }] } },
@@ -8214,7 +8321,7 @@ class HaPlooumFloorplanCardEditor extends LitElement {
 
   _formChanged(ev) {
     const value = { ...ev.detail.value };
-    for (const key of ['temp_min', 'temp_max', 'title', 'wall_height', 'refresh_interval']) {
+    for (const key of ['temp_min', 'temp_max', 'humidity_max', 'title', 'wall_height', 'refresh_interval']) {
       if (value[key] === '' || value[key] === undefined || value[key] === null) delete value[key];
     }
     for (const [key, def] of Object.entries(CARD_DEFAULTS)) {

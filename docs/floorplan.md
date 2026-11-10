@@ -129,6 +129,8 @@ The editor writes this configuration for you; it can also be written by hand. Po
 | `title` | string | — | Title shown above the plan. |
 | `temp_min` | number | `17` (`63` in °F) | Temperature shown as a blue floor. |
 | `temp_max` | number | `27` (`81` in °F) | Temperature shown as a red floor. |
+| `climate_display` | string | `thermometer` | In 3D, how a room shows its temperature and humidity (when the roof is off): `thermometer` (a glass jar and thermometer on the floor, see below) or `label` (a line in the room's floor label). |
+| `humidity_max` | number | `60` | Humidity (%) from which a room is too humid: its jar's water turns violet, with bubbles. |
 | `view` | string | `2d` | View shown when the card opens: `2d` or `3d`. |
 | `roof` | boolean | `true` | In 3D, start with the whole home closed, with its roof. `false` starts on the top floor, open. |
 | `see_through` | boolean | `true` | In 3D, the models (`model`) and the lamps show through the walls and roofs that hide them (faint, a lit lamp clearer). |
@@ -197,6 +199,8 @@ Walls shared by two rooms are drawn thin; outer walls are drawn thick.
 | `pins` | list | Cameras only: corners pinned in the editor's camera view, `{ x, y, z, u, v }` each: a point of the plan (`z` above the floor) and where it shows in the picture (`u`, `v` from `0` to `1` across and down it). The picture is warped so that each one falls exactly on its point, in the camera view and projected in 3D. Up to 16. |
 | `projection` | boolean | Cameras only: in 3D, project the picture onto what the camera sees: the floor and walls of its room, or outdoors the ground, the outer walls and the roof. Default `false`. |
 | `reference_picture` | string | Cameras only: id of the picture uploaded with the editor's **Capture** (Home Assistant's image upload), on which the camera is lined up and which it projects (see `projection_picture`). |
+
+**Room climate jar (3D).** With the roof off, each indoor room shows a misted glass jar at its temperature sensor (else its humidity sensor, else the room's centre). The water is as high as the humidity (light blue; violet with rising bubbles from `humidity_max`), and the glass mists up from 35 % to 65 %. A thermometer through the jar has a liquid column as high as the temperature (between `temp_min` and `temp_max`) and the colour of the floor. A glass plate beside it reads the two values. A room with only a temperature shows the thermometer alone, one with only a humidity the jar alone. The room's floor label then keeps just its name.
 
 How each entity is shown:
 
