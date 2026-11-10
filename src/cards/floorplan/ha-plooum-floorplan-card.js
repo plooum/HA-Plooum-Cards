@@ -1,7 +1,7 @@
 import { LitElement, html, css, svg, nothing } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
 
-const CARD_VERSION = '1.12.2';
+const CARD_VERSION = '1.13.0';
 
 const UNAVAILABLE_STATES = ['unavailable', 'unknown'];
 const HOLD_DELAY = 500; // ms before a press on an entity opens its more-info dialog
