@@ -2,7 +2,7 @@
 
 Lu en premier par le pilote suivant (voir le skill `pilot`). Commité directement sur `main`, sans PR. À tenir à jour.
 
-_Dernière mise à jour : 2026-11-07, session pilote 8 (Opus 5.5, fixe) : carte **galerie** (#71, V1.7.0) puis noms en timestamps Unix + `filename_format` / `folder_format` (#72, galerie 1.1.0, [V1.8.0](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.8.0)) ; sous-agents dans le navigateur intégré (#70). Rien en cours ; reste à confirmer la galerie sur le vrai HA de l'utilisateur. Le HA de 8123 a besoin de `dev/ha.sh reset` + `start`._
+_Dernière mise à jour : 2026-11-10, session pilote 9 (Opus 5.5, portable) : bocal embué du floorplan (température + humidité par pièce, HTML/CSS par-dessus la 3D, #99, repris par le pilote à la demande de l'utilisateur), skills #100, floorplan 1.13.0 (#101), [release V1.14.0](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.14.0). Rien en cours ; demander la suite à l'utilisateur._
 
 Protection de `main` : l'utilisateur a désactivé « Lock branch » le 2026-10-11 (elle bloquait aussi les merges de PR) ; le pilote pousse `.claude/pilot/` directement sur `main`. Le pilote reste sur `main` dans le checkout principal (HA sur 8123) et y commite la passation ; les sous-agents travaillent dans leurs propres worktrees avec leur propre HA (voir le skill `pilot`).
 
@@ -91,7 +91,7 @@ L'utilisateur travaille sur deux PC ; le pilote peut démarrer sur l'un ou l'aut
 | Floorplan : sol projeté jusqu'à 30 m (prompt 38, Sonnet, worktree) | `feature/floor-projection`, [#97](https://github.com/plooum/HA-Plooum-Cards/pull/97) | mergée le 2026-11-10 (5,7 min, 42 appels, aucun aller-retour) |
 | Floorplan : lampe suspendue de l'aquarium (prompt 39, Sonnet, worktree) | `feature/aquarium-lamp`, [#98](https://github.com/plooum/HA-Plooum-Cards/pull/98) | mergée le 2026-11-10 (7,2 min, 47 appels, aucun aller-retour ; nouveau `MODE.shimmer`) |
 | Retrait de l'agent board (pilote) | `feature/sans-agent-board`, [#96](https://github.com/plooum/HA-Plooum-Cards/pull/96) | mergée le 2026-11-10 |
-| Floorplan 3D : bocal embué (température + humidité par pièce, en HTML/CSS par-dessus la vue 3D, options `climate_display`, `humidity_max`) — prompt 40 | [#99](https://github.com/plooum/HA-Plooum-Cards/pull/99), skills [#100](https://github.com/plooum/HA-Plooum-Cards/pull/100) ; version floorplan 1.13.0 [#101](https://github.com/plooum/HA-Plooum-Cards/pull/101) | #99 et #100 mergées le 2026-11-10 ; #101 en attente de l'accord explicite de merge, puis release V1.14.0 (demandée par l'utilisateur) |
+| Floorplan 3D : bocal embué (température + humidité par pièce, en HTML/CSS par-dessus la vue 3D, options `climate_display`, `humidity_max`) — prompt 40 | [#99](https://github.com/plooum/HA-Plooum-Cards/pull/99), skills [#100](https://github.com/plooum/HA-Plooum-Cards/pull/100) ; version floorplan 1.13.0 [#101](https://github.com/plooum/HA-Plooum-Cards/pull/101) | toutes mergées le 2026-11-10 ; [release V1.14.0](https://github.com/plooum/HA-Plooum-Cards/releases/tag/V1.14.0) publiée, les deux assets attachés |
 
 ## Décisions (utilisateur)
 
