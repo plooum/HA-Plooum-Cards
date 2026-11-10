@@ -1352,94 +1352,9 @@ function batteryBadge(level, charging, plugged, font) {
   return c;
 }
 
-// A sphere of radius `rad` at the local point `c`, `n` segments around.
-function sphere(mesh, F, c, rad, color, n = 8) {
-  const p = (a, b) => {
-    const th = (a / n) * 2 * Math.PI;
-    const ph = -Math.PI / 2 + (b / (n / 2)) * Math.PI;
-    return [Math.cos(ph) * Math.cos(th), Math.cos(ph) * Math.sin(th), Math.sin(ph)];
-  };
-  for (let a = 0; a < n; a++) {
-    for (let b = 0; b < n / 2; b++) {
-      const dirs = [p(a, b), p(a + 1, b), p(a + 1, b + 1), p(a, b + 1)];
-      const mid = norm3(dirs.reduce((s, d) => add3(s, d), [0, 0, 0]));
-      mesh.poly(dirs.map((d) => F.at(add3(c, mul3(d, rad)))), darken(color, shade(mid)));
-    }
-  }
-  return mesh;
-}
-
-// A room's climate plate (canvas): its temperature, and its humidity under it (violet with a
-// warning sign when too humid).
-function climateLabel(temp, hum, humid, font) {
-  const [c, ctx] = canvas2d(280, 170);
-  ctx.fillStyle = 'rgba(236, 246, 252, 0.74)';
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.95)';
-  ctx.lineWidth = 6;
-  ctx.beginPath();
-  if (ctx.roundRect) ctx.roundRect(4, 4, 272, 162, 30);
-  else ctx.rect(4, 4, 272, 162);
-  ctx.fill();
-  ctx.stroke();
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  const rows = [temp && { text: temp, font: `700 68px ${font}`, color: '#26323c' }, hum && { text: humid ? `⚠ ${hum}` : hum, font: `600 54px ${font}`, color: humid ? JAR_HUMID_CSS : '#3b6f94' }].filter(Boolean);
-  rows.forEach((row, i) => {
-    ctx.font = row.font;
-    ctx.fillStyle = row.color;
-    ctx.fillText(row.text, 140, 85 + (i - (rows.length - 1) / 2) * 66, 250);
-  });
-  return c;
-}
-
-const JAR_HUMID_CSS = '#7F77DD';
-const JAR_HUMID = [0.498, 0.467, 0.867];
-const JAR_R = 0.17; // radius of the jar
-const JAR_H = 0.7; // its height
-const JAR_THERMO = 1.05; // height of the thermometer's tube
-
-// A room's climate in 3D, standing at (x, y, z): a misted glass jar of water as high as the
-// humidity (violet with rising bubbles when it is `humMax` or more), a thermometer through it whose
-// liquid has the color of the floor, and a plate beside it with the two readings. `o`: `temp` and
-// `hum` (numbers, null without), `min`, `max` (temperature range), `humMax`, `tempText`,
-// `humText`, `turn` (degrees the plate turns to face the viewer), `font`. Null readings are left out.
-function climateJar(x, y, z, o) {
-  const F = modelFrame(x, y, z, 0);
-  const out = [];
-  const humid = o.hum !== null && o.hum >= o.humMax;
-  if (o.temp !== null) {
-    const t = clamp((o.temp - o.min) / (o.max - o.min || 1), 0, 1);
-    const liquid = [...tempRgb(o.temp, o.min, o.max).map((v) => v / 255), 1];
-    const column = new Mesh(MODE.flat, { kind: 'climate-thermometer' });
-    sphere(column, F, [0, 0, 0.07], 0.05, liquid);
-    tube(column, F, [0, 0, 0.07], [0, 0, JAR_THERMO * (0.1 + 0.8 * t)], 0.02, liquid, 8);
-    out.push(column);
-    out.push(tube(new Mesh(MODE.flat, { transparent: true, kind: 'climate-tube' }), F, [0, 0, 0.03], [0, 0, JAR_THERMO], 0.032, [0.88, 0.96, 1, 0.18], 12));
-  }
-  if (o.hum !== null) {
-    const level = (clamp(o.hum, 0, 100) / 100) * JAR_H;
-    const color = humid ? [...JAR_HUMID, 0.7] : [0.35, 0.72, 1, 0.55];
-    if (level > 0.01) out.push(tube(new Mesh(MODE.flat, { transparent: true, kind: 'climate-water' }), F, [0, 0, 0.008], [0, 0, level], JAR_R - 0.008, color, 14));
-    if (humid) {
-      // Three columns of bubbles.
-      [[0.09, 0.03], [-0.08, 0.07], [0, -0.1]].forEach(([bx, by], i) => out.push(Object.assign(bubbles(F, [bx, by, 0.012], Math.max(level, 0.02), 0.045, 3.7 + i * 2.3), { kind: 'climate-bubbles' })));
-    }
-    // The glass mists up from 35 % to 65 %.
-    const mist = clamp((o.hum - 35) / 30, 0, 1);
-    out.push(tube(new Mesh(MODE.flat, { transparent: true, kind: 'climate-glass' }), F, [0, 0, 0], [0, 0, JAR_H], JAR_R, [0.85 + 0.15 * mist, 0.95 + 0.05 * mist, 1, 0.12 + 0.3 * mist], 14));
-  }
-  // The plate: upright, beside the jar, its width along the viewer's right.
-  const th = toRad(o.turn || 0);
-  const ex = [Math.cos(th), Math.sin(th), 0];
-  const W = 0.65;
-  const Hp = 0.39;
-  const top = add3([x, y, z + JAR_THERMO], mul3(ex, 0.25 + W / 2 + JAR_R));
-  const key = `climate:${o.tempText}:${o.humText}:${humid}:${o.font}`;
-  const plate = new Mesh(MODE.texture, { tex: { key, source: () => climateLabel(o.tempText, o.humText, humid, o.font) }, transparent: true, kind: 'climate-label' });
-  plate.poly(quad(add3(top, mul3(ex, -W / 2)), mul3(ex, W), [0, 0, -Hp]), [1, 1, 1, 1], UV_QUAD);
-  out.push(plate);
-  return out;
-}
+// Where the drops sit on a misted climate jar (% of its width and height), shown one by one as the
+// humidity rises.
+const JAR_DROPS = [[10, 8], [70, 14], [30, 30], [80, 46], [15, 58], [55, 70], [35, 84], [75, 90], [50, 20], [20, 42]];
 
 // Meshes of a model (see MODELS) standing at (x, y, z), its front facing `direction`. `o`: its
 // options and state: `variant`, `color` (RGBA), `length`, `ceiling` (height of the ceiling above
@@ -4207,7 +4122,7 @@ class HaPlooumFloorplanCard extends LitElement {
     ];
     const mode = this.config.screen_mode || 'world';
     const dark = !!(this.hass.themes && this.hass.themes.darkMode);
-    const { meshes, occluders, screens, radius } = this._buildScene(s, eye, [Math.sin(a), Math.cos(a)], mode, this._colors3d(dark));
+    const { meshes, occluders, screens, jars, radius } = this._buildScene(s, eye, [Math.sin(a), Math.cos(a)], mode, this._colors3d(dark));
     // Every camera of the home, for the camera bar, even those whose floor isn't shown.
     const cameras = s.all.flatMap((p) => p.items.filter((it) => it.role === 'camera').map((it) => ({ id: it.id, item: it, k: p.k })));
     this._scene3dState = { vp, home, screens, cameras, floors: floors.length, orbit };
@@ -4232,6 +4147,7 @@ class HaPlooumFloorplanCard extends LitElement {
         <canvas class="gl3d"></canvas>
         ${this._glFailed ? html`<div class="gl-error">The 3D view needs WebGL, which this browser doesn't provide.</div>` : nothing}
         ${focused ? this._renderFocusScreen(focused, orbit, vp) : nothing}
+        ${jars.length && !focused ? this._renderJars(jars, orbit, vp) : nothing}
         ${boards.length ? this._renderBillboards(boards) : nothing}
         ${this._renderCameraBar()}
         ${this._renderSetupBadge()}
@@ -4482,6 +4398,7 @@ class HaPlooumFloorplanCard extends LitElement {
     const H = s.H;
     const meshes = [];
     const screens = [];
+    const jars = [];
     const { min, max } = this._tempRange();
     const X = [1, 0, 0];
     const Y = [0, 1, 0];
@@ -4628,9 +4545,17 @@ class HaPlooumFloorplanCard extends LitElement {
         const jar = this.config.climate_display !== 'label' && cutaway && room.main && !room.outdoor && (jarTemp !== null || Number.isFinite(hum));
         if (jar) {
           const at = room.temps[0] || room.hums[0] || { x: room.x + room.w / 2, y: room.y + room.h / 2 };
-          const { temp: tempText, hum: humText } = roomClimate(this.hass, room);
-          const opts = { temp: jarTemp, hum: Number.isFinite(hum) ? hum : null, min, max, humMax: num(this.config.humidity_max, 60), tempText, humText, turn: labelTurn, font: colors.font };
-          for (const mesh of climateJar(at.x, at.y, f0z, opts)) if (mesh.data.length) add(mesh);
+          const h = Number.isFinite(hum) ? hum : null;
+          jars.push({
+            key: `${p.k}:${room.name}:${at.x}:${at.y}`,
+            room: room.name,
+            P: [at.x, at.y, f0z],
+            temp: jarTemp,
+            hum: h,
+            humid: h !== null && h >= num(this.config.humidity_max, 60),
+            color: jarTemp === null ? null : `rgb(${tempRgb(jarTemp, min, max).join(', ')})`,
+            fill: jarTemp === null ? 0 : clamp((jarTemp - min) / (max - min || 1), 0, 1),
+          });
         }
         if (cutaway && room.main && (room.name || (!jar && (room.temps.length || room.hums.length)))) this._roomLabel(floor, room, f0z, labelTurn, colors, !jar);
       }
@@ -4798,7 +4723,7 @@ class HaPlooumFloorplanCard extends LitElement {
       }
     }
     const radius = Math.hypot(g.maxX - g.minX, g.maxY - g.minY, s.all.length * (H + SLAB) + H);
-    return { meshes, occluders, screens, radius };
+    return { meshes, occluders, screens, jars, radius };
   }
 
   // A car's battery badge: its level (`battery_entity`, or the car's own entity when it is a
@@ -5124,6 +5049,44 @@ class HaPlooumFloorplanCard extends LitElement {
     return html`<div class="screen-inner">
       ${content}<div class="screen-name">${this._cameraName(item)}</div>
       ${this._cameraMoved(item) ? html`<div class="screen-warn">${MOVED_MESSAGE}</div>` : nothing}
+    </div>`;
+  }
+
+  // Rooms' climate (`climate_display: thermometer`): a misted glass jar standing where the room's
+  // sensor is, flat on the view and sized by its distance. The water is as high as the humidity
+  // (violet with bubbles when too humid), the thermometer's liquid has the color of the floor.
+  _renderJars(jars, orbit, vp) {
+    return html`<div class="jars">
+      ${repeat(
+        jars.map((j) => ({ ...j, at: this._project(orbit, vp, j.P), top: this._project(orbit, vp, add3(j.P, [0, 0, 1])) })).filter((j) => j.at && j.top),
+        (j) => j.key,
+        (j) => {
+          const k = clamp(Math.hypot(j.top[0] - j.at[0], j.top[1] - j.at[1]) / 110, 0.4, 1.5);
+          const mist = j.hum === null ? 0 : clamp((j.hum - 35) / 30, 0, 1);
+          return html`<div class="jar ${j.humid ? 'humid' : ''} ${j.hum === null ? 'dry' : ''}" data-room=${j.room}
+            style="left: ${Math.round(j.at[0])}px; top: ${Math.round(j.at[1])}px; transform: translate(-50%, -100%) scale(${k.toFixed(3)});">
+            ${j.hum === null
+              ? nothing
+              : html`<div class="glass bowl">
+                  <div class="water" style="height: ${clamp(j.hum, 0, 100)}%;"></div>
+                  ${j.humid ? html`<i class="bubble"></i><i class="bubble"></i><i class="bubble"></i>` : nothing}
+                  <div class="mist" style="background: rgba(255, 255, 255, ${(mist * 0.4).toFixed(2)});">
+                    ${JAR_DROPS.map(([x, y], i) => html`<i style="left: ${x}%; top: ${y}%; opacity: ${mist > i / JAR_DROPS.length ? 1 : 0};"></i>`)}
+                  </div>
+                  <div class="shine"></div>
+                </div>`}
+            ${j.temp === null
+              ? nothing
+              : html`<div class="glass stem"><div class="liquid" style="height: ${(10 + 80 * j.fill).toFixed(1)}%; background: ${j.color};"></div><div class="shine"></div></div>`}
+            <div class="glass tag">
+              ${j.temp === null ? nothing : html`<span>${j.temp.toFixed(1)}°</span>`}
+              ${j.hum === null
+                ? nothing
+                : html`<span class="hum"><ha-icon icon="mdi:water-outline"></ha-icon>${Math.round(j.hum)} %${j.humid ? html`<ha-icon icon="mdi:alert-outline"></ha-icon>` : nothing}</span>`}
+            </div>
+          </div>`;
+        }
+      )}
     </div>`;
   }
 
@@ -6358,6 +6321,156 @@ class HaPlooumFloorplanCard extends LitElement {
         box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
         cursor: pointer;
         --mdc-icon-size: 20px;
+      }
+      /* Rooms' climate jars, flat on the view (see _renderJars). */
+      .jars {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        overflow: hidden;
+      }
+      .jar {
+        position: absolute;
+        width: 44px;
+        height: 104px;
+        transform-origin: 50% 100%;
+      }
+      .jar .glass {
+        position: absolute;
+        box-sizing: border-box;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.38);
+        -webkit-backdrop-filter: blur(8px) saturate(1.5);
+        backdrop-filter: blur(8px) saturate(1.5);
+        border: 1px solid rgba(255, 255, 255, 0.75);
+        box-shadow: 0 8px 18px rgba(30, 20, 10, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+        color: #2c2c2a;
+      }
+      .jar .bowl {
+        left: 0;
+        top: 14px;
+        width: 44px;
+        height: 90px;
+        border-radius: 12px 12px 16px 16px;
+      }
+      .jar.humid .bowl {
+        border: 1.5px solid #7f77dd;
+      }
+      .jar .water {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(133, 183, 235, 0.85);
+        opacity: 0.75;
+      }
+      .jar.humid .water {
+        background: rgba(127, 119, 221, 0.9);
+      }
+      .jar .mist {
+        position: absolute;
+        inset: 0;
+      }
+      .jar .mist i {
+        position: absolute;
+        width: 4px;
+        height: 5px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.85);
+        box-shadow: inset -1px -1px 0 rgba(60, 60, 80, 0.25);
+      }
+      .jar .bubble {
+        position: absolute;
+        bottom: 6px;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        border: 1px solid rgba(255, 255, 255, 0.9);
+        box-sizing: border-box;
+        animation: jar-rise 2s linear infinite;
+      }
+      .jar .bubble:nth-child(2) {
+        left: 8px;
+      }
+      .jar .bubble:nth-child(3) {
+        left: 30px;
+        bottom: 12px;
+        animation-delay: 0.7s;
+      }
+      .jar .bubble:nth-child(4) {
+        left: 18px;
+        bottom: 4px;
+        animation-delay: 1.3s;
+      }
+      @keyframes jar-rise {
+        from {
+          transform: translateY(0);
+          opacity: 0.9;
+        }
+        to {
+          transform: translateY(-40px);
+          opacity: 0;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .jar .bubble {
+          animation: none;
+        }
+      }
+      .jar .shine {
+        position: absolute;
+        left: 3px;
+        top: 6px;
+        width: 3px;
+        height: 70%;
+        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.8);
+      }
+      .jar .stem {
+        left: 13px;
+        top: 0;
+        width: 18px;
+        height: 92px;
+        border-radius: 9px;
+      }
+      .jar.dry .stem {
+        top: 12px;
+      }
+      .jar .stem .shine {
+        height: 60%;
+      }
+      .jar .liquid {
+        position: absolute;
+        left: 5px;
+        right: 5px;
+        bottom: 0;
+        border-radius: 4px;
+      }
+      .jar .tag {
+        left: 52px;
+        top: 18px;
+        padding: 4px 9px;
+        border-radius: 9px;
+        font-size: 13px;
+        font-weight: 500;
+        white-space: nowrap;
+        line-height: 1.35;
+        display: flex;
+        flex-direction: column;
+      }
+      .jar .hum {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        font-size: 12px;
+        color: #444441;
+        --mdc-icon-size: 13px;
+      }
+      .jar.humid .hum {
+        color: #534ab7;
+      }
+      .jar .hum ha-icon {
+        color: inherit;
       }
       /* Billboards: camera screens flat on the view, linked to their camera. */
       .boards {
