@@ -11,14 +11,12 @@ Le rôle, la boucle, la relecture et le passage de relais sont dans le skill glo
 
 - Passage de relais : [.claude/pilot/HANDOFF.md](../../pilot/HANDOFF.md).
 - `dev/ha.sh status` : le HA du checkout principal sur 8123 peut rester allumé.
-- Le tableau des agents vit dans `~/.local/opt/agent-board` (voir le skill `agent-board`).
 
 ## Environnement de dev des sous-agents
 
 - Chaque worktree démarre son propre HA : `dev/ha.sh start`, puis `npm run build` dedans. Ports 8124+, ~270 Mo chacun, `dev/ha.sh list` les montre. Le prompt dit au sous-agent de faire `dev/ha.sh stop` à la fin.
 - En parallèle : 3-4 sur le fixe, 1-2 sur le portable (7 Go de RAM).
 - Les prompts disent : **navigateur intégré de Claude**, dans leur propre onglet (`tabs_create`) ; suites par `runner.html?suite=...` et `window.uiResult` ; `ui_test.py` / `shot.py` sans interface seulement en repli (utilisateur, 2026-11-07).
-- `dev/ha.sh start` enregistre le worktree sur le tableau.
 - La carte floorplan tient en un fichier de 7 000 lignes : donne aux PR parallèles des travaux disjoints.
 
 ## Fusionner ici
