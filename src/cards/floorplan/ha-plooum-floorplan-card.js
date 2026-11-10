@@ -84,6 +84,7 @@ const STRIP_HEIGHT = 44; // px kept free at the bottom of the 3D view for the ca
 const PROJ_PX = 640; // picture width (px) assumed by the editor until the picture has loaded
 const PICTURE_PX = 1024; // max width of a camera picture projected in 3D (texture)
 const PROJ_REACH = 25; // projected pictures stop this far from their camera (grid units)
+const PROJ_FLOOR_REACH = 30; // same on floors (upward-facing surfaces), which have no grazing fade
 // A surface the camera sees at a grazing angle (degrees between its line of sight and the surface)
 // gets no projected picture: hidden below the first angle, fading in up to the second.
 const PROJ_GRAZING = [10, 20];
@@ -1860,10 +1861,14 @@ void main() {
       if (z > near + 0.08 + 0.01 * z) discard;
     }
     c *= texture2D(uTex, p);
-    c.a *= 0.92 * clamp((uReach - z) / (0.3 * uReach), 0.0, 1.0);
-    // Faded out on a surface seen at a grazing angle, where the picture would be stretched.
-    float graze = abs(dot(normalize(vUV.xyz), normalize(vPos - uC)));
-    c.a *= smoothstep(${Math.sin((PROJ_GRAZING[0] * Math.PI) / 180).toFixed(4)}, ${Math.sin((PROJ_GRAZING[1] * Math.PI) / 180).toFixed(4)}, graze);
+    // Floors (uReach, the shadow map's range, covers them) go further and are never faded by angle.
+    vec3 sn = normalize(vUV.xyz);
+    bool floorSurface = sn.z > 0.9;
+    float reach = floorSurface ? ${PROJ_FLOOR_REACH.toFixed(1)} : ${PROJ_REACH.toFixed(1)};
+    c.a *= 0.92 * clamp((reach - z) / (0.3 * reach), 0.0, 1.0);
+    // Faded out on a wall seen at a grazing angle, where the picture would be stretched.
+    float graze = abs(dot(sn, normalize(vPos - uC)));
+    if (!floorSurface) c.a *= smoothstep(${Math.sin((PROJ_GRAZING[0] * Math.PI) / 180).toFixed(4)}, ${Math.sin((PROJ_GRAZING[1] * Math.PI) / 180).toFixed(4)}, graze);
   } else if (uMode == 6) {
     // Three tongues of fire swaying and changing height, over glowing embers.
     vec2 p = vUV.xy;
@@ -4401,7 +4406,7 @@ class HaPlooumFloorplanCard extends LitElement {
             mesh: () =>
               new Mesh(MODE.picture, {
                 tex: { key: `picture:${snap.url}`, source: () => scaledPicture(snap.img, PICTURE_PX) },
-                proj: { C, fwd, right, up, f, k, sx, base, stretch, shift, warp: pinWarp(sc.pose, snap.aspect), aspect: snap.aspect, reach: PROJ_REACH, shadow: !indoor, key: it.id },
+                proj: { C, fwd, right, up, f, k, sx, base, stretch, shift, warp: pinWarp(sc.pose, snap.aspect), aspect: snap.aspect, reach: Math.max(PROJ_REACH, PROJ_FLOOR_REACH), shadow: !indoor, key: it.id },
               }),
           });
         }
