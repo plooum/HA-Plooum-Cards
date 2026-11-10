@@ -91,8 +91,11 @@ L'utilisateur travaille sur deux PC ; le pilote peut démarrer sur l'un ou l'aut
 | Floorplan : sol projeté jusqu'à 30 m (prompt 38, Sonnet, worktree) | `feature/floor-projection`, [#97](https://github.com/plooum/HA-Plooum-Cards/pull/97) | mergée le 2026-11-10 (5,7 min, 42 appels, aucun aller-retour) |
 | Floorplan : lampe suspendue de l'aquarium (prompt 39, Sonnet, worktree) | `feature/aquarium-lamp`, [#98](https://github.com/plooum/HA-Plooum-Cards/pull/98) | mergée le 2026-11-10 (7,2 min, 47 appels, aucun aller-retour ; nouveau `MODE.shimmer`) |
 | Retrait de l'agent board (pilote) | `feature/sans-agent-board`, [#96](https://github.com/plooum/HA-Plooum-Cards/pull/96) | mergée le 2026-11-10 |
+| Floorplan 3D : bocal embué (température + humidité par pièce, option `climate_display`, `humidity_max`) — prompt 40 | `feature/climate-jar` | sous-agent au travail (2026-11-10, portable) |
 
 ## Décisions (utilisateur)
+
+- 2026-11-10 : température + humidité en 3D du floorplan = **bocal embué** (tube thermomètre coloré comme le sol dans un bocal dont l'eau = humidité, buée qui monte avec l'humidité, eau violette + bulles au-delà de `humidity_max` (60 %), plaque de verre avec les valeurs), choisi sur maquettes après 3 tours de 5 propositions.
 
 - 2026-11-10 : **INTERDICTION TOTALE DE L'AGENT BOARD.** Ne jamais le démarrer, ni appeler `board.py`, ni ouvrir 127.0.0.1:8120, ni charger le skill `agent-board`, même en pilote. Retiré partout : hook de `~/.claude/settings.json`, lien du skill, claude-pilot installé, `dev/ha.sh` / `ui_test.py` / `shot.py` / `ui_runner.js`, skills ([#96](https://github.com/plooum/HA-Plooum-Cards/pull/96)). Remplace toutes les décisions plus bas qui parlent du board. L'avancement des sous-agents se donne dans le chat.
 - 2026-11-10 : floorplan 3D : le sol projeté sans fondu d'angle jusqu'à 30 m, murs inchangés (prompt 38) ; aquarium allumé = lampe suspendue avec halo et rayons animés, proposition C (prompt 39) ; température des pièces en 3D : visuel proche de la bande climat (temp + humidité), humidité aussi pour les pièces, en discussion.
