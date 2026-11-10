@@ -91,7 +91,7 @@ L'utilisateur travaille sur deux PC ; le pilote peut démarrer sur l'un ou l'aut
 | Floorplan : sol projeté jusqu'à 30 m (prompt 38, Sonnet, worktree) | `feature/floor-projection`, [#97](https://github.com/plooum/HA-Plooum-Cards/pull/97) | mergée le 2026-11-10 (5,7 min, 42 appels, aucun aller-retour) |
 | Floorplan : lampe suspendue de l'aquarium (prompt 39, Sonnet, worktree) | `feature/aquarium-lamp`, [#98](https://github.com/plooum/HA-Plooum-Cards/pull/98) | mergée le 2026-11-10 (7,2 min, 47 appels, aucun aller-retour ; nouveau `MODE.shimmer`) |
 | Retrait de l'agent board (pilote) | `feature/sans-agent-board`, [#96](https://github.com/plooum/HA-Plooum-Cards/pull/96) | mergée le 2026-11-10 |
-| Floorplan 3D : bocal embué (température + humidité par pièce, option `climate_display`, `humidity_max`) — prompt 40 | `feature/climate-jar` | sous-agent au travail (2026-11-10, portable) |
+| Floorplan 3D : bocal embué (température + humidité par pièce, option `climate_display`, `humidity_max`) — prompt 40 | `feature/climate-jar`, [#99](https://github.com/plooum/HA-Plooum-Cards/pull/99) ; skills [#100](https://github.com/plooum/HA-Plooum-Cards/pull/100) | 1re relecture : bocal trop petit / discret, renvoyé au sous-agent (×1,6, plus saturé, captures recadrées + étage) |
 
 ## Décisions (utilisateur)
 
@@ -176,6 +176,8 @@ Comment faire tourner la boucle maintenant (tout est dans les skills globaux `pi
 
 
 ## Notes sur les sous-agents
+
+- Prompt 40 (Sonnet, 1er tour) : **12,6 min**, 80 appels, modèle 3,7 min, outils 9,1 (lectures shell 268 s), 6 erreurs. Captures pleine page non recadrées, rendu trop petit pour juger : demander dans le prompt une taille minimale à l'écran de l'objet à juger.
 
 - Prompts 24 / 25 (Sonnet, en parallèle) : 24 (autre dépôt, pas de worktree) 2,2 min, 19 appels + un aller-retour ; 25 0,9 min, 13 appels. Leçon : un skill lié dans `~/.claude/skills` doit utiliser des chemins absolus (les relatifs se résolvent par rapport au lien).
 
