@@ -36,7 +36,7 @@ Then it shows, in this order:
 2. the **preview picture** `preview_entity` (an `image` entity), with the reason and the time of the picture. [Plooum CamPreview](https://github.com/plooum/HA-Plooum-CamPreview) keeps such a picture for each camera (`image.<camera>_preview`): the last good one, never black or of a turned camera;
 3. without a preview picture, a placeholder with the reason.
 
-A failed stream is tried again in the background, hidden: 10 s after it failed, then every minute, and at once when its entity becomes available again. It comes back as soon as it plays and isn't black, so the card never flickers between a stream that works and one that doesn't.
+A failed stream is tried again in the background, hidden: 3 s after it failed, then every minute, and at once when its entity becomes available again. It comes back as soon as it plays and isn't black, so the card never flickers between a stream that works and one that doesn't.
 
 The checks pause while the card is out of sight or the page is in the background: browsers pause a muted video nobody sees.
 

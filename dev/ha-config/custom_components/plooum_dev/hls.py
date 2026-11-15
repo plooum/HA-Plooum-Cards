@@ -8,6 +8,12 @@ stream_source, through Home Assistant's stream integration like a real RTSP came
 
 Files go to <config>/hls (runtime state, gitignored). Without ffmpeg, the streams stay missing
 and the porch cameras fail like a camera whose stream doesn't answer.
+
+A porch camera's fault is applied here, behind its unchanged URL, as a real camera would: `black`
+serves the black stream under the camera's name, `error` answers 404. (Changing the camera's
+stream_source with update_source() instead would hit a Home Assistant bug: a stop that meets a
+pending update_source() restart is lost and the stream's start/stop lock stays held for good,
+home-assistant/core#187019.)
 """
 
 from __future__ import annotations
@@ -27,6 +33,8 @@ from homeassistant.core import Event, HomeAssistant
 _LOGGER = logging.getLogger(__name__)
 NAME_RE = re.compile(r"^[a-z]+(?:\.m3u8|\d*\.ts)$")
 FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+# Stream name -> the input_select holding its camera's fault.
+FAULTS = {"hd": "input_select.porch_camera_fault", "sd": "input_select.porch_camera_sd_fault"}
 
 
 def hls_dir(hass: HomeAssistant) -> Path:
@@ -102,6 +110,14 @@ class HlsView(HomeAssistantView):
     async def get(self, request: web.Request, name: str) -> web.Response:
         if not NAME_RE.match(name):
             raise web.HTTPNotFound
+        stem = name.removesuffix(".m3u8")
+        if stem in FAULTS:
+            st = self._hass.states.get(FAULTS[stem])
+            fault = st.state if st else "none"
+            if fault in ("error", "unavailable"):
+                raise web.HTTPNotFound
+            if fault == "black":
+                name = "black.m3u8"
         path = hls_dir(self._hass) / name
         try:
             body = await self._hass.async_add_executor_job(path.read_bytes)

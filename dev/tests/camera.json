@@ -3,7 +3,7 @@
 // (plooum_dev/hls.py); their faults are input_select.porch_camera_fault / porch_camera_sd_fault.
 // The card's background retry (60 s) is shortened to 3 s through card._retryInterval. Run it in the
 // browser pane (runner.html?suite=camera): headless Chrome doesn't repaint MJPEG pictures for the
-// canvas, so "MJPEG camera" fails there. A stream may need its first retry (10 s) to start: Home
+// canvas, so "MJPEG camera" fails there. A stream may need its first retry (3 s) to start: Home
 // Assistant drops a stream output asked for while that stream stops (the previous page's).
 // dev/.venv/bin/python dev/ui_test.py dev/tests/camera.json [--only <name substring>]
 {

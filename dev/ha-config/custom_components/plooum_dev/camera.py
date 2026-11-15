@@ -327,7 +327,8 @@ class FakeCamera(Camera):
 class StreamCamera(Camera):
     """A camera with a real stream (an HLS of hls.py, read by HA's stream integration), and a fault
     chosen by an input_select: `unavailable` (the entity), `error` (its stream and pictures fail)
-    or `black` (it streams black). Its still pictures are drawn like the other fake cameras'."""
+    or `black` (it streams black), served by hls.py behind the same URL. Its still pictures are
+    drawn like the other fake cameras'."""
 
     _attr_should_poll = False
     _attr_supported_features = CameraEntityFeature.STREAM
@@ -345,19 +346,11 @@ class StreamCamera(Camera):
         st = self.hass.states.get(self._fault_entity)
         return st.state if st else "none"
 
-    def _source(self) -> str:
-        from .hls import stream_url
-
-        name = {"error": "missing", "black": "black"}.get(self._fault, self._stream_name)
-        return stream_url(self.hass, name)
-
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
 
         @callback
         def changed(event: Event[EventStateChangedData]) -> None:
-            if self.stream:  # a running stream follows the fault at once, as a camera would
-                self.stream.update_source(self._source())
             self.async_write_ha_state()
 
         self.async_on_remove(async_track_state_change_event(self.hass, [self._fault_entity], changed))
@@ -367,7 +360,10 @@ class StreamCamera(Camera):
         return self._fault != "unavailable"
 
     async def stream_source(self) -> str | None:
-        return self._source()
+        # Its fault is applied by the HLS server behind this URL (hls.py), as a real camera's.
+        from .hls import stream_url
+
+        return stream_url(self.hass, self._stream_name)
 
     async def async_camera_image(self, width: int | None = None, height: int | None = None) -> bytes | None:
         if self._fault == "error":

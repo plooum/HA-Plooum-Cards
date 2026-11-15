@@ -35,8 +35,10 @@ const OK_CHECKS = 2; // good checks in a row for a stream tried in the backgroun
 const START_TIMEOUT = 20000; // ms for a stream to show its first picture
 const STALL_TIMEOUT = 12000; // ms without a new frame for a playing video to count as stalled
 const FROZEN_TIMEOUT = 30000; // ms of identical MJPEG pictures (no frame counter there) to count as stalled
-const FIRST_RETRY = 10000; // ms before the first background try of a failed stream (a stream that failed to
-// start is often just restarting: Home Assistant drops a stream output asked for while the stream stops)
+// ms before the first background try of a failed stream. A stream that fails to start is often only
+// stopping: Home Assistant (2026.10) drops a stream output asked for while that stream stops (the old
+// worker's worker_finished() removes it), so the player gets no URL; a try a moment later succeeds.
+const FIRST_RETRY = 3000;
 const RETRY_INTERVAL = 60000; // ms between the next background tries
 const LOAD_TIMEOUT = 10000; // ms to wait for Home Assistant's camera player to be defined
 const RECORDER = 'plooum_camrecorder'; // the CamRecorder integration's domain
