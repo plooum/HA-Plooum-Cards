@@ -282,6 +282,14 @@ input_number:
     step: 1
     initial: 72
 
+# camera.garden_camera stops answering while its entity stays available (plooum_dev/camera.py):
+# `error` (no picture: the snapshot URL fails) or `black` (a black picture).
+input_select:
+  garden_camera_fault:
+    name: Garden camera fault
+    options: ["none", "error", "black"]
+    initial: "none"
+
 # image.garden_camera_preview (fake HA-Plooum-CamPreview preview from plooum_dev) takes a new
 # picture of camera.garden_camera (unless input_boolean.garden_preview_moved is on).
 input_button:

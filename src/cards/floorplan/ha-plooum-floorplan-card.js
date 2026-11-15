@@ -163,16 +163,7 @@ function isUnavailable(st) {
 // the canvas can't read (another origin) is not black and has no copy.
 function readSnapshot(img) {
   try {
-    const probe = document.createElement('canvas');
-    probe.width = 32;
-    probe.height = 18;
-    const ctx = probe.getContext('2d', { willReadFrequently: true });
-    ctx.drawImage(img, 0, 0, probe.width, probe.height);
-    const px = ctx.getImageData(0, 0, probe.width, probe.height).data;
-    let black = true;
-    for (let i = 0; i < px.length && black; i += 4) {
-      if (Math.max(px[i], px[i + 1], px[i + 2]) >= BLACK_LEVEL) black = false;
-    }
+    const black = isBlack(img);
     if (black) return { black, data: null };
     const copy = document.createElement('canvas');
     copy.width = Math.min(img.naturalWidth, THUMB_STORE_PX);
@@ -181,6 +172,30 @@ function readSnapshot(img) {
     return { black, data: copy.toDataURL('image/jpeg', 0.75) };
   } catch (err) {
     return { black: false, data: null };
+  }
+}
+
+// Whether a loaded picture is (almost) all black: a camera that sends a black frame. Throws when
+// the canvas can't read it (another origin).
+function isBlack(img) {
+  const probe = document.createElement('canvas');
+  probe.width = 32;
+  probe.height = 18;
+  const ctx = probe.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0, probe.width, probe.height);
+  const px = ctx.getImageData(0, 0, probe.width, probe.height).data;
+  for (let i = 0; i < px.length; i += 4) {
+    if (Math.max(px[i], px[i + 1], px[i + 2]) >= BLACK_LEVEL) return false;
+  }
+  return true;
+}
+
+// Whether a loaded picture is black; false when it can't be read.
+function blackPicture(img) {
+  try {
+    return isBlack(img);
+  } catch (err) {
+    return false;
   }
 }
 
@@ -3075,6 +3090,7 @@ class HaPlooumFloorplanCard extends LitElement {
     this._level3d = null; // floors shown in 3D: up to this index; floors.length = the closed house, with its roof
     this._orbit = null; // 3D point of view, null = framed automatically
     this._gl = null; // WebGL context of the 3D view (GlScene)
+    this._camFaults = {}; // camera id -> true while its last snapshot failed or was black, see _setFault()
     this._snaps = {}; // camera id -> snapshots loaded for the 3D scene, see _snapshot(); `preview:<id>` -> its preview, see _previewPicture()
     this._projPics = {}; // camera id -> pictures projected in 3D from a reference picture, see _projectionPicture()
     this._iconPaths = new Map(); // icon -> SVG path, for the 3D textures, see _iconPath()
@@ -4051,7 +4067,7 @@ class HaPlooumFloorplanCard extends LitElement {
       </div>
       ${domain === 'camera' && (!unavailable || this._previewUrl(item))
         ? html`<button class="row-cam" title="Open the live view" style="aspect-ratio: ${this._aspects[item.id] || 16 / 9};"
-            @click=${() => this._moreInfo(item.id)}>${unavailable ? html`<div class="screen-inner">${this._previewContent(item)}</div>` : this._cameraImage(st, false)}</button>`
+            @click=${() => this._moreInfo(item.id)}>${this._previewShown(item) ? html`<div class="screen-inner">${this._previewContent(item)}</div>` : this._cameraImage(st, false)}</button>`
         : nothing}`;
   }
 
@@ -4311,6 +4327,24 @@ class HaPlooumFloorplanCard extends LitElement {
     else if (tries < 50) this._iconTimer = setTimeout(() => this._probeIcons(tries + 1), 100);
   }
 
+  // Records whether a camera's last snapshot failed or was black (a camera that stopped answering
+  // while its entity stays available): its screens then show its preview, see _previewShown().
+  _setFault(id, fault) {
+    if (!!this._camFaults[id] === fault) return;
+    this._camFaults[id] = fault;
+    this.requestUpdate();
+  }
+
+  // Why a camera's screens show its preview (`preview_entity`) instead of its own picture: its
+  // state while it is unavailable, "No picture" while it answers none (or black ones). Null when
+  // they show the camera, or when it has no preview.
+  _previewShown(item) {
+    const st = item.st;
+    if (!st || !this._previewState(item)) return null;
+    if (isUnavailable(st)) return formatState(this.hass, st);
+    return this._camFaults[item.id] ? 'No picture' : null;
+  }
+
   // Latest snapshot of a camera loaded for the 3D scene ({ url, img, aspect }), or null until one
   // has loaded. A new one is loaded at each refresh tick; the previous one stays shown meanwhile.
   _snapshot(st) {
@@ -4326,13 +4360,21 @@ class HaPlooumFloorplanCard extends LitElement {
       img.onload = () => {
         if (snap.loading !== url) return;
         snap.loading = null;
+        // A black frame is not shown: the previous snapshot stays, as when one fails.
+        if (blackPicture(img)) {
+          snap.failed = url;
+          this._setFault(id, true);
+          return;
+        }
         snap.shown = { url, img, aspect: img.naturalWidth / img.naturalHeight };
         this._learnAspect(id, img);
+        this._setFault(id, false);
         this.requestUpdate();
       };
       img.onerror = () => {
         if (snap.loading === url) snap.loading = null;
         snap.failed = url;
+        this._setFault(id, true);
       };
       img.src = url;
     }
@@ -4925,9 +4967,11 @@ class HaPlooumFloorplanCard extends LitElement {
       icon = 'mdi:cctv-off';
       message = formatState(this.hass, st);
     } else if (!st.attributes.entity_picture) icon = 'mdi:cctv';
-    // An unavailable camera shows its preview (`preview_entity`), with its state and age.
-    const preview = st && icon ? this._previewPicture(item) : null;
-    const note = preview ? `${message || formatState(this.hass, st)} · ${this._previewAge(item)}` : '';
+    // An unavailable camera, or one that answers no picture, shows its preview (`preview_entity`),
+    // with why and its age.
+    const why = st && (icon || this._camFaults[item.id]) ? this._previewShown(item) : null;
+    const preview = why ? this._previewPicture(item) : null;
+    const note = preview ? `${why} · ${this._previewAge(item)}` : '';
     if (preview) icon = null;
     const path = icon ? this._iconPath(icon) : null;
     const moved = this._cameraMoved(item);
@@ -5116,10 +5160,13 @@ class HaPlooumFloorplanCard extends LitElement {
 
   // An unavailable camera's preview (`preview_entity`) with its state and age, or null without one.
   _previewContent(item) {
-    const url = this._previewUrl(item);
+    const why = this._previewShown(item);
+    const url = why && this._previewUrl(item);
     if (!url) return null;
+    // While the camera answers no picture, its snapshot is still tried (hidden) to come back to it.
+    const probe = isUnavailable(item.st) ? nothing : html`<div hidden>${this._cameraImage(item.st, false)}</div>`;
     return html`<img class="preview" alt="" src=${url} @load=${(ev) => this._learnAspect(item.id, ev.target)} />
-      <div class="screen-note">${formatState(this.hass, item.st)} · ${this._previewAge(item)}</div>`;
+      <div class="screen-note">${why} · ${this._previewAge(item)}</div>${probe}`;
   }
 
   // What a camera's screen shows: its picture and its name, or why it can't. `live`: see _cameraImage().
@@ -5131,7 +5178,7 @@ class HaPlooumFloorplanCard extends LitElement {
     } else if (isUnavailable(st)) {
       content = this._previewContent(item) || html`<div class="screen-msg"><ha-icon icon="mdi:cctv-off"></ha-icon><span>${formatState(this.hass, st)}</span></div>`;
     } else {
-      content = this._cameraImage(st, live);
+      content = this._previewContent(item) || this._cameraImage(st, live);
     }
     return html`<div class="screen-inner">
       ${content}<div class="screen-name">${this._cameraName(item)}</div>
@@ -5297,7 +5344,12 @@ class HaPlooumFloorplanCard extends LitElement {
     }
     const pic = st.attributes.entity_picture;
     if (!pic) return html`<div class="screen-msg"><ha-icon icon="mdi:cctv"></ha-icon></div>`;
-    return html`<img alt="" src="${pic}${pic.includes('?') ? '&' : '?'}t=${this._tick}" @load=${learn} />`;
+    // A snapshot that fails or comes out black flags the camera (see _setFault()).
+    const loaded = (ev) => {
+      learn(ev);
+      this._setFault(id, blackPicture(ev.target));
+    };
+    return html`<img alt="" src="${pic}${pic.includes('?') ? '&' : '?'}t=${this._tick}" @load=${loaded} @error=${() => this._setFault(id, true)} />`;
   }
 
   _learnAspect(id, img) {

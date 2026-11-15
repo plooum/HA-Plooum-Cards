@@ -34,6 +34,14 @@ CAMERAS = [
     ("Garage Camera", "indoor", ((180, 180, 185), (90, 90, 95)), "input_boolean.garage_camera_available"),
 ]
 WIDTH, HEIGHT = 640, 360
+# The garden camera's fault, its entity staying available: "none", "error" (no picture) or "black".
+FAULT = "input_select.garden_camera_fault"
+
+
+def _black_frame(width: int | None, height: int | None) -> bytes:
+    buf = io.BytesIO()
+    Image.new("RGB", (width or WIDTH, height or HEIGHT)).save(buf, "JPEG")
+    return buf.getvalue()
 
 # Scenes filmed for real, as the cameras placed on the test dashboard's floorplan view see them:
 # camera position (x, y, height), direction (clockwise from the top of the plan), tilt (down),
@@ -295,6 +303,13 @@ class FakeCamera(Camera):
         return state is None or state.state != "off"
 
     async def async_camera_image(self, width: int | None = None, height: int | None = None) -> bytes | None:
+        # A camera that stops answering while its entity stays available (FAULT): no picture, or a black one.
+        if self._scene == "house":
+            fault = self.hass.states.get(FAULT)
+            if fault is not None and fault.state == "error":
+                return None
+            if fault is not None and fault.state == "black":
+                return await self.hass.async_add_executor_job(_black_frame, width, height)
         positions = {}
         if self._scene == "house":
             for *_, entity in WINDOWS:
