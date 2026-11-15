@@ -107,6 +107,11 @@ input_boolean:
   garage_camera_available:
     name: Garage camera available
     initial: true
+  # image.garden_camera_preview (fake HA-Plooum-CamPreview preview from plooum_dev): the camera
+  # turned, the preview is `moved` and keeps its last picture.
+  garden_preview_moved:
+    name: Garden preview moved
+    initial: false
   # Vivarium card: aquariums, terrarium and pond (aquarium_pump/co2/uv above are reused).
   aquarium_60_air:
     name: Aquarium 60L air (critical)
@@ -276,6 +281,12 @@ input_number:
     max: 100
     step: 1
     initial: 72
+
+# image.garden_camera_preview (fake HA-Plooum-CamPreview preview from plooum_dev) takes a new
+# picture of camera.garden_camera (unless input_boolean.garden_preview_moved is on).
+input_button:
+  garden_preview_update:
+    name: Garden preview update
 
 counter:
   ptz_presses:

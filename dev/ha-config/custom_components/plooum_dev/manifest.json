@@ -6,6 +6,7 @@
   "dependencies": [
     "http",
     "camera",
+    "image",
     "binary_sensor",
     "button"
   ],

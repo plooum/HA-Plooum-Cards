@@ -500,7 +500,8 @@ views:
                   # plooum_dev/camera.py: keep in sync): projected, its picture must fall exactly
                   # on the ground, the outer walls and the roof slopes facing it. Its wide-angle lens
                   # bends straight lines (distortion).
-                  - { entity: camera.garden_camera, x: 14, y: 10, direction: 310, tilt: 12, distortion: -0.25, projection: true }
+                  # Projects its preview (fake HA-Plooum-CamPreview one, plooum_dev/image.py).
+                  - { entity: camera.garden_camera, x: 14, y: 10, direction: 310, tilt: 12, distortion: -0.25, projection: true, preview_entity: image.garden_camera_preview }
                   - { entity: camera.driveway_camera, x: 11, y: 1.5, direction: 90, fov: 70 }
                   # Films the Living Room for real (ROOM_VIEW in plooum_dev/camera.py: keep in sync):
                   # projected, its picture must fall exactly on the floor and walls.

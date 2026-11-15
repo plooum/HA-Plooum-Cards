@@ -3075,7 +3075,7 @@ class HaPlooumFloorplanCard extends LitElement {
     this._level3d = null; // floors shown in 3D: up to this index; floors.length = the closed house, with its roof
     this._orbit = null; // 3D point of view, null = framed automatically
     this._gl = null; // WebGL context of the 3D view (GlScene)
-    this._snaps = {}; // camera id -> snapshots loaded for the 3D scene, see _snapshot()
+    this._snaps = {}; // camera id -> snapshots loaded for the 3D scene, see _snapshot(); `preview:<id>` -> its preview, see _previewPicture()
     this._projPics = {}; // camera id -> pictures projected in 3D from a reference picture, see _projectionPicture()
     this._iconPaths = new Map(); // icon -> SVG path, for the 3D textures, see _iconPath()
     this._focus = null; // camera whose screen the 3D view is zoomed on
@@ -3819,9 +3819,13 @@ class HaPlooumFloorplanCard extends LitElement {
     const id = item.id;
     if (!spot || id === this._camHover || id === this._camPinned) return nothing;
     const unavailable = isUnavailable(item.st);
-    const url = this._thumb(item.st);
+    // A camera with a preview (`preview_entity`) shows it: already filtered and refreshed on the
+    // Home Assistant side. Its reload button asks the integration for a new one.
+    const preview = this._previewUrl(item);
+    const url = preview || this._thumb(item.st);
     if (!url && unavailable) return nothing;
     const thumb = thumbCache.get(id);
+    const canReload = preview ? !!(this.hass.services.plooum_campreview && this.hass.services.plooum_campreview.update) : !unavailable;
     const k = (v) => `calc(${round2(v)}px * var(--k, 1))`;
     // A thumbnail moved away from its camera is linked to it by a line, to its nearest point.
     const lx = clamp(0, spot.dx - spot.w / 2, spot.dx + spot.w / 2);
@@ -3839,14 +3843,15 @@ class HaPlooumFloorplanCard extends LitElement {
         ev.stopPropagation();
         this._moreInfo(id);
       }}>
-      ${url ? html`<img alt="" src=${url} />` : html`<ha-icon icon="mdi:cctv"></ha-icon>`}
-      ${unavailable
-        ? nothing
-        : html`<button class="camthumb-reload ${thumb.loading ? 'loading' : ''}" title="Reload the picture"
+      ${url ? html`<img alt="" src=${url} @load=${(ev) => this._learnAspect(id, ev.target)} />` : html`<ha-icon icon="mdi:cctv"></ha-icon>`}
+      ${canReload
+        ? html`<button class="camthumb-reload ${!preview && thumb.loading ? 'loading' : ''}" title="Reload the picture"
             @click=${(ev) => {
               ev.stopPropagation();
-              this._reloadThumb(id);
-            }}><ha-icon icon="mdi:refresh"></ha-icon></button>`}
+              if (preview) this.hass.callService('plooum_campreview', 'update', { entity_id: item.conf.preview_entity });
+              else this._reloadThumb(id);
+            }}><ha-icon icon="mdi:refresh"></ha-icon></button>`
+        : nothing}
     </div>`;
   }
 
@@ -4044,9 +4049,9 @@ class HaPlooumFloorplanCard extends LitElement {
         </button>
         ${control}
       </div>
-      ${domain === 'camera' && !unavailable
+      ${domain === 'camera' && (!unavailable || this._previewUrl(item))
         ? html`<button class="row-cam" title="Open the live view" style="aspect-ratio: ${this._aspects[item.id] || 16 / 9};"
-            @click=${() => this._moreInfo(item.id)}>${this._cameraImage(st, false)}</button>`
+            @click=${() => this._moreInfo(item.id)}>${unavailable ? html`<div class="screen-inner">${this._previewContent(item)}</div>` : this._cameraImage(st, false)}</button>`
         : nothing}`;
   }
 
@@ -4340,6 +4345,8 @@ class HaPlooumFloorplanCard extends LitElement {
   // LIVE_PROJECTION_INTERVAL instead, as long as it still looks like the reference; one that doesn't
   // is never projected and flags the camera as moved. `snapshot`, or no reference: see _snapshot().
   _projectionPicture(it) {
+    const preview = this._previewPicture(it);
+    if (preview) return preview;
     const mode = this.config.projection_picture || 'frozen';
     const refId = it.conf.reference_picture;
     if (mode === 'snapshot' || !refId) return this._snapshot(it.st);
@@ -4377,10 +4384,68 @@ class HaPlooumFloorplanCard extends LitElement {
     return (mode === 'live' && pp.good) || pp.ref;
   }
 
-  // Whether a camera's last snapshot no longer looks like its reference picture (`projection_picture: live`).
+  // Whether a camera's last snapshot no longer looks like its reference picture (`projection_picture: live`),
+  // or its preview (`preview_entity`) says it turned.
   _cameraMoved(item) {
+    if (!item.conf.projection) return false;
+    const preview = this._previewState(item);
+    if (preview) return preview.attributes.moved === true;
     const pp = this._projPics[item.id];
-    return !!(pp && pp.moved && item.conf.projection && this.config.projection_picture === 'live' && pp.refUrl === uploadedImageUrl(item.conf.reference_picture));
+    return !!(pp && pp.moved && this.config.projection_picture === 'live' && pp.refUrl === uploadedImageUrl(item.conf.reference_picture));
+  }
+
+  // State of a camera's preview (`preview_entity`: an image entity of the Plooum CamPreview
+  // integration, the camera's last good picture), or null when it has none or it is unavailable.
+  _previewState(item) {
+    const id = item.conf.preview_entity;
+    const st = id && this.hass.states[id];
+    return st && !isUnavailable(st) && st.attributes.entity_picture ? st : null;
+  }
+
+  // URL of a camera's preview picture (`preview_entity`), or null. The `t` parameter is the time of
+  // the picture: the browser loads it again only when a new one was taken (and when its token turns).
+  _previewUrl(item) {
+    const st = this._previewState(item);
+    if (!st) return null;
+    const pic = st.attributes.entity_picture;
+    return `${pic}${pic.includes('?') ? '&' : '?'}t=${encodeURIComponent(st.state)}`;
+  }
+
+  // "Picture of 14:05" (or of a date when older than a day): the age of a camera's preview.
+  _previewAge(item) {
+    const st = this._previewState(item);
+    const at = st && new Date(st.state);
+    if (!at || isNaN(at)) return 'Last picture';
+    const lang = (this.hass.locale && this.hass.locale.language) || undefined;
+    const old = Date.now() - at.getTime() > 86400000;
+    const when = old ? at.toLocaleString(lang, { dateStyle: 'short', timeStyle: 'short' }) : at.toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit' });
+    return `Picture of ${when}`;
+  }
+
+  // Picture a camera with a preview (`preview_entity`) projects: its preview, reloaded only when it
+  // changes (its state is the time of its picture). Null until one has loaded, or without a preview:
+  // see _projectionPicture().
+  _previewPicture(it) {
+    const st = this._previewState(it);
+    if (!st) return null;
+    const url = this._previewUrl(it);
+    const key = `preview:${it.id}`;
+    const snap = this._snaps[key] || (this._snaps[key] = { shown: null, loading: null, stamp: null });
+    // The URL's token changes every few minutes: only a new picture (a new state) is loaded again.
+    if (snap.loading !== st.state && (!snap.shown || snap.stamp !== st.state)) {
+      const stamp = st.state;
+      snap.loading = stamp;
+      loadImage(url).then((img) => {
+        if (snap.loading !== stamp) return;
+        snap.loading = null;
+        if (!img) return;
+        snap.shown = { url, img, aspect: img.naturalWidth / img.naturalHeight };
+        snap.stamp = stamp;
+        this._learnAspect(it.id, img);
+        this.requestUpdate();
+      });
+    }
+    return snap.shown;
   }
 
   // Meshes of the scene for a point of view: `eye` is the viewer's position, `toViewer` the
@@ -4860,9 +4925,14 @@ class HaPlooumFloorplanCard extends LitElement {
       icon = 'mdi:cctv-off';
       message = formatState(this.hass, st);
     } else if (!st.attributes.entity_picture) icon = 'mdi:cctv';
+    // An unavailable camera shows its preview (`preview_entity`), with its state and age.
+    const preview = st && icon ? this._previewPicture(item) : null;
+    const note = preview ? `${message || formatState(this.hass, st)} · ${this._previewAge(item)}` : '';
+    if (preview) icon = null;
     const path = icon ? this._iconPath(icon) : null;
     const moved = this._cameraMoved(item);
-    const key = `screen:${item.id}:${snap && !icon ? snap.url : ''}:${name}:${message}:${icon}:${!!path}:${h}:${moved}`;
+    const shown = preview || (snap && !icon ? snap : null);
+    const key = `screen:${item.id}:${shown ? shown.url : ''}:${name}:${message}:${note}:${icon}:${!!path}:${h}:${moved}`;
     const source = () => {
       const [c, ctx] = canvas2d(w, h);
       const round = (x, y, rw, rh, r) => {
@@ -4878,12 +4948,12 @@ class HaPlooumFloorplanCard extends LitElement {
       ctx.fillRect(border, border, w - 2 * border, h - 2 * border);
       const iw = w - 2 * border;
       const ih = h - 2 * border;
-      if (snap && !icon) {
+      if (shown) {
         // object-fit: cover
-        const k = Math.max(iw / snap.img.naturalWidth, ih / snap.img.naturalHeight);
+        const k = Math.max(iw / shown.img.naturalWidth, ih / shown.img.naturalHeight);
         const sw = iw / k;
         const sh = ih / k;
-        ctx.drawImage(snap.img, (snap.img.naturalWidth - sw) / 2, (snap.img.naturalHeight - sh) / 2, sw, sh, border, border, iw, ih);
+        ctx.drawImage(shown.img, (shown.img.naturalWidth - sw) / 2, (shown.img.naturalHeight - sh) / 2, sw, sh, border, border, iw, ih);
       } else if (icon) {
         ctx.fillStyle = st ? '#9aa0a6' : colors.warning;
         const size = Math.min(72, ih * 0.4);
@@ -4894,7 +4964,16 @@ class HaPlooumFloorplanCard extends LitElement {
         ctx.fillText(fitText(ctx, message, iw - 32), w / 2, h / 2 + size * 0.3);
         ctx.textAlign = 'left';
       }
-      if (moved) {
+      if (note) {
+        ctx.font = `22px ${colors.font}`;
+        const text = fitText(ctx, note, iw - 36);
+        round(border + 8, border + 8, ctx.measureText(text).width + 20, 34, 6);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, border + 18, border + 8 + 17);
+      } else if (moved) {
         ctx.font = `22px ${colors.font}`;
         const text = fitText(ctx, MOVED_MESSAGE, iw - 36);
         round(border + 8, border + 8, ctx.measureText(text).width + 20, 34, 6);
@@ -5035,6 +5114,14 @@ class HaPlooumFloorplanCard extends LitElement {
     return item.name || (item.st ? friendlyName(this.hass, item.id) : item.id);
   }
 
+  // An unavailable camera's preview (`preview_entity`) with its state and age, or null without one.
+  _previewContent(item) {
+    const url = this._previewUrl(item);
+    if (!url) return null;
+    return html`<img class="preview" alt="" src=${url} @load=${(ev) => this._learnAspect(item.id, ev.target)} />
+      <div class="screen-note">${formatState(this.hass, item.st)} · ${this._previewAge(item)}</div>`;
+  }
+
   // What a camera's screen shows: its picture and its name, or why it can't. `live`: see _cameraImage().
   _screenContent(item, live) {
     const st = item.st;
@@ -5042,7 +5129,7 @@ class HaPlooumFloorplanCard extends LitElement {
     if (!st) {
       content = html`<div class="screen-msg"><ha-icon icon="mdi:help-circle-outline"></ha-icon><span>${item.id}: entity not found</span></div>`;
     } else if (isUnavailable(st)) {
-      content = html`<div class="screen-msg"><ha-icon icon="mdi:cctv-off"></ha-icon><span>${formatState(this.hass, st)}</span></div>`;
+      content = this._previewContent(item) || html`<div class="screen-msg"><ha-icon icon="mdi:cctv-off"></ha-icon><span>${formatState(this.hass, st)}</span></div>`;
     } else {
       content = this._cameraImage(st, live);
     }
@@ -6236,7 +6323,24 @@ class HaPlooumFloorplanCard extends LitElement {
         overflow: hidden;
         text-overflow: ellipsis;
       }
+      .screen-note {
+        position: absolute;
+        left: 8px;
+        top: 8px;
+        max-width: calc(100% - 16px);
+        padding: 2px 10px;
+        border-radius: 6px;
+        background: rgba(0, 0, 0, 0.7);
+        color: #fff;
+        font-size: 20px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
       .board .screen-warn,
+      .board .screen-note,
+      .row-cam .screen-note,
+      .campop .screen-note,
       .campop .screen-warn {
         left: 4px;
         top: 4px;
@@ -7598,6 +7702,11 @@ class HaPlooumFloorplanCardEditor extends LitElement {
           },
           { name: 'fov', label: 'Field of view (°)', selector: { number: { min: 20, max: 170, step: 5, mode: 'box' } } },
           {
+            name: 'preview_entity',
+            label: 'Preview picture from Plooum CamPreview (optional: thumbnails, while unavailable, projection)',
+            selector: { entity: { domain: 'image' } },
+          },
+          {
             name: 'preview_position',
             label: 'Preview position on the 2D plan',
             selector: {
@@ -8479,10 +8588,11 @@ class HaPlooumFloorplanCardEditor extends LitElement {
       // The direction is always kept: it would otherwise change when the camera is moved.
       for (const key of CAMERA_KEYS) if (key in defaults && num(value[key]) === defaults[key]) delete value[key];
       if (!value.projection) delete value.projection;
+      if (!value.preview_entity) delete value.preview_entity;
       if (value.preview_position === 'auto') delete value.preview_position;
       if (domainOf(value.entity) !== 'camera') {
         if (!value.model) delete value.direction;
-        for (const key of ['projection', 'preview_position', 'reference_picture', 'distortion', 'x_scale', 'pins', ...CORRECTION_KEYS, ...CAMERA_KEYS]) delete value[key];
+        for (const key of ['projection', 'preview_entity', 'preview_position', 'reference_picture', 'distortion', 'x_scale', 'pins', ...CORRECTION_KEYS, ...CAMERA_KEYS]) delete value[key];
       }
     }
     if (listKey === 'entities') {
