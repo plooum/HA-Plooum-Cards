@@ -9,7 +9,8 @@ Also serves the live UI test runner (dev/runner.html, dev/ui_runner.js) with the
 (dev/ui_helpers.js) and the suites (dev/tests/<name>.json), read-only and no-store: only those
 paths, nothing else of dev/.
 
-Also sets up fake cameras (camera.py) for the floorplan card's 3D view, and fake PC agents (pc.py,
+Also sets up fake cameras (camera.py) for the floorplan card's 3D view, a fake camera preview
+(image.py, as HA-Plooum-CamPreview makes them) for its projection, and fake PC agents (pc.py,
 binary_sensor.py, button.py) for the PC card: they need a config entry (config_flow.py, import only)
 to own their devices.
 """
@@ -98,6 +99,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     hass.http.register_view(SuiteView(hass, repo_root))
     _LOGGER.info("Serving %s/ha-plooum-cards.js at %s", repo_root, BASE_URL)
     hass.async_create_task(discovery.async_load_platform(hass, "camera", DOMAIN, {}, config))
+    hass.async_create_task(discovery.async_load_platform(hass, "image", DOMAIN, {}, config))
     hass.data[DOMAIN] = {"pcs": setup_pcs(hass)}
     if not hass.config_entries.async_entries(DOMAIN):
         hass.async_create_task(

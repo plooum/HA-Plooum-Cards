@@ -3075,7 +3075,7 @@ class HaPlooumFloorplanCard extends LitElement {
     this._level3d = null; // floors shown in 3D: up to this index; floors.length = the closed house, with its roof
     this._orbit = null; // 3D point of view, null = framed automatically
     this._gl = null; // WebGL context of the 3D view (GlScene)
-    this._snaps = {}; // camera id -> snapshots loaded for the 3D scene, see _snapshot()
+    this._snaps = {}; // camera id -> snapshots loaded for the 3D scene, see _snapshot(); `preview:<id>` -> its preview, see _previewPicture()
     this._projPics = {}; // camera id -> pictures projected in 3D from a reference picture, see _projectionPicture()
     this._iconPaths = new Map(); // icon -> SVG path, for the 3D textures, see _iconPath()
     this._focus = null; // camera whose screen the 3D view is zoomed on
@@ -4340,6 +4340,8 @@ class HaPlooumFloorplanCard extends LitElement {
   // LIVE_PROJECTION_INTERVAL instead, as long as it still looks like the reference; one that doesn't
   // is never projected and flags the camera as moved. `snapshot`, or no reference: see _snapshot().
   _projectionPicture(it) {
+    const preview = this._previewPicture(it);
+    if (preview) return preview;
     const mode = this.config.projection_picture || 'frozen';
     const refId = it.conf.reference_picture;
     if (mode === 'snapshot' || !refId) return this._snapshot(it.st);
@@ -4377,10 +4379,49 @@ class HaPlooumFloorplanCard extends LitElement {
     return (mode === 'live' && pp.good) || pp.ref;
   }
 
-  // Whether a camera's last snapshot no longer looks like its reference picture (`projection_picture: live`).
+  // Whether a camera's last snapshot no longer looks like its reference picture (`projection_picture: live`),
+  // or its preview (`preview_entity`) says it turned.
   _cameraMoved(item) {
+    if (!item.conf.projection) return false;
+    const preview = this._previewState(item);
+    if (preview) return preview.attributes.moved === true;
     const pp = this._projPics[item.id];
-    return !!(pp && pp.moved && item.conf.projection && this.config.projection_picture === 'live' && pp.refUrl === uploadedImageUrl(item.conf.reference_picture));
+    return !!(pp && pp.moved && this.config.projection_picture === 'live' && pp.refUrl === uploadedImageUrl(item.conf.reference_picture));
+  }
+
+  // State of a camera's preview (`preview_entity`: an image entity of the Plooum CamPreview
+  // integration, the camera's last good picture), or null when it has none or it is unavailable.
+  _previewState(item) {
+    const id = item.conf.preview_entity;
+    const st = id && this.hass.states[id];
+    return st && !isUnavailable(st) && st.attributes.entity_picture ? st : null;
+  }
+
+  // Picture a camera with a preview (`preview_entity`) projects: its preview, reloaded only when it
+  // changes (its state is the time of its picture). Null until one has loaded, or without a preview:
+  // see _projectionPicture().
+  _previewPicture(it) {
+    const st = this._previewState(it);
+    if (!st) return null;
+    const pic = st.attributes.entity_picture;
+    const url = `${pic}${pic.includes('?') ? '&' : '?'}t=${encodeURIComponent(st.state)}`;
+    const key = `preview:${it.id}`;
+    const snap = this._snaps[key] || (this._snaps[key] = { shown: null, loading: null, stamp: null });
+    // The URL's token changes every few minutes: only a new picture (a new state) is loaded again.
+    if (snap.loading !== st.state && (!snap.shown || snap.stamp !== st.state)) {
+      const stamp = st.state;
+      snap.loading = stamp;
+      loadImage(url).then((img) => {
+        if (snap.loading !== stamp) return;
+        snap.loading = null;
+        if (!img) return;
+        snap.shown = { url, img, aspect: img.naturalWidth / img.naturalHeight };
+        snap.stamp = stamp;
+        this._learnAspect(it.id, img);
+        this.requestUpdate();
+      });
+    }
+    return snap.shown;
   }
 
   // Meshes of the scene for a point of view: `eye` is the viewer's position, `toViewer` the
@@ -7629,6 +7670,9 @@ class HaPlooumFloorplanCardEditor extends LitElement {
           ],
         },
         { name: 'projection', label: 'Project the picture onto the floor and walls it sees (3D)', selector: { boolean: {} } },
+        ...(ent.projection
+          ? [{ name: 'preview_entity', label: 'Projected picture: preview from Plooum CamPreview (optional)', selector: { entity: { domain: 'image' } } }]
+          : []),
       ];
       const modelDefaults = model ? { direction: MODEL_DIRECTION, length: aquariumLength(ent.variant), ...(MODELS[model].length ? { variant: MODELS[model][0] } : {}) } : {};
       const data = { length: WINDOW_LENGTH, light: naturalRole === 'light', ...modelDefaults, ...(isCamera ? { ...this._cameraDefaults(floor, sel.index), preview_position: 'auto' } : {}), ...ent };
@@ -8479,10 +8523,11 @@ class HaPlooumFloorplanCardEditor extends LitElement {
       // The direction is always kept: it would otherwise change when the camera is moved.
       for (const key of CAMERA_KEYS) if (key in defaults && num(value[key]) === defaults[key]) delete value[key];
       if (!value.projection) delete value.projection;
+      if (!value.preview_entity) delete value.preview_entity;
       if (value.preview_position === 'auto') delete value.preview_position;
       if (domainOf(value.entity) !== 'camera') {
         if (!value.model) delete value.direction;
-        for (const key of ['projection', 'preview_position', 'reference_picture', 'distortion', 'x_scale', 'pins', ...CORRECTION_KEYS, ...CAMERA_KEYS]) delete value[key];
+        for (const key of ['projection', 'preview_entity', 'preview_position', 'reference_picture', 'distortion', 'x_scale', 'pins', ...CORRECTION_KEYS, ...CAMERA_KEYS]) delete value[key];
       }
     }
     if (listKey === 'entities') {

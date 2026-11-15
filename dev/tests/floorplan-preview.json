@@ -1,0 +1,66 @@
+// Floorplan card: a camera's `preview_entity` (an image entity of HA-Plooum-CamPreview, the camera's last good
+// picture): projected in 3D, reloaded only when it changes, its `moved` flag warns. Fake preview: plooum_dev/image.py.
+// dev/.venv/bin/python dev/ui_test.py dev/tests/floorplan-preview.json
+{
+  "path": "/plooum-test/floorplan",
+  "viewport": [1700, 1050],
+  "tests": [
+    {
+      "name": "the garden camera projects its preview",
+      "steps": [
+        { "js": "S.card = await waitFor(() => T.card.all('ha-plooum-floorplan-card').find((c) => c.config.title === 'Home in 3D' && c._scene3dState), 15000, 'the 3D card'); S.it = { id: 'camera.garden_camera', st: T.hass().states['camera.garden_camera'], conf: { entity: 'camera.garden_camera', projection: true, preview_entity: 'image.garden_camera_preview' } }; S.pic = await waitFor(() => S.card._snaps['preview:camera.garden_camera'] && S.card._snaps['preview:camera.garden_camera'].shown, 8000, 'the preview picture');" },
+        { "assert": "S.pic.url.includes('/api/image_proxy/image.garden_camera_preview') && S.pic.img.naturalWidth > 0", "msg": "the preview is loaded from the image entity" },
+        { "assert": "S.card._projectionPicture(S.it) === S.pic", "msg": "and is the projected picture, whatever projection_picture" },
+        { "assert": "S.pic.url.includes('t=' + encodeURIComponent(T.hass().states['image.garden_camera_preview'].state))", "msg": "its URL carries the preview's time (cache key)" }
+      ]
+    },
+    {
+      "name": "a new preview is loaded once, a token change is not",
+      "steps": [
+        { "js": "S.card = await waitFor(() => T.card.all('ha-plooum-floorplan-card').find((c) => c.config.title === 'Home in 3D' && c._snaps['preview:camera.garden_camera'] && c._snaps['preview:camera.garden_camera'].shown), 15000, 'the preview'); S.before = S.card._snaps['preview:camera.garden_camera'].shown; S.state = T.hass().states['image.garden_camera_preview'].state;" },
+        { "js": "S.card.requestUpdate(); await S.card.updateComplete; await sleep(300);" },
+        { "assert": "S.card._snaps['preview:camera.garden_camera'].shown === S.before", "msg": "a redraw keeps the same picture" },
+        { "js": "await T.card.call('input_button', 'press', { entity_id: 'input_button.garden_preview_update' }); await T.card.waitState('image.garden_camera_preview', (st) => st.state !== S.state); S.after = await waitFor(() => { const s = S.card._snaps['preview:camera.garden_camera']; return s.shown !== S.before && s.shown; }, 8000, 'the new preview');" },
+        { "assert": "S.after.url.includes('t=' + encodeURIComponent(T.hass().states['image.garden_camera_preview'].state))", "msg": "the new preview is shown" }
+      ]
+    },
+    {
+      "name": "a moved preview warns on the camera's screen",
+      "steps": [
+        { "js": "S.card = await waitFor(() => T.card.all('ha-plooum-floorplan-card').find((c) => c.config.title === 'Home in 3D' && c._scene3dState), 15000, 'the 3D card'); S.it = { id: 'camera.garden_camera', conf: { entity: 'camera.garden_camera', projection: true, preview_entity: 'image.garden_camera_preview' } };" },
+        { "assert": "S.card._cameraMoved(S.it) === false", "msg": "not moved at first" },
+        { "js": "await T.card.call('input_boolean', 'turn_on', { entity_id: 'input_boolean.garden_preview_moved' }); await T.card.waitState('image.garden_camera_preview', (st) => st.attributes.moved === true);" },
+        { "assert": "S.card._cameraMoved(S.it) === true", "msg": "moved once the preview says so" },
+        { "assert": "S.card._cameraMoved({ ...S.it, conf: { ...S.it.conf, projection: false } }) === false", "msg": "only for a projecting camera" }
+      ],
+      "finally": [
+        { "js": "await T.card.call('input_boolean', 'turn_off', { entity_id: 'input_boolean.garden_preview_moved' });" }
+      ]
+    },
+    {
+      "name": "without a usable preview, back to the camera's pictures",
+      "steps": [
+        { "js": "S.card = await waitFor(() => T.card.all('ha-plooum-floorplan-card').find((c) => c.config.title === 'Home in 3D' && c._scene3dState), 15000, 'the 3D card'); S.st = T.hass().states['camera.garden_camera'];" },
+        { "assert": "S.card._previewPicture({ id: 'camera.garden_camera', st: S.st, conf: { entity: 'camera.garden_camera', projection: true, preview_entity: 'image.does_not_exist' } }) === null", "msg": "a missing preview entity gives no preview" },
+        { "assert": "S.card._previewPicture({ id: 'camera.garden_camera', st: S.st, conf: { entity: 'camera.garden_camera', projection: true } }) === null", "msg": "nor does no preview_entity" },
+        { "js": "S.snap = await waitFor(() => S.card._projectionPicture({ id: 'camera.garden_camera', st: S.st, conf: { entity: 'camera.garden_camera', projection: true, preview_entity: 'image.does_not_exist' } }), 8000, 'a snapshot');" },
+        { "assert": "S.snap.url.includes('camera_proxy/camera.garden_camera')", "msg": "the camera's snapshot is projected instead" }
+      ]
+    },
+    {
+      "name": "editor: the preview field shows only for a projecting camera, and is saved",
+      "path": "/plooum-edit/floorplan?edit=1",
+      "steps": [
+        { "js": "await openEditor(2); S.ed = await fp.selectEntity('camera.garden_camera', { advanced: true }); S.form = () => T.deep(S.ed.shadowRoot, 'ha-form').find((f) => (f.schema || []).some((s) => s.name === 'projection'));" },
+        { "assert": "S.form() && S.form().schema.some((s) => s.name === 'preview_entity')", "msg": "shown when projecting" },
+        { "js": "S.events = []; S.ed.addEventListener('config-changed', (e) => S.events.push(e.detail.config)); const f = S.form(); f.dispatchEvent(new CustomEvent('value-changed', { detail: { value: { ...f.data, preview_entity: '' } }, bubbles: true, composed: true })); await S.ed.updateComplete; S.cam = () => S.events.at(-1).floors[0].entities.find((e) => e.entity === 'camera.garden_camera');" },
+        { "assert": "S.events.length > 0 && !('preview_entity' in S.cam())", "msg": "an empty preview is dropped from the config" },
+        { "js": "const f = S.form(); f.dispatchEvent(new CustomEvent('value-changed', { detail: { value: { ...f.data, preview_entity: 'image.garden_camera_preview', projection: false } }, bubbles: true, composed: true })); await S.ed.updateComplete;" },
+        { "assert": "S.cam().projection === undefined && S.form() && !S.form().schema.some((s) => s.name === 'preview_entity')", "msg": "hidden once the projection is off" }
+      ],
+      "finally": [
+        { "js": "await cancelDialog();" }
+      ]
+    }
+  ]
+}
