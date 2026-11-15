@@ -1,0 +1,126 @@
+// Camera card (/plooum-test/camera): fallbacks (porch HD -> SD -> CamPreview picture, and back),
+// CamRecorder buttons, zoom, editor. The porch cameras stream live HLS made by ffmpeg
+// (plooum_dev/hls.py); their faults are input_select.porch_camera_fault / porch_camera_sd_fault.
+// The card's background retry (60 s) is shortened to 3 s through card._retryInterval. Run it in the
+// browser pane (runner.html?suite=camera): headless Chrome doesn't repaint MJPEG pictures for the
+// canvas, so "MJPEG camera" fails there. A stream may need its first retry (10 s) to start: Home
+// Assistant drops a stream output asked for while that stream stops (the previous page's).
+// dev/.venv/bin/python dev/ui_test.py dev/tests/camera.json [--only <name substring>]
+{
+  "path": "/plooum-test/camera",
+  "viewport": [1400, 1800],
+  "tests": [
+    {
+      "name": "renders: streams play, missing camera shows its reason",
+      "steps": [
+        { "js": "S.cards = await T.card.rendered('ha-plooum-camera-card', 5); S.by = (e) => S.cards.find((c) => c.config.entity === e);" },
+        { "assert": "await waitFor(() => ['camera.porch_camera', 'camera.garden_camera', 'camera.porch_camera_sd'].every((e) => { const c = S.by(e); return c._active === 'main' && c._watch.active && c._watch.active.good >= 2; }), 60000, 'three streams play')", "msg": "HLS (porch, porch SD) and MJPEG (garden) streams play and aren't black" },
+        { "assert": "S.by('camera.does_not_exist')._active === 'preview' && S.by('camera.does_not_exist').renderRoot.querySelector('.banner').textContent.includes('Camera not found')", "msg": "a missing camera shows the placeholder with its reason", "show": "S.by('camera.does_not_exist').renderRoot.textContent" },
+        { "assert": "!S.by('camera.garage_camera').renderRoot.querySelector('.btn.photo')", "msg": "show_controls: false hides the buttons" },
+        { "assert": "S.by('camera.porch_camera').renderRoot.querySelector('.name').textContent === 'Porch Camera' && !S.by('camera.garden_camera').renderRoot.querySelector('.name')", "msg": "name from the entity, hidden by show_name: false" }
+      ]
+    },
+    {
+      "name": "fallbacks: black -> SD, SD failing -> preview, then back to HD",
+      "steps": [
+        { "js": "S.c = (await T.card.rendered('ha-plooum-camera-card', 5)).find((c) => c.config.entity === 'camera.porch_camera'); S.c._retryInterval = 3000;" },
+        { "assert": "await waitFor(() => S.c._watch.active && S.c._watch.active.good >= 2, 30000, 'HD plays')", "msg": "HD plays" },
+        { "js": "await T.card.call('input_select', 'select_option', { entity_id: 'input_select.porch_camera_fault', option: 'black' });" },
+        { "assert": "await waitFor(() => S.c._active === 'sd', 20000, 'SD shown')", "msg": "a black HD stream gives way to the SD stream", "show": "JSON.stringify(S.c._faults)" },
+        { "assert": "S.c._faults.main.reason === 'black' && S.c.renderRoot.querySelector('.badge.sd')", "msg": "fault black, SD badge" },
+        { "js": "await T.card.call('input_select', 'select_option', { entity_id: 'input_select.porch_camera_sd_fault', option: 'error' });" },
+        { "assert": "await waitFor(() => S.c._active === 'preview', 40000, 'preview shown')", "msg": "a failing SD stream gives way to the CamPreview picture", "show": "JSON.stringify(S.c._faults)" },
+        { "assert": "S.c.renderRoot.querySelector('img.preview').src.includes('image_proxy') && S.c.renderRoot.querySelector('.banner').textContent.includes('Black picture')", "msg": "the preview picture with the main stream's reason", "show": "S.c.renderRoot.querySelector('.banner') && S.c.renderRoot.querySelector('.banner').textContent" },
+        { "js": "await T.card.call('input_select', 'select_option', { entity_id: 'input_select.porch_camera_fault', option: 'none' }); await T.card.call('input_select', 'select_option', { entity_id: 'input_select.porch_camera_sd_fault', option: 'none' }); S.probed = false;" },
+        { "assert": "await waitFor(() => { S.probed = S.probed || S.c._probe === 'main'; return S.c._active === 'main'; }, 40000, 'HD back')", "msg": "HD comes back once it plays again" },
+        { "assert": "S.probed", "msg": "it was tried in the background first (hidden probe)" }
+      ],
+      "finally": [
+        { "js": "await T.card.call('input_select', 'select_option', { entity_id: 'input_select.porch_camera_fault', option: 'none' }); await T.card.call('input_select', 'select_option', { entity_id: 'input_select.porch_camera_sd_fault', option: 'none' });" }
+      ]
+    },
+    {
+      "name": "fallbacks: unavailable entity -> SD at once, back through a probe",
+      "steps": [
+        { "js": "S.c = (await T.card.rendered('ha-plooum-camera-card', 5)).find((c) => c.config.entity === 'camera.porch_camera');" },
+        { "assert": "await waitFor(() => S.c._watch.active && S.c._watch.active.good >= 2, 30000, 'HD plays')", "msg": "HD plays" },
+        { "js": "await T.card.call('input_select', 'select_option', { entity_id: 'input_select.porch_camera_fault', option: 'unavailable' });" },
+        { "assert": "await waitFor(() => S.c._active === 'sd', 3000, 'SD')", "msg": "an unavailable camera switches to SD at once" },
+        { "js": "await T.card.call('input_select', 'select_option', { entity_id: 'input_select.porch_camera_fault', option: 'none' }); S.probed = false;" },
+        { "assert": "await waitFor(() => { S.probed = S.probed || S.c._probe === 'main'; return S.c._active === 'main'; }, 30000, 'HD back') && S.probed", "msg": "available again: tried at once in the background, then shown" }
+      ],
+      "finally": [
+        { "js": "await T.card.call('input_select', 'select_option', { entity_id: 'input_select.porch_camera_fault', option: 'none' });" }
+      ]
+    },
+    {
+      "name": "MJPEG camera: no picture -> CamPreview picture",
+      "steps": [
+        { "js": "S.c = (await T.card.rendered('ha-plooum-camera-card', 5)).find((c) => c.config.entity === 'camera.garden_camera');" },
+        { "assert": "await waitFor(() => S.c._watch.active && S.c._watch.active.good >= 2, 30000, 'garden plays')", "msg": "the MJPEG stream plays" },
+        { "js": "await T.card.call('input_select', 'select_option', { entity_id: 'input_select.garden_camera_fault', option: 'black' });" },
+        { "assert": "await waitFor(() => S.c._active === 'preview', 20000, 'preview')", "msg": "black MJPEG pictures give way to the preview (no SD configured)", "show": "JSON.stringify(S.c._faults)" }
+      ],
+      "finally": [
+        { "js": "await T.card.call('input_select', 'select_option', { entity_id: 'input_select.garden_camera_fault', option: 'none' });" }
+      ]
+    },
+    {
+      "name": "CamRecorder: photo, video through the switch, video tracked by the card, buttons hidden without it",
+      "steps": [
+        { "js": "S.cards = await T.card.rendered('ha-plooum-camera-card', 5); S.c = S.cards.find((c) => c.config.entity === 'camera.porch_camera'); S.sd = S.cards.find((c) => c.config.entity === 'camera.porch_camera_sd'); S.st = (e) => T.hass().states[e].state; S.btn = (c, cls) => c.renderRoot.querySelector('.btn.' + cls); S.p0 = Number(S.st('counter.camrecorder_photos')); S.v0 = Number(S.st('counter.camrecorder_videos'));" },
+        { "js": "S.btn(S.c, 'photo').click();" },
+        { "assert": "await waitFor(() => Number(S.st('counter.camrecorder_photos')) === S.p0 + 1 && S.c._toast === 'Photo saved', 5000, 'photo')", "msg": "photo saved, toast shown" },
+        { "js": "S.btn(S.c, 'record').click();" },
+        { "assert": "await waitFor(() => S.st('switch.porch_camera_recording') === 'on' && S.c.renderRoot.querySelector('.rec') && S.btn(S.c, 'record').classList.contains('on'), 5000, 'recording')", "msg": "start_recording: the switch is on, REC badge, stop button" },
+        { "js": "S.btn(S.c, 'record').click();" },
+        { "assert": "await waitFor(() => S.st('switch.porch_camera_recording') === 'off' && !S.c.renderRoot.querySelector('.rec') && Number(S.st('counter.camrecorder_videos')) === S.v0 + 1, 5000, 'stopped')", "msg": "stop_recording: video saved, badge gone" },
+        { "js": "S.btn(S.sd, 'record').click();" },
+        { "assert": "await waitFor(() => S.sd.renderRoot.querySelector('.rec'), 5000, 'SD recording')", "msg": "a camera without a Recording switch: the card tracks its video" },
+        { "js": "S.btn(S.sd, 'record').click();" },
+        { "assert": "await waitFor(() => !S.sd.renderRoot.querySelector('.rec') && Number(S.st('counter.camrecorder_videos')) === S.v0 + 2, 5000, 'SD stopped')", "msg": "and stops it" },
+        { "js": "await T.card.call('input_boolean', 'turn_off', { entity_id: 'input_boolean.camrecorder_installed' });" },
+        { "assert": "await waitFor(() => !S.btn(S.c, 'photo') && !S.btn(S.c, 'record') && S.btn(S.c, 'fullscreen'), 5000, 'hidden')", "msg": "without CamRecorder: no photo / video button" },
+        { "js": "await T.card.call('input_boolean', 'turn_on', { entity_id: 'input_boolean.camrecorder_installed' });" },
+        { "assert": "await waitFor(() => S.btn(S.c, 'photo') && S.btn(S.c, 'record'), 5000, 'back')", "msg": "buttons back" }
+      ],
+      "finally": [
+        { "js": "await T.card.call('input_boolean', 'turn_on', { entity_id: 'input_boolean.camrecorder_installed' }); await T.card.call('counter', 'set_value', { entity_id: 'counter.camrecorder_photos', value: S.p0 || 0 }); await T.card.call('counter', 'set_value', { entity_id: 'counter.camrecorder_videos', value: S.v0 || 0 });" }
+      ]
+    },
+    {
+      "name": "zoom: wheel at a point, drag, double click, reset, max_zoom 1",
+      "steps": [
+        { "js": "S.cards = await T.card.rendered('ha-plooum-camera-card', 5); S.c = S.cards.find((c) => c.config.entity === 'camera.porch_camera'); S.view = S.c.renderRoot.querySelector('.viewport'); S.r = S.view.getBoundingClientRect(); S.at = (x, y, extra) => ({ clientX: S.r.left + x, clientY: S.r.top + y, bubbles: true, composed: true, cancelable: true, ...extra });" },
+        { "js": "S.view.dispatchEvent(new WheelEvent('wheel', S.at(S.r.width * 0.75, S.r.height * 0.25, { deltaY: -400 }))); await S.c.updateComplete;" },
+        { "assert": "S.c._zoom.s > 1.5 && S.c._zoom.x < 0 && S.c._zoom.y <= 0", "msg": "the wheel zooms in towards the pointer", "show": "JSON.stringify(S.c._zoom)" },
+        { "assert": "S.c.renderRoot.querySelector('.btn.zoom-reset') && S.c.renderRoot.querySelector('.badge').textContent.startsWith('×')", "msg": "zoom badge and reset button" },
+        { "js": "S.z0 = { ...S.c._zoom }; const d = { pointerId: 7, button: 0, isPrimary: true }; S.view.dispatchEvent(new PointerEvent('pointerdown', S.at(100, 100, d))); S.view.dispatchEvent(new PointerEvent('pointermove', S.at(140, 120, d))); S.view.dispatchEvent(new PointerEvent('pointerup', S.at(140, 120, d))); await S.c.updateComplete;" },
+        { "assert": "Math.abs(S.c._zoom.x - Math.min(0, S.z0.x + 40)) < 0.01 && Math.abs(S.c._zoom.y - Math.min(0, S.z0.y + 20)) < 0.01", "msg": "a drag moves the zoomed picture, kept inside its frame", "show": "JSON.stringify([S.z0, S.c._zoom])" },
+        { "js": "S.c.renderRoot.querySelector('.btn.zoom-reset').click(); await S.c.updateComplete;" },
+        { "assert": "S.c._zoom.s === 1 && S.c._zoom.x === 0 && !S.c.renderRoot.querySelector('.btn.zoom-reset')", "msg": "reset" },
+        { "js": "S.view.dispatchEvent(new MouseEvent('dblclick', S.at(50, 50))); await S.c.updateComplete;" },
+        { "assert": "S.c._zoom.s === 2.5", "msg": "double click zooms 2.5x" },
+        { "js": "S.view.dispatchEvent(new WheelEvent('wheel', S.at(50, 50, { deltaY: -5000 }))); await S.c.updateComplete;" },
+        { "assert": "S.c._zoom.s === 5", "msg": "max_zoom (5 by default) caps the zoom" },
+        { "js": "S.view.dispatchEvent(new MouseEvent('dblclick', S.at(50, 50))); await S.c.updateComplete;" },
+        { "assert": "S.c._zoom.s === 1", "msg": "double click again: back to 1x" },
+        { "js": "S.sd = S.cards.find((c) => c.config.entity === 'camera.porch_camera_sd'); const v = S.sd.renderRoot.querySelector('.viewport'); const r = v.getBoundingClientRect(); v.dispatchEvent(new WheelEvent('wheel', { clientX: r.left + 20, clientY: r.top + 20, deltaY: -400, bubbles: true, cancelable: true })); await S.sd.updateComplete;" },
+        { "assert": "S.sd._zoom.s === 1", "msg": "max_zoom: 1 disables the zoom" }
+      ]
+    },
+    {
+      "name": "editor: renders, fields emit config-changed",
+      "steps": [
+        { "js": "S.cards = await T.card.rendered('ha-plooum-camera-card', 5); S.n = await T.card.editorRenders(S.cards[0]);" },
+        { "js": "S.ed = document.createElement('ha-plooum-camera-card-editor'); S.ed.hass = T.hass(); S.ed.setConfig({ type: 'custom:ha-plooum-camera-card', entity: 'camera.porch_camera' }); S.cards[0].parentNode.appendChild(S.ed); await S.ed.updateComplete; S.got = null; S.ed.addEventListener('config-changed', (e) => { S.got = e.detail.config; });" },
+        { "js": "const form = S.ed.shadowRoot.querySelector('ha-form'); form.dispatchEvent(new CustomEvent('value-changed', { detail: { value: { ...form.data, sd_entity: 'camera.porch_camera_sd', max_zoom: 3 } } }));" },
+        { "assert": "S.got && S.got.sd_entity === 'camera.porch_camera_sd' && S.got.max_zoom === 3 && !('muted' in S.got) && !('fit' in S.got)", "msg": "the change is emitted, defaults left out", "show": "JSON.stringify(S.got)" },
+        { "assert": "S.ed.shadowRoot.querySelector('.hint').textContent.includes('Plooum CamRecorder')", "msg": "hint about CamRecorder" }
+      ],
+      "finally": [
+        { "js": "if (S.ed) S.ed.remove();" }
+      ]
+    }
+  ]
+}

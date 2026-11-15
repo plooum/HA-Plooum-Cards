@@ -19,7 +19,7 @@ import time
 
 from PIL import Image, ImageDraw, ImageFont
 
-from homeassistant.components.camera import Camera
+from homeassistant.components.camera import Camera, CameraEntityFeature
 from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event
@@ -36,6 +36,11 @@ CAMERAS = [
 WIDTH, HEIGHT = 640, 360
 # The garden camera's fault, its entity staying available: "none", "error" (no picture) or "black".
 FAULT = "input_select.garden_camera_fault"
+# Cameras with a live stream (hls.py), for the camera card: name, stream (HD / SD), fault selector.
+STREAM_CAMERAS = [
+    ("Porch Camera", "hd", "input_select.porch_camera_fault"),
+    ("Porch Camera SD", "sd", "input_select.porch_camera_sd_fault"),
+]
 
 
 def _black_frame(width: int | None, height: int | None) -> bytes:
@@ -271,7 +276,7 @@ async def async_setup_platform(
     async_add_entities: AddEntitiesCallback,
     discovery_info: DiscoveryInfoType | None = None,
 ) -> None:
-    async_add_entities(FakeCamera(*cam) for cam in CAMERAS)
+    async_add_entities([*(FakeCamera(*cam) for cam in CAMERAS), *(StreamCamera(*cam) for cam in STREAM_CAMERAS)])
 
 
 class FakeCamera(Camera):
@@ -317,3 +322,57 @@ class FakeCamera(Camera):
                 if state is not None and state.attributes.get("current_position") is not None:
                     positions[entity] = int(state.attributes["current_position"])
         return await self.hass.async_add_executor_job(draw_frame, self.name, self._scene, self._colors, width, height, positions)
+
+
+class StreamCamera(Camera):
+    """A camera with a real stream (an HLS of hls.py, read by HA's stream integration), and a fault
+    chosen by an input_select: `unavailable` (the entity), `error` (its stream and pictures fail)
+    or `black` (it streams black). Its still pictures are drawn like the other fake cameras'."""
+
+    _attr_should_poll = False
+    _attr_supported_features = CameraEntityFeature.STREAM
+
+    def __init__(self, name: str, stream: str, fault: str) -> None:
+        super().__init__()
+        self._attr_name = name
+        self._attr_unique_id = "plooum_dev_" + name.lower().replace(" ", "_")
+        self._stream_name = stream
+        self._fault_entity = fault
+        self._attr_is_streaming = True
+
+    @property
+    def _fault(self) -> str:
+        st = self.hass.states.get(self._fault_entity)
+        return st.state if st else "none"
+
+    def _source(self) -> str:
+        from .hls import stream_url
+
+        name = {"error": "missing", "black": "black"}.get(self._fault, self._stream_name)
+        return stream_url(self.hass, name)
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+
+        @callback
+        def changed(event: Event[EventStateChangedData]) -> None:
+            if self.stream:  # a running stream follows the fault at once, as a camera would
+                self.stream.update_source(self._source())
+            self.async_write_ha_state()
+
+        self.async_on_remove(async_track_state_change_event(self.hass, [self._fault_entity], changed))
+
+    @property
+    def available(self) -> bool:
+        return self._fault != "unavailable"
+
+    async def stream_source(self) -> str | None:
+        return self._source()
+
+    async def async_camera_image(self, width: int | None = None, height: int | None = None) -> bytes | None:
+        if self._fault == "error":
+            return None
+        if self._fault == "black":
+            return await self.hass.async_add_executor_job(_black_frame, width, height)
+        colors = ((150, 180, 220), (120, 110, 100))
+        return await self.hass.async_add_executor_job(draw_frame, self.name, "outdoor", colors, width, height, {})

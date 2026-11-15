@@ -13,6 +13,9 @@ Also sets up fake cameras (camera.py) for the floorplan card's 3D view, a fake c
 (image.py, as HA-Plooum-CamPreview makes them) for its projection, and fake PC agents (pc.py,
 binary_sensor.py, button.py) for the PC card: they need a config entry (config_flow.py, import only)
 to own their devices.
+
+For the camera card: live HLS streams made by ffmpeg (hls.py) for the porch cameras (camera.py),
+and a fake Plooum CamRecorder (camrecorder.py) for its photo and video buttons.
 """
 
 from pathlib import Path
@@ -28,6 +31,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import discovery
 from homeassistant.helpers.typing import ConfigType
 
+from .camrecorder import setup_camrecorder
+from .hls import async_start as async_start_hls
 from .pc import setup_pcs
 
 DOMAIN = "plooum_dev"
@@ -101,6 +106,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     hass.async_create_task(discovery.async_load_platform(hass, "camera", DOMAIN, {}, config))
     hass.async_create_task(discovery.async_load_platform(hass, "image", DOMAIN, {}, config))
     hass.data[DOMAIN] = {"pcs": setup_pcs(hass)}
+    await async_start_hls(hass)
+    setup_camrecorder(hass)
     if not hass.config_entries.async_entries(DOMAIN):
         hass.async_create_task(
             hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_IMPORT}, data={})

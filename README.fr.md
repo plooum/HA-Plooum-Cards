@@ -13,6 +13,7 @@ Une collection de cartes Lovelace personnalisées pour Home Assistant, packagée
 | :--- | :--- | :--- |
 | Ha Plooum Berlin Clock Card | `custom:ha-plooum-berlin-clock-card` | [docs/berlin-clock.md](docs/berlin-clock.md) |
 | Ha Plooum Button Badge Card | `custom:ha-plooum-buttonbadge-card` | [docs/button-badge.md](docs/button-badge.md) |
+| Ha Plooum Camera Card | `custom:ha-plooum-camera-card` | [docs/camera.md](docs/camera.md) |
 | Ha Plooum Climate Band Card | `custom:ha-plooum-climate-band-card` | [docs/climate-band.md](docs/climate-band.md) |
 | Ha Plooum Cover Card | `custom:ha-plooum-cover-card` | [docs/cover.md](docs/cover.md) |
 | Ha Plooum D-Pad Card | `custom:ha-plooum-dpad-card` | [docs/dpad.md](docs/dpad.md) |
@@ -38,6 +39,11 @@ L'heure sous forme d'horloge de Berlin (Mengenlehreuhr) : 24 lampes à lire de h
 Bouton combiné à un badge flottant, icône et texte personnalisables, actions tap/hold (toggle, navigate, script).
 
 ![Button Badge preview](docs/previews/button-badge.png)
+
+### Ha Plooum Camera Card
+Une caméra en direct qui se lance dès l'affichage, avec un zoom numérique (molette, pincement, double appui). Des boutons photo et vidéo les enregistrent sur le serveur Home Assistant grâce à [Plooum CamRecorder](https://github.com/plooum/HA-Plooum-CamRecorder). Quand la caméra tombe en panne ou passe au noir, la carte affiche son flux de secours (SD), puis sa dernière bonne image ([Plooum CamPreview](https://github.com/plooum/HA-Plooum-CamPreview)) avec la raison, et revient d'elle-même à la caméra.
+
+![Camera preview](docs/previews/camera.png)
 
 ### Ha Plooum Climate Band Card
 La température et l'humidité de chaque pièce dans une seule bande : sa couleur suit la température, une nappe d'eau monte avec l'humidité, et une humidité au-dessus du seuil pulse en rouge. Trop étroite (téléphone), elle passe sur deux lignes centrées. Un appui sur une pièce ouvre son historique : température et humidité sur 6 h, 24 h, 7 ou 30 jours.
@@ -144,6 +150,7 @@ src/
 └── cards/
     ├── berlin-clock/
     ├── button-badge/
+    ├── camera/
     ├── climate-band/
     ├── cover/
     ├── dpad/

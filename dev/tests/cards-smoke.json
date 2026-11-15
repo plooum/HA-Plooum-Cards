@@ -237,6 +237,20 @@
       ]
     },
     {
+      "name": "camera: renders, plays, takes a photo, editor",
+      "path": "/plooum-test/camera",
+      "steps": [
+        { "js": "S.cards = await T.card.rendered('ha-plooum-camera-card', 5); S.c = S.cards.find((c) => c.config.entity === 'camera.porch_camera');" },
+        { "assert": "await waitFor(() => S.c._active === 'main' && S.c._watch.active && S.c._watch.active.frames >= 2, 30000, 'the porch stream plays')", "msg": "the live stream plays" },
+        { "js": "S.n0 = Number(T.hass().states['counter.camrecorder_photos'].state); S.c.renderRoot.querySelector('.btn.photo').click();" },
+        { "assert": "await T.card.waitState('counter.camrecorder_photos', (s) => Number(s.state) === S.n0 + 1)", "msg": "the photo button calls plooum_camrecorder.snapshot" },
+        { "js": "await T.card.editorRenders(S.c);" }
+      ],
+      "finally": [
+        { "js": "await T.card.call('counter', 'set_value', { entity_id: 'counter.camrecorder_photos', value: S.n0 || 0 });" }
+      ]
+    },
+    {
       "name": "floorplan: renders, reacts, editor",
       "path": "/plooum-test/floorplan",
       "steps": [
