@@ -71,6 +71,33 @@
       ]
     },
     {
+      "name": "a camera that answers no picture (entity still available) shows its preview",
+      "steps": [
+        { "js": "await T.card.call('input_select', 'select_option', { entity_id: 'input_select.garden_camera_fault', option: 'error' }); S.card = await waitFor(() => T.card.all('ha-plooum-floorplan-card').find((c) => c.config.title === 'Home in 3D' && c._scene3dState), 15000, 'the 3D card'); S.card._tick++; S.item = () => ({ id: 'camera.garden_camera', st: T.hass().states['camera.garden_camera'], conf: { entity: 'camera.garden_camera', preview_entity: 'image.garden_camera_preview' } });" },
+        { "assert": "!['unavailable', 'unknown'].includes(T.hass().states['camera.garden_camera'].state)", "msg": "the camera entity stays available" },
+        { "js": "S.key = await waitFor(() => { const k = S.card._screenTexture({ item: S.item() }, {}).key; return k.includes('image_proxy/image.garden_camera_preview') && k; }, 10000, 'the 3D screen on the preview');" },
+        { "assert": "/No picture · Picture of /.test(S.key)", "msg": "the 3D screen says the camera gives no picture" },
+        { "js": "S.fl = await waitFor(() => T.card.all('ha-plooum-floorplan-card').find((c) => c.config.title === 'Home in 3D, floating screens' && c._scene3dState), 15000, 'the floating screens card'); S.fl._tick++; S.note = await waitFor(() => T.deep(S.fl.shadowRoot, '.screen-note').find((n) => /No picture/.test(n.textContent)), 10000, 'an HTML screen with the preview');" },
+        { "assert": "S.note.parentElement.querySelector('img.preview').src.includes('image_proxy/image.garden_camera_preview')", "msg": "the floating screen shows the preview picture" }
+      ],
+      "finally": [
+        { "js": "await T.card.call('input_select', 'select_option', { entity_id: 'input_select.garden_camera_fault', option: 'none' });" }
+      ]
+    },
+    {
+      "name": "a camera that sends black pictures shows its preview, and its own picture again once it recovers",
+      "steps": [
+        { "js": "await T.card.call('input_select', 'select_option', { entity_id: 'input_select.garden_camera_fault', option: 'black' }); S.card = await waitFor(() => T.card.all('ha-plooum-floorplan-card').find((c) => c.config.title === 'Home in 3D' && c._scene3dState), 15000, 'the 3D card'); S.card._tick++; S.item = () => ({ id: 'camera.garden_camera', st: T.hass().states['camera.garden_camera'], conf: { entity: 'camera.garden_camera', preview_entity: 'image.garden_camera_preview' } });" },
+        { "js": "S.key = await waitFor(() => { const k = S.card._screenTexture({ item: S.item() }, {}).key; return k.includes('image_proxy/image.garden_camera_preview') && k; }, 10000, 'the 3D screen on the preview');" },
+        { "js": "await T.card.call('input_select', 'select_option', { entity_id: 'input_select.garden_camera_fault', option: 'none' }); S.card._tick++; S.back = await waitFor(() => { const k = S.card._screenTexture({ item: S.item() }, {}).key; return k.includes('camera_proxy/camera.garden_camera') && k; }, 10000, 'the camera picture again');" },
+        { "assert": "!/No picture/.test(S.back)", "msg": "no more note once the camera answers" },
+        { "assert": "!S.card._screenTexture({ item: { ...S.item(), conf: { entity: 'camera.garden_camera' } } }, {}).key.includes('image_proxy')", "msg": "a camera without preview never shows one" }
+      ],
+      "finally": [
+        { "js": "await T.card.call('input_select', 'select_option', { entity_id: 'input_select.garden_camera_fault', option: 'none' });" }
+      ]
+    },
+    {
       "name": "editor: the preview field shows for every camera, and an empty one is dropped",
       "path": "/plooum-edit/floorplan?edit=1",
       "steps": [
