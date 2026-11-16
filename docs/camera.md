@@ -33,8 +33,9 @@ The card checks the shown stream every two seconds. It counts as failing when:
 Then it shows, in this order:
 
 1. the **fallback stream** `sd_entity`, with an **SD** badge;
-2. the **preview picture** `preview_entity` (an `image` entity), with the reason and the time of the picture. [Plooum CamPreview](https://github.com/plooum/HA-Plooum-CamPreview) keeps such a picture for each camera (`image.<camera>_preview`): the last good one, never black or of a turned camera;
-3. without a preview picture, a placeholder with the reason.
+2. the **preview picture** `preview_entity` (an `image` entity), with the reason and the time of the picture. [Plooum CamPreview](https://github.com/plooum/HA-Plooum-CamPreview) keeps such a picture for each camera (`image.<camera>_preview`): the last good one, never black or of a turned camera. When `preview_entity` doesn't exist, has no picture yet, or its picture fails to load, the card uses the camera's CamPreview preview it finds by itself;
+3. without a preview picture, the camera's own still picture (Home Assistant often still serves it while the stream stalls), with the reason;
+4. when that fails too, a placeholder with the reason.
 
 A failed stream is tried again in the background, hidden: 3 s after it failed, then every minute, and at once when its entity becomes available again. It comes back as soon as it plays and isn't black, so the card never flickers between a stream that works and one that doesn't.
 
@@ -58,7 +59,7 @@ Photos are of the whole picture, whatever the zoom.
 | `type` | string | **Required** | `custom:ha-plooum-camera-card` |
 | `entity` | string | **Required** | The camera |
 | `sd_entity` | string | none | Fallback camera, shown when `entity` fails (typically its substream) |
-| `preview_entity` | string | the camera's CamPreview preview | `image` entity shown when no stream plays, e.g. `image.<camera>_preview` of Plooum CamPreview. Also shown, with a spinner, from the moment the card shows until the stream's first picture (Home Assistant's player loads lazily, and a camera's HLS stream can take several seconds to start). When not set, the card uses the image entity Plooum CamPreview keeps for the camera (its `camera_entity` attribute), if there is one |
+| `preview_entity` | string | the camera's CamPreview preview | `image` entity shown when no stream plays, e.g. `image.<camera>_preview` of Plooum CamPreview. Also shown, with a spinner, from the moment the card shows until the stream's first picture (Home Assistant's player loads lazily, and a camera's HLS stream can take several seconds to start). When not set, or when it doesn't exist or has no picture, the card uses the image entity Plooum CamPreview keeps for the camera (its `camera_entity` attribute), if there is one |
 | `name` | string | the camera's name | Name shown at the top left |
 | `show_name` | boolean | `true` | Show the name |
 | `aspect_ratio` | string | `16:9` | Shape of the card (`16:9`, `4:3`, `1:1`…) |

@@ -35,9 +35,24 @@
       "name": "preview found without preview_entity: the camera's CamPreview image",
       "steps": [
         { "js": "const Card = customElements.get('ha-plooum-camera-card'); const make = (config) => { const c = new Card(); c.setConfig(config); c.hass = T.hass(); return c; }; S.auto = make({ entity: 'camera.porch_camera' }); S.none = make({ entity: 'camera.living_room_camera' }); S.given = make({ entity: 'camera.porch_camera', preview_entity: 'image.garden_camera_preview' });" },
-        { "assert": "S.auto._previewId === 'image.porch_camera_preview' && S.auto._previewUrl.includes('/api/image_proxy/image.porch_camera_preview')", "msg": "the image entity whose camera_entity is the camera" },
-        { "assert": "S.none._previewId === null && S.none._previewUrl === null", "msg": "none for a camera without preview" },
-        { "assert": "S.given._previewId === 'image.garden_camera_preview'", "msg": "preview_entity wins" }
+        { "assert": "S.auto._autoPreviewId === 'image.porch_camera_preview' && S.auto._previewUrl.includes('/api/image_proxy/image.porch_camera_preview')", "msg": "the image entity whose camera_entity is the camera" },
+        { "assert": "S.none._autoPreviewId === null && S.none._previewUrl === null", "msg": "none for a camera without preview (its still picture isn't a waiting picture)" },
+        { "assert": "S.given._previewUrl.includes('/api/image_proxy/image.garden_camera_preview')", "msg": "preview_entity wins" }
+      ]
+    },
+    {
+      "name": "preview picture fallbacks: wrong preview_entity, preview without picture, picture that fails to load",
+      "steps": [
+        { "js": "const Card = customElements.get('ha-plooum-camera-card'); S.box = document.createElement('div'); S.box.style.width = '400px'; document.body.appendChild(S.box); S.show = async (config) => { S.box.textContent = ''; const c = new Card(); c.setConfig({ type: 'custom:ha-plooum-camera-card', ...config }); c.hass = T.hass(); c._ready = false; S.box.appendChild(c); c._retryInterval = 1e9; await c.updateComplete; c._fail('main', 'stalled'); await c.updateComplete; return c; }; S.pic = (c) => c.renderRoot.querySelector('img.preview'); await T.hass().callApi('POST', 'states/image.unknown_preview', { state: 'unknown', attributes: { entity_picture: '/api/image_proxy/image.unknown_preview?token=x' } }); await T.hass().callApi('POST', 'states/image.broken_preview', { state: '2026-11-16T10:00:00+00:00', attributes: { entity_picture: '/api/image_proxy/image.broken_preview?token=x' } }); await waitFor(() => T.hass().states['image.broken_preview'], 5000, 'the test images');" },
+        { "js": "S.c = await S.show({ entity: 'camera.porch_camera', preview_entity: 'image.porch_camera_hd_preview' });" },
+        { "assert": "S.pic(S.c).getAttribute('src').includes('/api/image_proxy/image.porch_camera_preview') && S.c.renderRoot.querySelector('.banner').textContent.includes('picture from')", "msg": "a preview_entity that doesn't exist: the camera's CamPreview preview, with its time" },
+        { "js": "S.c = await S.show({ entity: 'camera.porch_camera_sd', preview_entity: 'image.unknown_preview' });" },
+        { "assert": "S.pic(S.c).getAttribute('src').includes('/api/camera_proxy/camera.porch_camera_sd') && !S.c.renderRoot.querySelector('.banner').textContent.includes('picture from')", "msg": "a preview without picture yet (unknown): the camera's still picture" },
+        { "js": "S.c = await S.show({ entity: 'camera.porch_camera_sd', preview_entity: 'image.broken_preview' });" },
+        { "assert": "await waitFor(() => S.pic(S.c) && S.pic(S.c).getAttribute('src').includes('/api/camera_proxy/camera.porch_camera_sd') && S.pic(S.c).naturalWidth > 0, 10000, 'the still picture')", "msg": "a preview picture that fails to load: the camera's still picture" }
+      ],
+      "finally": [
+        { "js": "if (S.box) S.box.remove(); await T.hass().callApi('DELETE', 'states/image.unknown_preview').catch(() => {}); await T.hass().callApi('DELETE', 'states/image.broken_preview').catch(() => {});" }
       ]
     },
     {
