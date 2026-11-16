@@ -1,7 +1,7 @@
 import { LitElement, html, css, nothing } from "lit";
 import { keyed } from "lit/directives/keyed.js";
 
-const CARD_VERSION = '1.0.2';
+const CARD_VERSION = '1.0.3';
 
 /*
  * A live camera that plays as soon as it shows, with a digital zoom (wheel, pinch, double tap, drag), and
