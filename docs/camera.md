@@ -58,7 +58,7 @@ Photos are of the whole picture, whatever the zoom.
 | `type` | string | **Required** | `custom:ha-plooum-camera-card` |
 | `entity` | string | **Required** | The camera |
 | `sd_entity` | string | none | Fallback camera, shown when `entity` fails (typically its substream) |
-| `preview_entity` | string | none | `image` entity shown when no stream plays, e.g. `image.<camera>_preview` of Plooum CamPreview. Also shown, with a spinner, while a stream starts (a camera's HLS stream can take several seconds to show its first picture) |
+| `preview_entity` | string | the camera's CamPreview preview | `image` entity shown when no stream plays, e.g. `image.<camera>_preview` of Plooum CamPreview. Also shown, with a spinner, from the moment the card shows until the stream's first picture (Home Assistant's player loads lazily, and a camera's HLS stream can take several seconds to start). When not set, the card uses the image entity Plooum CamPreview keeps for the camera (its `camera_entity` attribute), if there is one |
 | `name` | string | the camera's name | Name shown at the top left |
 | `show_name` | boolean | `true` | Show the name |
 | `aspect_ratio` | string | `16:9` | Shape of the card (`16:9`, `4:3`, `1:1`…) |
