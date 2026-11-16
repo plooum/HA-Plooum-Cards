@@ -103,6 +103,10 @@ views:
         entity: binary_sensor.bureau_en_ligne
         mac: "02:00:00:00:00:01"
         broadcast_address: 127.0.0.1
+      - type: custom:ha-plooum-camera-card
+        entity: camera.porch_camera
+        sd_entity: camera.porch_camera_sd
+        preview_entity: image.porch_camera_preview
       - type: custom:ha-plooum-group-card
         title: Group
         cards:
@@ -1074,3 +1078,52 @@ views:
           - button.nas_wake_on_lan
           - button.nas_eteindre
           - button.nas_redemarrer
+
+  - title: Camera
+    path: camera
+    type: sections
+    max_columns: 2
+    sections:
+      - type: grid
+        cards:
+          # Main case: live stream (HLS), SD fallback, CamPreview picture. Its faults:
+          # input_select.porch_camera_fault / porch_camera_sd_fault. Recording switch of the fake
+          # CamRecorder: switch.porch_camera_recording.
+          - type: custom:ha-plooum-camera-card
+            entity: camera.porch_camera
+            sd_entity: camera.porch_camera_sd
+            preview_entity: image.porch_camera_preview
+          - type: entities
+            entities:
+              - input_select.porch_camera_fault
+              - input_select.porch_camera_sd_fault
+              - input_boolean.camrecorder_installed
+              - switch.porch_camera_recording
+              - counter.camrecorder_photos
+              - counter.camrecorder_videos
+      - type: grid
+        cards:
+          # Camera without a stream (MJPEG pictures), its preview, no fallback stream; cover, 4:3,
+          # no name. Faults: input_select.garden_camera_fault.
+          - type: custom:ha-plooum-camera-card
+            entity: camera.garden_camera
+            preview_entity: image.garden_camera_preview
+            aspect_ratio: "4:3"
+            fit: cover
+            show_name: false
+          # The SD stream alone, without a Recording switch (recording tracked by the card), no zoom.
+          - type: custom:ha-plooum-camera-card
+            entity: camera.porch_camera_sd
+            name: Porch SD
+            max_zoom: 1
+          # Missing camera, no preview: placeholder with the reason. Then an unavailable camera.
+          - type: custom:ha-plooum-camera-card
+            entity: camera.does_not_exist
+            name: Missing
+          - type: custom:ha-plooum-camera-card
+            entity: camera.garage_camera
+            show_controls: false
+          - entities:
+              - input_select.garden_camera_fault
+              - input_boolean.garage_camera_available
+            type: entities

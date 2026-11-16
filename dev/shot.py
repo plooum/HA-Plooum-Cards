@@ -81,7 +81,8 @@ def main() -> int:
 
         page.on("console", on_console)
 
-        page.goto(URL + args.path)
+        # Not the load event: an MJPEG camera picture (a never-ending response) keeps it from firing.
+        page.goto(URL + args.path, wait_until="domcontentloaded")
         page.wait_for_function(args.ready or "() => document.querySelector('home-assistant')?.hass?.connected", timeout=300000 if args.ready else 30000)
         if args.element:
             page.locator(args.element).first.wait_for(state="visible", timeout=15000)

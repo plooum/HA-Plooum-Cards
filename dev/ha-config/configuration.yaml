@@ -38,6 +38,8 @@ frontend:
 # Lets the floorplan editor capture a camera's reference picture (/api/image/upload).
 image_upload:
 config:
+# Live streams of the porch cameras (camera card), read like a real camera's RTSP.
+stream:
 # The frontend calls recorder/info: without recorder, every page load logs an
 # "unknown_command" rejection (console noise). history is used by more-info dialogs.
 recorder:
@@ -112,6 +114,10 @@ input_boolean:
   garden_preview_moved:
     name: Garden preview moved
     initial: false
+  # Fake Plooum CamRecorder (plooum_dev/camrecorder.py): its actions exist while on.
+  camrecorder_installed:
+    name: CamRecorder installed
+    initial: true
   # Vivarium card: aquariums, terrarium and pond (aquarium_pump/co2/uv above are reused).
   aquarium_60_air:
     name: Aquarium 60L air (critical)
@@ -289,6 +295,16 @@ input_select:
     name: Garden camera fault
     options: ["none", "error", "black"]
     initial: "none"
+  # camera.porch_camera / camera.porch_camera_sd (live streams, plooum_dev/camera.py and hls.py):
+  # `unavailable` (the entity), `error` (its stream and pictures fail) or `black` (it streams black).
+  porch_camera_fault:
+    name: Porch camera fault
+    options: ["none", "unavailable", "error", "black"]
+    initial: "none"
+  porch_camera_sd_fault:
+    name: Porch camera SD fault
+    options: ["none", "unavailable", "error", "black"]
+    initial: "none"
 
 # image.garden_camera_preview (fake HA-Plooum-CamPreview preview from plooum_dev) takes a new
 # picture of camera.garden_camera (unless input_boolean.garden_preview_moved is on).
@@ -299,6 +315,11 @@ input_button:
 counter:
   ptz_presses:
     name: PTZ presses
+  # What the fake Plooum CamRecorder would have saved (plooum_dev/camrecorder.py).
+  camrecorder_photos:
+    name: CamRecorder photos
+  camrecorder_videos:
+    name: CamRecorder videos
   script_runs:
     name: Script runs
 
