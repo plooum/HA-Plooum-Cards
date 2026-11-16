@@ -43,6 +43,7 @@ const FIRST_RETRY = 3000;
 const RETRY_INTERVAL = 60000; // ms between the next background tries
 const WAIT_INTERVAL = 250; // ms between two looks at a stream that hasn't shown its first picture yet
 const LOAD_TIMEOUT = 10000; // ms to wait for Home Assistant's camera player to be defined
+const AUTO_PREVIEW_CHECK = 30000; // ms between two looks for the camera's CamPreview preview (no `preview_entity`)
 const RECORDER = 'plooum_camrecorder'; // the CamRecorder integration's domain
 
 const REASONS = {
@@ -564,9 +565,24 @@ class HaPlooumCameraCard extends LitElement {
 
   // --- Render ---
 
-  // The preview's picture (`preview_entity`), or null.
+  // The preview image entity: `preview_entity`, or else the camera's preview made by Plooum CamPreview
+  // (an image entity whose `camera_entity` is the camera), looked for again every AUTO_PREVIEW_CHECK.
+  get _previewId() {
+    if (this.config.preview_entity) return this.config.preview_entity;
+    const camera = this.config.entity;
+    const found = this._autoPreview;
+    const still = found && found.id && this.hass.states[found.id];
+    if (found && found.camera === camera && (still ? still.attributes.camera_entity === camera : Date.now() - found.at < AUTO_PREVIEW_CHECK)) {
+      return found.id;
+    }
+    const id = Object.keys(this.hass.states).find((e) => e.startsWith('image.') && this.hass.states[e].attributes.camera_entity === camera) || null;
+    this._autoPreview = { id, camera, at: Date.now() };
+    return id;
+  }
+
+  // The preview's picture (see _previewId), or null.
   get _previewUrl() {
-    const id = this.config.preview_entity;
+    const id = this._previewId;
     const st = id && this.hass.states[id];
     return (st && st.state !== 'unavailable' && st.attributes.entity_picture) || null;
   }
@@ -574,8 +590,10 @@ class HaPlooumCameraCard extends LitElement {
   _renderStream(key, slot) {
     const src = this._source(key);
     const st = src && this.hass.states[src.entity];
-    if (!st || !this._ready) return nothing;
-    const stream = html`
+    if (!st) return nothing;
+    // Until Home Assistant's player is loaded (lazily: it can take seconds), only the waiting picture.
+    if (!this._ready && slot === 'probe') return nothing;
+    const stream = !this._ready ? nothing : html`
       <ha-camera-stream
         class="stream ${slot}"
         .hass=${this.hass}
@@ -627,7 +645,7 @@ class HaPlooumCameraCard extends LitElement {
   }
 
   _renderPreview() {
-    const id = this.config.preview_entity;
+    const id = this._previewId;
     const st = id && this.hass.states[id];
     const url = this._previewUrl;
     const when = st && Date.parse(st.state);

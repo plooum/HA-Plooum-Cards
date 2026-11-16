@@ -21,6 +21,26 @@
       ]
     },
     {
+      "name": "waiting picture: shown before Home Assistant's player has loaded",
+      "steps": [
+        { "js": "S.card = await waitFor(() => T.card.all('ha-plooum-camera-card').find((c) => c.config.entity === 'camera.porch_camera' && c.config.preview_entity && c._ready), 15000, 'the porch card'); S.card._ready = false; S.card.requestUpdate(); await S.card.updateComplete;" },
+        { "assert": "!S.card.renderRoot.querySelector('ha-camera-stream')", "msg": "no player yet" },
+        { "js": "S.img = await waitFor(() => { const i = S.card.renderRoot.querySelector('.live:not(.playing) .wait img'); return i && i.complete && i.naturalWidth > 0 && i; }, 8000, 'the waiting picture');" },
+        { "assert": "S.img.src.includes('/api/image_proxy/image.porch_camera_preview') && S.card.renderRoot.querySelector('.live .spinner')", "msg": "the preview shows, with the spinner" },
+        { "js": "S.card._ready = true; S.card.requestUpdate(); await S.card.updateComplete; await waitFor(() => S.card.renderRoot.querySelector('.live.playing'), 20000, 'the stream to play');" },
+        { "assert": "S.card.renderRoot.querySelectorAll('.live').length === 1", "msg": "the same waiting box gets the player, then plays" }
+      ]
+    },
+    {
+      "name": "preview found without preview_entity: the camera's CamPreview image",
+      "steps": [
+        { "js": "const Card = customElements.get('ha-plooum-camera-card'); const make = (config) => { const c = new Card(); c.setConfig(config); c.hass = T.hass(); return c; }; S.auto = make({ entity: 'camera.porch_camera' }); S.none = make({ entity: 'camera.living_room_camera' }); S.given = make({ entity: 'camera.porch_camera', preview_entity: 'image.garden_camera_preview' });" },
+        { "assert": "S.auto._previewId === 'image.porch_camera_preview' && S.auto._previewUrl.includes('/api/image_proxy/image.porch_camera_preview')", "msg": "the image entity whose camera_entity is the camera" },
+        { "assert": "S.none._previewId === null && S.none._previewUrl === null", "msg": "none for a camera without preview" },
+        { "assert": "S.given._previewId === 'image.garden_camera_preview'", "msg": "preview_entity wins" }
+      ]
+    },
+    {
       "name": "fallbacks: black -> SD, SD failing -> preview, then back to HD",
       "steps": [
         { "js": "S.c = (await T.card.rendered('ha-plooum-camera-card', 5)).find((c) => c.config.entity === 'camera.porch_camera'); S.c._retryInterval = 3000;" },
