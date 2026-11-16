@@ -58,7 +58,7 @@ Photos are of the whole picture, whatever the zoom.
 | `type` | string | **Required** | `custom:ha-plooum-camera-card` |
 | `entity` | string | **Required** | The camera |
 | `sd_entity` | string | none | Fallback camera, shown when `entity` fails (typically its substream) |
-| `preview_entity` | string | none | `image` entity shown when no stream plays, e.g. `image.<camera>_preview` of Plooum CamPreview |
+| `preview_entity` | string | none | `image` entity shown when no stream plays, e.g. `image.<camera>_preview` of Plooum CamPreview. Also shown, with a spinner, while a stream starts (a camera's HLS stream can take several seconds to show its first picture) |
 | `name` | string | the camera's name | Name shown at the top left |
 | `show_name` | boolean | `true` | Show the name |
 | `aspect_ratio` | string | `16:9` | Shape of the card (`16:9`, `4:3`, `1:1`…) |

@@ -1,5 +1,6 @@
 import { LitElement, html, css, svg, nothing } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
+import { keyed } from 'lit/directives/keyed.js';
 
 const CARD_VERSION = '1.14.1';
 
@@ -105,6 +106,7 @@ const BLACK_LEVEL = 20; // a snapshot whose brightest pixel is darker than this 
 const PROJECTION_PICTURES = ['frozen', 'live', 'snapshot']; // `projection_picture` values
 const PROJECTED_WINDOWS = ['overlay', 'solid', 'outline', 'hidden']; // `projected_windows` values
 const OVERLAY_PICTURE = 0.7; // opacity of the picture cast over a window drawn `overlay`
+const WAIT_INTERVAL = 250; // ms between two looks at a live stream that hasn't shown its first picture yet
 const LIVE_PROJECTION_INTERVAL = 300; // s between two snapshots checked for `projection_picture: live`
 const MATCH_W = 64; // px: pictures are compared at this size (`projection_picture: live`)
 const MATCH_H = 36;
@@ -263,6 +265,19 @@ function matchPicture(ref, snap) {
 }
 
 // Loads a picture: resolves with the Image, or null when it fails.
+// Whether Home Assistant's camera player shows its first picture yet: a video that plays (WebRTC /
+// HLS), or a loaded MJPEG picture.
+function streamPlaying(stream) {
+  const root = stream && stream.shadowRoot;
+  if (!root) return false;
+  for (const player of root.querySelectorAll('ha-hls-player, ha-web-rtc-player')) {
+    const video = player.shadowRoot && player.shadowRoot.querySelector('video');
+    if (video && video.readyState >= 2 && video.currentTime > 0) return true;
+  }
+  const img = root.querySelector('img');
+  return !!(img && img.complete && img.naturalWidth);
+}
+
 function loadImage(url) {
   return new Promise((resolve) => {
     const img = new Image();
@@ -3153,6 +3168,9 @@ class HaPlooumFloorplanCard extends LitElement {
       state.snap[this._embedded ? 'embedded' : 'preview'] = { view: this._view, level: this._level3d, orbit: this._orbit };
     }
     this._syncSetup();
+    if (!this._waitTimer && this.renderRoot.querySelector('.live:not(.playing)')) {
+      this._waitTimer = setInterval(() => this._watchFirstPicture(), WAIT_INTERVAL);
+    }
     if (this._view === '3d') {
       this._draw3d();
       this._probeIcons();
@@ -3171,6 +3189,8 @@ class HaPlooumFloorplanCard extends LitElement {
     clearTimeout(this._measureTimer);
     clearInterval(this._refreshTimer);
     clearInterval(this._thumbTimer);
+    clearInterval(this._waitTimer);
+    this._waitTimer = null;
     clearTimeout(this._iconTimer);
     cancelAnimationFrame(this._easeFrame);
     this._easeFrame = null;
@@ -4975,7 +4995,8 @@ class HaPlooumFloorplanCard extends LitElement {
     if (preview) icon = null;
     const path = icon ? this._iconPath(icon) : null;
     const moved = this._cameraMoved(item);
-    const shown = preview || (snap && !icon ? snap : null);
+    // Until its first snapshot (a real camera's takes seconds), the camera's preview stands in for it.
+    const shown = preview || (icon ? null : snap || this._previewPicture(item));
     const key = `screen:${item.id}:${shown ? shown.url : ''}:${name}:${message}:${note}:${icon}:${!!path}:${h}:${moved}`;
     const source = () => {
       const [c, ctx] = canvas2d(w, h);
@@ -5178,7 +5199,7 @@ class HaPlooumFloorplanCard extends LitElement {
     } else if (isUnavailable(st)) {
       content = this._previewContent(item) || html`<div class="screen-msg"><ha-icon icon="mdi:cctv-off"></ha-icon><span>${formatState(this.hass, st)}</span></div>`;
     } else {
-      content = this._previewContent(item) || this._cameraImage(st, live);
+      content = this._previewContent(item) || this._cameraImage(st, live, item);
     }
     return html`<div class="screen-inner">
       ${content}<div class="screen-name">${this._cameraName(item)}</div>
@@ -5333,12 +5354,20 @@ class HaPlooumFloorplanCard extends LitElement {
 
   // Snapshot reloaded every refresh_interval, or the live stream: `live` true or false forces it,
   // undefined follows `camera_view`. The 2D plan only shows snapshots: its previews open the live view.
-  _cameraImage(st, live) {
+  _cameraImage(st, live, item) {
     const id = st.entity_id;
     const learn = (ev) => this._learnAspect(id, ev.target);
     if (live === undefined ? this.config.camera_view === 'live' : live) {
       if (customElements.get('ha-camera-stream')) {
-        return html`<ha-camera-stream .hass=${this.hass} .stateObj=${st} muted></ha-camera-stream>`;
+        // A real camera's stream takes seconds to start (HLS), and so does the still picture Home
+        // Assistant shows meanwhile: until its first picture, the snapshot already loaded for the
+        // scene (or the preview) shows over it, with a spinner. The live's class isn't bound:
+        // _watchFirstPicture() adds `playing` to it.
+        const shown = this._snapshot(st) || (item ? this._previewPicture(item) : null);
+        return keyed(id, html`<div class="live">
+          <ha-camera-stream .hass=${this.hass} .stateObj=${st} muted></ha-camera-stream>
+          <div class="wait">${shown ? html`<img alt="" src=${shown.url} />` : nothing}<div class="spinner"></div></div>
+        </div>`);
       }
       return html`<img alt="" src="/api/camera_proxy_stream/${id}?token=${st.attributes.access_token}" @load=${learn} />`;
     }
@@ -5350,6 +5379,18 @@ class HaPlooumFloorplanCard extends LitElement {
       this._setFault(id, blackPicture(ev.target));
     };
     return html`<img alt="" src="${pic}${pic.includes('?') ? '&' : '?'}t=${this._tick}" @load=${loaded} @error=${() => this._setFault(id, true)} />`;
+  }
+
+  // Takes the waiting picture of live streams away as soon as they show their own.
+  _watchFirstPicture() {
+    const waiting = [...this.renderRoot.querySelectorAll('.live:not(.playing)')];
+    for (const live of waiting) {
+      if (streamPlaying(live.querySelector('ha-camera-stream'))) live.classList.add('playing');
+    }
+    if (!waiting.some((live) => !live.classList.contains('playing'))) {
+      clearInterval(this._waitTimer);
+      this._waitTimer = null;
+    }
   }
 
   _learnAspect(id, img) {
@@ -6341,11 +6382,48 @@ class HaPlooumFloorplanCard extends LitElement {
         overflow: hidden;
       }
       .screen-inner img,
-      .screen-inner ha-camera-stream {
+      .screen-inner ha-camera-stream,
+      .screen-inner .live {
         display: block;
         width: 100%;
         height: 100%;
         object-fit: cover;
+      }
+      .live {
+        position: relative;
+      }
+      .live .wait {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        transition: opacity 0.3s;
+      }
+      .live .wait img {
+        position: absolute;
+        inset: 0;
+      }
+      .live.playing .wait {
+        opacity: 0;
+      }
+      .live .spinner {
+        position: relative;
+        width: 32px;
+        height: 32px;
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: live-spin 1s linear infinite;
+      }
+      .live.playing .spinner {
+        animation: none;
+      }
+      @keyframes live-spin {
+        to {
+          transform: rotate(360deg);
+        }
       }
       .screen-name {
         position: absolute;
