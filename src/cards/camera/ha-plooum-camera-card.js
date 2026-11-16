@@ -154,6 +154,7 @@ class HaPlooumCameraCard extends LitElement {
     this._busy = false;
     this._localRec = {}; // camera -> start (ms), for cameras without a Recording switch
     this._tick = 0;
+    this._badPictures = new Set(); // picture URLs that failed to load (their token changes every 5 min)
     this._retryInterval = RETRY_INTERVAL; // shorter in the UI tests
     this._onVisibility = () => { if (!document.hidden) this._resetWatch(); };
   }
@@ -565,10 +566,9 @@ class HaPlooumCameraCard extends LitElement {
 
   // --- Render ---
 
-  // The preview image entity: `preview_entity`, or else the camera's preview made by Plooum CamPreview
-  // (an image entity whose `camera_entity` is the camera), looked for again every AUTO_PREVIEW_CHECK.
-  get _previewId() {
-    if (this.config.preview_entity) return this.config.preview_entity;
+  // The camera's preview made by Plooum CamPreview (an image entity whose `camera_entity` is the camera),
+  // looked for again every AUTO_PREVIEW_CHECK.
+  get _autoPreviewId() {
     const camera = this.config.entity;
     const found = this._autoPreview;
     const still = found && found.id && this.hass.states[found.id];
@@ -580,11 +580,44 @@ class HaPlooumCameraCard extends LitElement {
     return id;
   }
 
-  // The preview's picture (see _previewId), or null.
-  get _previewUrl() {
-    const id = this._previewId;
+  // The picture of an image or camera entity, or null: none while it is unavailable, or while an image
+  // has no picture yet (state `unknown`: Home Assistant answers its picture with an error).
+  _pictureOf(id) {
     const st = id && this.hass.states[id];
-    return (st && st.state !== 'unavailable' && st.attributes.entity_picture) || null;
+    if (!st || st.state === 'unavailable' || (id.startsWith('image.') && st.state === 'unknown')) return null;
+    const url = st.attributes.entity_picture;
+    return url && !this._badPictures.has(url) ? url : null;
+  }
+
+  /**
+   * The pictures to show when no stream plays, best first: { url, id, still }. The preview entity
+   * (`preview_entity`), the camera's CamPreview preview, then the cameras' own still pictures (often still
+   * served while the stream stalls). Pictures that failed to load are left out.
+   */
+  get _pictures() {
+    const list = [];
+    const add = (id, still) => {
+      const url = this._pictureOf(id);
+      if (url && !list.some((p) => p.url === url)) list.push({ url, id, still });
+    };
+    add(this.config.preview_entity, false);
+    add(this._autoPreviewId, false);
+    for (const { entity } of this._sources) add(entity, true);
+    return list;
+  }
+
+  // The preview's picture (no camera still: Home Assistant's player shows that one itself), or null.
+  get _previewUrl() {
+    const first = this._pictures[0];
+    return first && !first.still ? first.url : null;
+  }
+
+  // A picture that fails to load is left out, and the next one shows.
+  _pictureError(ev) {
+    const url = ev.target.getAttribute('src');
+    if (!url || this._badPictures.has(url)) return;
+    this._badPictures.add(url);
+    this.requestUpdate();
   }
 
   _renderStream(key, slot) {
@@ -613,7 +646,7 @@ class HaPlooumCameraCard extends LitElement {
       <div class="live">
         ${stream}
         <div class="wait">
-          ${url ? html`<img src=${url} alt="" style="object-fit: ${this.config.fit === 'cover' ? 'cover' : 'contain'}" />` : nothing}
+          ${url ? html`<img src=${url} alt="" @error=${this._pictureError} style="object-fit: ${this.config.fit === 'cover' ? 'cover' : 'contain'}" />` : nothing}
           <div class="spinner"></div>
         </div>
       </div>
@@ -645,18 +678,18 @@ class HaPlooumCameraCard extends LitElement {
   }
 
   _renderPreview() {
-    const id = this._previewId;
-    const st = id && this.hass.states[id];
-    const url = this._previewUrl;
+    const picture = this._pictures[0];
+    const url = picture && picture.url;
+    const st = picture && !picture.still && this.hass.states[picture.id];
     const when = st && Date.parse(st.state);
     const age = when && !Number.isNaN(when)
       ? new Date(when).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
     return html`
-      ${url ? html`<img class="preview" src=${url} alt="" style="object-fit: ${this.config.fit === 'cover' ? 'cover' : 'contain'}" />`
+      ${url ? html`<img class="preview" src=${url} alt="" @error=${this._pictureError} style="object-fit: ${this.config.fit === 'cover' ? 'cover' : 'contain'}" />`
         : html`<div class="nothing"><ha-icon icon="mdi:cctv-off"></ha-icon></div>`}
       <div class="banner">
         <ha-icon icon="mdi:alert-circle-outline"></ha-icon>
-        <span>${this._reason || REASONS.error}${url && age ? html` · picture from ${age}` : ''}</span>
+        <span>${this._reason || REASONS.error}${age ? html` · picture from ${age}` : ''}</span>
       </div>
     `;
   }
