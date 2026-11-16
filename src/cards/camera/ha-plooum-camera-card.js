@@ -37,7 +37,8 @@ const STALL_TIMEOUT = 12000; // ms without a new frame for a playing video to co
 const FROZEN_TIMEOUT = 30000; // ms of identical MJPEG pictures (no frame counter there) to count as stalled
 // ms before the first background try of a failed stream. A stream that fails to start is often only
 // stopping: Home Assistant (2026.10) drops a stream output asked for while that stream stops (the old
-// worker's worker_finished() removes it), so the player gets no URL; a try a moment later succeeds.
+// worker's worker_finished() removes it, home-assistant/core#192844), so the player gets no URL; a try a
+// moment later succeeds.
 const FIRST_RETRY = 3000;
 const RETRY_INTERVAL = 60000; // ms between the next background tries
 const LOAD_TIMEOUT = 10000; // ms to wait for Home Assistant's camera player to be defined
