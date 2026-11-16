@@ -41,6 +41,7 @@ const FROZEN_TIMEOUT = 30000; // ms of identical MJPEG pictures (no frame counte
 // moment later succeeds.
 const FIRST_RETRY = 3000;
 const RETRY_INTERVAL = 60000; // ms between the next background tries
+const WAIT_INTERVAL = 250; // ms between two looks at a stream that hasn't shown its first picture yet
 const LOAD_TIMEOUT = 10000; // ms to wait for Home Assistant's camera player to be defined
 const RECORDER = 'plooum_camrecorder'; // the CamRecorder integration's domain
 
@@ -102,6 +103,14 @@ function findMedia(stream) {
   }
   const img = root.querySelector('img');
   return img ? { img } : null;
+}
+
+// Whether a stream shows its first picture yet: a video that plays, or a loaded MJPEG picture.
+function streamPlaying(stream) {
+  const media = findMedia(stream);
+  if (!media) return false;
+  if (media.video) return media.video.readyState >= 2 && media.video.currentTime > 0;
+  return !!(media.img && media.img.complete && media.img.naturalWidth);
 }
 
 /* ==========================================================================
@@ -171,6 +180,8 @@ class HaPlooumCameraCard extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     clearInterval(this._timer);
+    clearInterval(this._waitTimer);
+    this._waitTimer = null;
     if (this._observer) this._observer.disconnect();
     clearTimeout(this._toastTimer);
     document.removeEventListener('visibilitychange', this._onVisibility);
@@ -553,11 +564,18 @@ class HaPlooumCameraCard extends LitElement {
 
   // --- Render ---
 
+  // The preview's picture (`preview_entity`), or null.
+  get _previewUrl() {
+    const id = this.config.preview_entity;
+    const st = id && this.hass.states[id];
+    return (st && st.state !== 'unavailable' && st.attributes.entity_picture) || null;
+  }
+
   _renderStream(key, slot) {
     const src = this._source(key);
     const st = src && this.hass.states[src.entity];
     if (!st || !this._ready) return nothing;
-    return keyed(`${slot}:${src.entity}`, html`
+    const stream = html`
       <ha-camera-stream
         class="stream ${slot}"
         .hass=${this.hass}
@@ -567,8 +585,39 @@ class HaPlooumCameraCard extends LitElement {
         .allowExoPlayer=${true}
         .aspectRatio=${cssRatio(this.config.aspect_ratio) || '16 / 9'}
         .fitMode=${this.config.fit === 'cover' ? 'cover' : 'contain'}
-      ></ha-camera-stream>
+      ></ha-camera-stream>`;
+    if (slot === 'probe') return keyed(`${slot}:${src.entity}`, stream);
+    // A real camera's stream takes seconds to start (HLS), and so does the still picture Home
+    // Assistant shows meanwhile: until the first picture, the preview shows over it, with a spinner.
+    // The live's class isn't bound: _watchFirstPicture() adds `playing` to it.
+    const url = this._previewUrl;
+    return keyed(`${slot}:${src.entity}`, html`
+      <div class="live">
+        ${stream}
+        <div class="wait">
+          ${url ? html`<img src=${url} alt="" style="object-fit: ${this.config.fit === 'cover' ? 'cover' : 'contain'}" />` : nothing}
+          <div class="spinner"></div>
+        </div>
+      </div>
     `);
+  }
+
+  updated() {
+    if (!this._waitTimer && this.renderRoot.querySelector('.live:not(.playing)')) {
+      this._waitTimer = setInterval(() => this._watchFirstPicture(), WAIT_INTERVAL);
+    }
+  }
+
+  // Takes the waiting picture away as soon as the stream shows its own.
+  _watchFirstPicture() {
+    const waiting = [...this.renderRoot.querySelectorAll('.live:not(.playing)')];
+    for (const live of waiting) {
+      if (streamPlaying(live.querySelector('ha-camera-stream'))) live.classList.add('playing');
+    }
+    if (!waiting.some((live) => !live.classList.contains('playing'))) {
+      clearInterval(this._waitTimer);
+      this._waitTimer = null;
+    }
   }
 
   // Why the shown picture is not the camera's own stream: the reason of the main stream's fault.
@@ -580,7 +629,7 @@ class HaPlooumCameraCard extends LitElement {
   _renderPreview() {
     const id = this.config.preview_entity;
     const st = id && this.hass.states[id];
-    const url = st && st.state !== 'unavailable' && st.attributes.entity_picture;
+    const url = this._previewUrl;
     const when = st && Date.parse(st.state);
     const age = when && !Number.isNaN(when)
       ? new Date(when).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
@@ -695,6 +744,7 @@ class HaPlooumCameraCard extends LitElement {
       }
       .zoom ha-camera-stream,
       .zoom .preview,
+      .live,
       .probe-box ha-camera-stream {
         display: block;
         width: 100%;
@@ -705,6 +755,44 @@ class HaPlooumCameraCard extends LitElement {
       }
       .preview {
         object-fit: contain;
+      }
+      .live {
+        position: relative;
+      }
+      .wait {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        transition: opacity 0.3s;
+      }
+      .wait img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+      .live.playing .wait {
+        opacity: 0;
+      }
+      .spinner {
+        position: relative;
+        width: 32px;
+        height: 32px;
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      .live.playing .spinner {
+        animation: none;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
       }
       .probe-box {
         position: absolute;
