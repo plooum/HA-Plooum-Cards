@@ -145,6 +145,19 @@
       ]
     },
     {
+      "name": "sound button: mutes and unmutes the stream on the card, hidden on the preview",
+      "steps": [
+        { "js": "S.cards = await T.card.rendered('ha-plooum-camera-card', 5); S.c = S.cards.find((c) => c.config.entity === 'camera.porch_camera'); S.btn = () => S.c.renderRoot.querySelector('.btn.mute'); S.player = () => S.c.renderRoot.querySelector('ha-camera-stream.active');" },
+        { "assert": "await waitFor(() => S.btn() && S.player(), 20000, 'the sound button') && S.player().muted === true && S.btn().querySelector('ha-icon').icon === 'mdi:volume-off'", "msg": "muted at start (muted: true by default), speaker crossed out" },
+        { "js": "S.btn().click(); await S.c.updateComplete; await S.player().updateComplete;" },
+        { "assert": "S.player().muted === false && S.btn().classList.contains('on') && S.btn().querySelector('ha-icon').icon === 'mdi:volume-high' && S.c.config.muted !== false", "msg": "a click turns the sound on, without changing the config" },
+        { "assert": "await waitFor(() => { const v = S.c.renderRoot.querySelector('ha-camera-stream.active').shadowRoot.querySelector('ha-hls-player, ha-web-rtc-player')?.shadowRoot?.querySelector('video'); return v && v.muted === false; }, 5000, 'the video unmuted')", "msg": "the player's video follows" },
+        { "js": "S.btn().click(); await S.c.updateComplete; await S.player().updateComplete;" },
+        { "assert": "S.player().muted === true && !S.btn().classList.contains('on')", "msg": "a second click mutes again" },
+        { "assert": "!S.cards.find((c) => c.config.entity === 'camera.does_not_exist').renderRoot.querySelector('.btn.mute')", "msg": "no sound button on the preview picture" }
+      ]
+    },
+    {
       "name": "editor: renders, fields emit config-changed",
       "steps": [
         { "js": "S.cards = await T.card.rendered('ha-plooum-camera-card', 5); S.n = await T.card.editorRenders(S.cards[0]);" },

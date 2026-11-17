@@ -8,7 +8,9 @@ A live camera that **plays as soon as the card shows**, with a **digital zoom**,
 
 ## The stream
 
-The card uses Home Assistant's own player: WebRTC or HLS for cameras with a stream, refreshed pictures (MJPEG) for the others. Sound is off unless `muted: false`.
+The card uses Home Assistant's own player: WebRTC or HLS for cameras with a stream, refreshed pictures (MJPEG) for the others.
+
+The **sound** button (a speaker) turns the sound on or off without editing the card. The card starts muted, unless `muted: false`; the button's choice lasts until the page reloads. It shows while a stream plays (not on the preview picture); a camera without sound stays silent.
 
 ## Zoom
 
@@ -65,8 +67,8 @@ Photos are of the whole picture, whatever the zoom.
 | `aspect_ratio` | string | `16:9` | Shape of the card (`16:9`, `4:3`, `1:1`…) |
 | `fit` | string | `contain` | `contain` shows the whole picture, `cover` fills the card (crops) |
 | `max_zoom` | number | `5` | Maximum zoom; `1` disables the zoom |
-| `muted` | boolean | `true` | Sound off |
-| `show_controls` | boolean | `true` | Show the buttons (photo, record, zoom reset, full screen) |
+| `muted` | boolean | `true` | Sound off when the card shows; the sound button changes it on the card |
+| `show_controls` | boolean | `true` | Show the buttons (sound, photo, record, zoom reset, full screen) |
 
 ## Examples
 

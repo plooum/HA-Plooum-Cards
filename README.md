@@ -41,7 +41,7 @@ A button combined with a floating badge, with a custom icon and text, and tap/ho
 ![Button Badge preview](docs/previews/button-badge.png)
 
 ### Ha Plooum Camera Card
-A live camera that plays as soon as it shows, with a digital zoom (wheel, pinch, double tap). Photo and video buttons save on the Home Assistant server through [Plooum CamRecorder](https://github.com/plooum/HA-Plooum-CamRecorder). When the camera fails or turns black, the card shows its fallback stream (SD), then its last good picture ([Plooum CamPreview](https://github.com/plooum/HA-Plooum-CamPreview)) with the reason, and comes back to the camera by itself.
+A live camera that plays as soon as it shows, with a digital zoom (wheel, pinch, double tap) and a button to turn the sound on or off. Photo and video buttons save on the Home Assistant server through [Plooum CamRecorder](https://github.com/plooum/HA-Plooum-CamRecorder). When the camera fails or turns black, the card shows its fallback stream (SD), then its last good picture ([Plooum CamPreview](https://github.com/plooum/HA-Plooum-CamPreview)) with the reason, and comes back to the camera by itself.
 
 ![Camera preview](docs/previews/camera.png)
 
