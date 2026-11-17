@@ -41,7 +41,7 @@ Bouton combiné à un badge flottant, icône et texte personnalisables, actions 
 ![Button Badge preview](docs/previews/button-badge.png)
 
 ### Ha Plooum Camera Card
-Une caméra en direct qui se lance dès l'affichage, avec un zoom numérique (molette, pincement, double appui). Des boutons photo et vidéo les enregistrent sur le serveur Home Assistant grâce à [Plooum CamRecorder](https://github.com/plooum/HA-Plooum-CamRecorder). Quand la caméra tombe en panne ou passe au noir, la carte affiche son flux de secours (SD), puis sa dernière bonne image ([Plooum CamPreview](https://github.com/plooum/HA-Plooum-CamPreview)) avec la raison, et revient d'elle-même à la caméra.
+Une caméra en direct qui se lance dès l'affichage, avec un zoom numérique (molette, pincement, double appui) et un bouton pour couper ou rétablir le son. Des boutons photo et vidéo les enregistrent sur le serveur Home Assistant grâce à [Plooum CamRecorder](https://github.com/plooum/HA-Plooum-CamRecorder). Quand la caméra tombe en panne ou passe au noir, la carte affiche son flux de secours (SD), puis sa dernière bonne image ([Plooum CamPreview](https://github.com/plooum/HA-Plooum-CamPreview)) avec la raison, et revient d'elle-même à la caméra.
 
 ![Camera preview](docs/previews/camera.png)
 

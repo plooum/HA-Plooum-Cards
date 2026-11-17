@@ -5,7 +5,7 @@ const CARD_VERSION = '1.0.3';
 
 /*
  * A live camera that plays as soon as it shows, with a digital zoom (wheel, pinch, double tap, drag), and
- * photo / video buttons that save on the server through the Plooum CamRecorder integration
+ * a sound button, and photo / video buttons that save on the server through the Plooum CamRecorder integration
  * (HA-Plooum-CamRecorder; hidden without it).
  *
  * When the camera fails (entity unavailable, no stream, a stream that stalls or shows black), the card
@@ -128,6 +128,7 @@ class HaPlooumCameraCard extends LitElement {
       _zoom: { state: true },
       _toast: { state: true },
       _busy: { state: true },
+      _muted: { state: true },
       _tick: { state: true },
     };
   }
@@ -152,6 +153,7 @@ class HaPlooumCameraCard extends LitElement {
     this._pointers = new Map();
     this._toast = null;
     this._busy = false;
+    this._muted = true; // the sound button's state, `muted` of the config until it is pressed
     this._localRec = {}; // camera -> start (ms), for cameras without a Recording switch
     this._tick = 0;
     this._badPictures = new Set(); // picture URLs that failed to load (their token changes every 5 min)
@@ -193,6 +195,7 @@ class HaPlooumCameraCard extends LitElement {
     if (!config) throw new Error('Invalid configuration');
     if (!config.entity) throw new Error('Pick a camera (entity)');
     this.config = { ...DEFAULTS, ...config };
+    this._muted = this.config.muted !== false;
     this._faults = {};
     this._active = 'main';
     this._probe = null;
@@ -558,6 +561,10 @@ class HaPlooumCameraCard extends LitElement {
     this._pointers.delete(ev.pointerId);
   }
 
+  _toggleMute() {
+    this._muted = !this._muted;
+  }
+
   _fullscreen() {
     const card = this.renderRoot.querySelector('ha-card');
     if (document.fullscreenElement) document.exitFullscreen();
@@ -631,7 +638,7 @@ class HaPlooumCameraCard extends LitElement {
         class="stream ${slot}"
         .hass=${this.hass}
         .stateObj=${st}
-        .muted=${slot === 'probe' || this.config.muted !== false}
+        .muted=${slot === 'probe' || this._muted}
         .controls=${false}
         .allowExoPlayer=${true}
         .aspectRatio=${cssRatio(this.config.aspect_ratio) || '16 / 9'}
@@ -704,6 +711,10 @@ class HaPlooumCameraCard extends LitElement {
         ${this._zoom.s > 1 ? html`
           <button class="btn zoom-reset" title="Reset zoom" @click=${this._resetZoom}>
             <ha-icon icon="mdi:magnify-minus-outline"></ha-icon>
+          </button>` : nothing}
+        ${this._sources.some((s) => s.key === this._active) ? html`
+          <button class="btn mute ${this._muted ? '' : 'on'}" title=${this._muted ? 'Turn the sound on' : 'Mute'} @click=${this._toggleMute}>
+            <ha-icon icon=${this._muted ? 'mdi:volume-off' : 'mdi:volume-high'}></ha-icon>
           </button>` : nothing}
         ${recorder && recorder.photo ? html`
           <button class="btn photo" title="Take a photo" ?disabled=${this._busy} @click=${this._photo}>
@@ -1046,7 +1057,7 @@ const LABELS = {
   fit: 'Fit',
   max_zoom: 'Maximum zoom',
   show_name: 'Show name',
-  muted: 'Muted',
+  muted: 'Muted at start',
   show_controls: 'Show buttons',
 };
 
@@ -1054,6 +1065,7 @@ const HELPERS = {
   sd_entity: "Shown when the camera's stream fails, is unavailable or black (typically its substream).",
   preview_entity: 'Last good picture shown when no stream plays, e.g. image.<camera>_preview of Plooum CamPreview.',
   aspect_ratio: 'e.g. 16:9, 4:3',
+  muted: 'The sound button turns it on or off on the card.',
 };
 
 class HaPlooumCameraCardEditor extends LitElement {
