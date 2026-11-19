@@ -90,9 +90,11 @@ A compact card to follow several boolean entities (light, pump, CO2...) around a
 ![Multi Status preview](docs/previews/multistatus.png)
 
 ### Ha Plooum PC Card
-A single button for a computer run by the Plooum PC agent. A tap opens a dialog with the actions its state allows: turn it on (Wake on LAN) when it is off, restart it or shut it down when it is on.
+A single button for a computer run by the Plooum PC agent. A tap opens a dialog with the actions its state allows: turn it on (Wake on LAN) when it is off, restart it or shut it down when it is on. Badges on its edges show the CPU, GPU and disk temperatures the agent publishes, orange when hot; the dialog lists them all.
 
 ![PC preview](docs/previews/pc.png)
+
+![PC temperature badges](docs/previews/pc-temps.png)
 
 ### Ha Plooum Sky Card
 The sky above the house as a dome: bright stars, constellations, planets, the Moon with its phase and the Sun, on a background that follows day, twilight and night. Drag the sky sideways to move the time by up to 6 hours. A line under the dome announces the next sky event (eclipse, conjunction, opposition, full Moon or supermoon, equinox or solstice, meteor shower); tap it to jump to the event when it is within 6 hours.

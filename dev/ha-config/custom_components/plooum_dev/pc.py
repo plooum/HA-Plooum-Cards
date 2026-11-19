@@ -1,9 +1,11 @@
 """Fake PCs that mimic the Plooum PC agent (SiteWeb, pcagent/main.go), for the PC card.
 
-The real agent announces, through MQTT discovery, a device `plooum_pc_<name>` with three entities:
+The real agent announces, through MQTT discovery, a device `plooum_pc_<name>` with:
 a connectivity binary sensor "En ligne" (attributes = the agent's JSON state: online, pending, hostname,
-os, arch, version, since) and two buttons "Éteindre" / "Redémarrer" (unique ids `plooum_pc_<name>_shutdown`
-and `_reboot`), unavailable while the PC is offline or a shutdown is pending. The fakes keep the same
+os, arch, version, since), two buttons "Éteindre" / "Redémarrer" (unique ids `plooum_pc_<name>_shutdown`
+and `_reboot`), unavailable while the PC is offline or a shutdown is pending, and on Linux one temperature
+sensor per chip, "Température CPU" / "Température GPU" / "Température disque <device>" (unique ids
+`plooum_pc_<name>_temp_<key>`, °C), unavailable while the PC is offline (sensor.py). The fakes keep the same
 device, names, unique ids and attributes, so the card's auto-discovery runs exactly as in production.
 
 Waking up: `bureau` wakes when `wake_on_lan.send_magic_packet` is called with its MAC (the card's `mac`
@@ -24,21 +26,24 @@ from homeassistant.helpers.event import async_call_later
 SHUTDOWN_DELAY = 3  # pending -> offline
 BOOT_DELAY = 4  # magic packet / reboot -> online
 
-# name, MAC, online at start
+# name, MAC, online at start, temperatures (key -> °C, as the agent publishes them on Linux: "cpu", "gpu",
+# "gpu2"…, else a disk named after its device)
 PCS = [
-    ("bureau", "02:00:00:00:00:01", True),
-    ("nas", "02:00:00:00:00:02", False),
+    ("bureau", "02:00:00:00:00:01", True, {"cpu": 86.4, "gpu": 54.2, "nvme0": 41.0}),
+    ("nas", "02:00:00:00:00:02", False, {"cpu": 38.0, "sda": 33.0, "sdb": 57.0, "sdc": 35.0}),
+    ("ia", "02:00:00:00:00:03", True, {"cpu": 47.5}),
 ]
 
 
 class FakePC:
     """State of one fake agent; entities subscribe to its changes."""
 
-    def __init__(self, hass: HomeAssistant, name: str, mac: str, online: bool) -> None:
+    def __init__(self, hass: HomeAssistant, name: str, mac: str, online: bool, temps: dict[str, float]) -> None:
         self.hass = hass
         self.name = name
         self.mac = mac
         self.online = online
+        self.temps = temps
         self.pending: str | None = None
         self.since = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         self._listeners: list[Callable[[], None]] = []

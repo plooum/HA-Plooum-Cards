@@ -11,7 +11,7 @@ paths, nothing else of dev/.
 
 Also sets up fake cameras (camera.py) for the floorplan card's 3D view, a fake camera preview
 (image.py, as HA-Plooum-CamPreview makes them) for its projection, and fake PC agents (pc.py,
-binary_sensor.py, button.py) for the PC card: they need a config entry (config_flow.py, import only)
+binary_sensor.py, button.py, sensor.py) for the PC card: they need a config entry (config_flow.py, import only)
 to own their devices.
 
 For the camera card: live HLS streams made by ffmpeg (hls.py) for the porch cameras (camera.py),
@@ -116,5 +116,5 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    await hass.config_entries.async_forward_entry_setups(entry, [Platform.BINARY_SENSOR, Platform.BUTTON])
+    await hass.config_entries.async_forward_entry_setups(entry, [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.SENSOR])
     return True

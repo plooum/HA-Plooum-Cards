@@ -1008,12 +1008,17 @@ views:
                 name: Bedroom
           - type: custom:ha-plooum-group-card
             title: PC
-            columns: 2
+            columns: 3
             cards:
               - type: custom:ha-plooum-pc-card
                 entity: binary_sensor.bureau_en_ligne
                 mac: "02:00:00:00:00:01"
                 broadcast_address: 127.0.0.1
+                show_name: true
+              - type: custom:ha-plooum-pc-card
+                entity: binary_sensor.ia_en_ligne
+                name: IA
+                icon: mdi:server
                 show_name: true
               - type: custom:ha-plooum-pc-card
                 entity: binary_sensor.nas_en_ligne
@@ -1037,8 +1042,9 @@ views:
             title: Empty
 
   # Fake PC agents (plooum_dev/pc.py): bureau starts on and wakes with wake_on_lan.send_magic_packet on its
-  # MAC (sent to 127.0.0.1), nas starts off and wakes with button.nas_wake_on_lan. Shutdown takes 3 s,
-  # booting 4 s.
+  # MAC (sent to 127.0.0.1), nas starts off and wakes with button.nas_wake_on_lan, ia starts on and never
+  # wakes. Shutdown takes 3 s, booting 4 s. Temperatures: bureau CPU 86.4 (hot) / GPU 54.2 / nvme0 41;
+  # nas CPU 38 / sda 33 / sdb 57 (hot) / sdc 35; ia CPU 47.5.
   - title: PC
     path: pc
     cards:
@@ -1059,6 +1065,24 @@ views:
             icon: mdi:nas
             show_name: true
             timeout: 30
+          # One temperature sensor (CPU), name shown.
+          - type: custom:ha-plooum-pc-card
+            entity: binary_sensor.ia_en_ligne
+            name: IA
+            icon: mdi:server
+            show_name: true
+          # Forced sensors (the NAS's three disks), lower disk threshold, two badges.
+          - type: custom:ha-plooum-pc-card
+            entity: binary_sensor.nas_en_ligne
+            wol_entity: button.nas_wake_on_lan
+            name: NAS disks
+            icon: mdi:nas
+            temps:
+              - sensor.nas_temperature_disque_sda
+              - sensor.nas_temperature_disque_sdb
+              - sensor.nas_temperature_disque_sdc
+            max_temps: 2
+            hot_disk_temp: 35
           # Missing entity.
           - type: custom:ha-plooum-pc-card
             entity: binary_sensor.does_not_exist
@@ -1078,6 +1102,8 @@ views:
           - button.nas_wake_on_lan
           - button.nas_eteindre
           - button.nas_redemarrer
+          - binary_sensor.ia_en_ligne
+          - button.ia_eteindre
 
   - title: Camera
     path: camera
