@@ -275,9 +275,16 @@ class HaPlooumPcCard extends LitElement {
     return chosen.sort((a, b) => TEMP_RANK[a.kind] - TEMP_RANK[b.kind] || priority.indexOf(a) - priority.indexOf(b));
   }
 
+  /** Hover text of a temperature: what it measures and its exact value. */
+  _tempTitle(t) {
+    const what = { cpu: 'CPU temperature', gpu: `${t.label} temperature`, disk: `Disk ${t.label} temperature` }[t.kind]
+      || t.label;
+    return `${what}: ${t.value} °C${t.hot ? ' (hot)' : ''}`;
+  }
+
   _badge(t) {
     return html`
-      <span class="temp ${t.kind} ${t.hot ? 'hot' : ''}" data-entity=${t.id} title=${`${t.label}: ${t.value} °C`}>
+      <span class="temp ${t.kind} ${t.hot ? 'hot' : ''}" data-entity=${t.id} title=${this._tempTitle(t)}>
         <ha-icon icon=${TEMP_ICONS[t.kind]}></ha-icon>${Math.round(t.value)}°
       </span>
     `;
@@ -410,7 +417,7 @@ class HaPlooumPcCard extends LitElement {
       <div class="temps">
         ${temps.map((t) => html`
           <button class="temp ${t.kind} ${t.hot ? 'hot' : ''}" data-entity=${t.id}
-            aria-label=${`${t.label}: ${t.value} °C`} @click=${() => this._moreInfo(t.id)}>
+            title=${this._tempTitle(t)} aria-label=${this._tempTitle(t)} @click=${() => this._moreInfo(t.id)}>
             <ha-icon icon=${TEMP_ICONS[t.kind]}></ha-icon>
             <span class="label">${t.label}</span>
             <span class="value">${Math.round(t.value * 10) / 10} °C</span>
@@ -573,7 +580,6 @@ class HaPlooumPcCard extends LitElement {
         display: flex;
         gap: 3px;
         z-index: 1;
-        pointer-events: none;
       }
       .temps.top {
         top: 0;

@@ -37,7 +37,7 @@ After an action, the card shows the transient state (starting, restarting, shutt
 
 ## Temperatures
 
-**Badges.** Each badge shows a small icon and the rounded value: `mdi:cpu-64-bit` for the CPU, `mdi:expansion-card` for a GPU, `mdi:harddisk` for a disk (`mdi:thermometer` for any other sensor given in `temps`). The first badge sits on the top edge, on the left (the CPU), the others on the bottom edge, on the right (the GPU, then the disk). With more sensors than `max_temps`, the card keeps the CPU, the hottest GPU and the hottest disk first. A badge turns orange from `hot_temp` (CPU, GPU, others) or `hot_disk_temp` (disks). There is no badge while the computer is off, nor for an unavailable sensor.
+**Badges.** Each badge shows a small icon and the rounded value: `mdi:cpu-64-bit` for the CPU, `mdi:expansion-card` for a GPU, `mdi:harddisk` for a disk (`mdi:thermometer` for any other sensor given in `temps`). The first badge sits on the top edge, on the left (the CPU), the others on the bottom edge, on the right (the GPU, then the disk). With more sensors than `max_temps`, the card keeps the CPU, the hottest GPU and the hottest disk first. A badge turns orange from `hot_temp` (CPU, GPU, others) or `hot_disk_temp` (disks). There is no badge while the computer is off, nor for an unavailable sensor. Hovering a badge tells what it measures and its exact value ("Disk nvme0 temperature: 41 °C").
 
 **Dialog.** Under the state, one cell per available sensor (CPU, GPU, or the disk's device name), with its value, orange past its threshold. A tap on a cell opens Home Assistant's more-info dialog of the sensor, with its history.
 

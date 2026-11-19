@@ -13,6 +13,11 @@
         { "assert": "S.badges(S.ia, 'top') === '48°' && S.badges(S.ia, 'bottom') === ''", "msg": "ia: one CPU badge (47.5 rounds to 48)", "show": "[S.badges(S.ia, 'top'), S.badges(S.ia, 'bottom')]" },
         { "assert": "T.hass().states['binary_sensor.nas_en_ligne'].state === 'off' && deep(S.nas.shadowRoot, '.temp').length === 0 && deep(S.card('NAS disks').shadowRoot, '.temp').length === 0", "msg": "no badge while the PC is off" },
         { "assert": "(() => { const r = S.bureau.shadowRoot.querySelector('ha-card').getBoundingClientRect(); const t = S.bureau.shadowRoot.querySelector('.temps.top').getBoundingClientRect(); const b = S.bureau.shadowRoot.querySelector('.temps.bottom').getBoundingClientRect(); return t.top < r.top && t.bottom > r.top && b.top < r.bottom && b.bottom > r.bottom && t.left < r.left + r.width / 2 && b.right > r.left + r.width / 2; })()", "msg": "badges straddle the top edge (left) and the bottom edge (right)" },
+        { "assert": "deep(S.bureau.shadowRoot, '.temp').map((e) => e.title).join('|') === 'CPU temperature: 86.4 °C (hot)|GPU temperature: 54.2 °C|Disk nvme0 temperature: 41 °C'", "msg": "each badge says what it measures on hover", "show": "deep(S.bureau.shadowRoot, '.temp').map((e) => e.title)" },
+        { "assert": "deep(S.bureau.shadowRoot, '.temps, .temp').every((e) => getComputedStyle(e).pointerEvents !== 'none')", "msg": "the badges get the pointer (so the tooltip shows)" },
+        { "js": "S.bureau.shadowRoot.querySelector('.temps.top .temp').click(); await S.bureau.updateComplete;" },
+        { "assert": "!!S.bureau.dialogRoot", "msg": "a click on a badge still opens the dialog" },
+        { "js": "S.bureau._close();" },
         { "shot": "pc-temps-badges.png", "el": "S.bureau.closest('hui-grid-card') || S.bureau.parentElement" }
       ]
     },
