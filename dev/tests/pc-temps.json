@@ -1,0 +1,66 @@
+{
+  "path": "/plooum-test/pc",
+  "viewport": [420, 460],
+  "tests": [
+    {
+      "name": "badges: 3 sensors with a hot CPU, 1 sensor, PC off",
+      "steps": [
+        { "js": "S.cards = await T.card.rendered('ha-plooum-pc-card', 6); S.card = (name) => S.cards.find((c) => c._name === name); S.badges = (c, where) => deep(c.shadowRoot, `.temps.${where} .temp`).map((e) => e.textContent.trim() + (e.classList.contains('hot') ? '!' : '')).join(); S.bureau = S.card('bureau'); S.ia = S.card('IA'); S.nas = S.card('NAS'); await waitFor(() => S.bureau._found.temps.length === 3 && S.ia._found.temps.length === 1 && S.nas._found.temps.length === 4, 10000, 'sensors found');" },
+        { "assert": "S.bureau._found.temps.slice().sort().join() === 'sensor.bureau_temperature_cpu,sensor.bureau_temperature_disque_nvme0,sensor.bureau_temperature_gpu'", "msg": "the temperature sensors are found on the sensor's device", "show": "S.bureau._found.temps" },
+        { "assert": "S.badges(S.bureau, 'top') === '86°!'", "msg": "bureau: hot CPU at the top", "show": "S.badges(S.bureau, 'top')" },
+        { "assert": "S.badges(S.bureau, 'bottom') === '54°,41°'", "msg": "bureau: GPU then disk at the bottom", "show": "S.badges(S.bureau, 'bottom')" },
+        { "assert": "deep(S.bureau.shadowRoot, '.temps.top ha-icon')[0].icon === 'mdi:cpu-64-bit' && deep(S.bureau.shadowRoot, '.temps.bottom ha-icon').map((e) => e.icon).join() === 'mdi:expansion-card,mdi:harddisk'", "msg": "badge icons" },
+        { "assert": "S.badges(S.ia, 'top') === '48°' && S.badges(S.ia, 'bottom') === ''", "msg": "ia: one CPU badge (47.5 rounds to 48)", "show": "[S.badges(S.ia, 'top'), S.badges(S.ia, 'bottom')]" },
+        { "assert": "T.hass().states['binary_sensor.nas_en_ligne'].state === 'off' && deep(S.nas.shadowRoot, '.temp').length === 0 && deep(S.card('NAS disks').shadowRoot, '.temp').length === 0", "msg": "no badge while the PC is off" },
+        { "assert": "(() => { const r = S.bureau.shadowRoot.querySelector('ha-card').getBoundingClientRect(); const t = S.bureau.shadowRoot.querySelector('.temps.top').getBoundingClientRect(); const b = S.bureau.shadowRoot.querySelector('.temps.bottom').getBoundingClientRect(); return t.top < r.top && t.bottom > r.top && b.top < r.bottom && b.bottom > r.bottom && t.left < r.left + r.width / 2 && b.right > r.left + r.width / 2; })()", "msg": "badges straddle the top edge (left) and the bottom edge (right)" },
+        { "shot": "pc-temps-badges.png", "el": "S.bureau.closest('hui-grid-card') || S.bureau.parentElement" }
+      ]
+    },
+    {
+      "name": "dialog: one cell per sensor, a tap opens its more-info",
+      "steps": [
+        { "js": "S.cards = await T.card.rendered('ha-plooum-pc-card', 6); S.bureau = S.cards.find((c) => c._name === 'bureau'); await waitFor(() => S.bureau._found.temps.length === 3, 10000, 'sensors found'); S.bureau.shadowRoot.querySelector('ha-card').click(); S.cells = () => deep(S.bureau.dialogRoot, '.temps .temp');" },
+        { "assert": "S.cells().map((e) => e.querySelector('.label').textContent + ' ' + e.querySelector('.value').textContent + (e.classList.contains('hot') ? '!' : '')).join() === 'CPU 86.4 °C!,GPU 54.2 °C,nvme0 41 °C'", "msg": "CPU (hot), GPU and disk cells under the state", "show": "S.cells().map((e) => e.textContent.replace(/\\s+/g, ' ').trim())" },
+        { "assert": "deep(S.bureau.dialogRoot, '[data-action=reboot]').length === 1 && deep(S.bureau.dialogRoot, '[data-action=shutdown]').length === 1", "msg": "Restart and Shut down are still there" },
+        { "shot": "pc-temps-dialog.png", "el": "S.bureau.dialogRoot.querySelector('.dialog')" },
+        { "js": "S.cells()[0].click();" },
+        { "assert": "await waitFor(() => new URL(location.href).searchParams.get('more-info-entity-id') === 'sensor.bureau_temperature_cpu', 5000, 'more-info')", "msg": "a tap on the CPU cell opens its more-info dialog", "show": "location.href" },
+        { "assert": "!S.bureau.dialogRoot", "msg": "the card's dialog closed" }
+      ]
+    },
+    {
+      "name": "NAS on: hottest disk, forced sensors and thresholds, back off",
+      "steps": [
+        { "js": "S.cards = await T.card.rendered('ha-plooum-pc-card', 6); S.card = (name) => S.cards.find((c) => c._name === name); S.badges = (c, where) => deep(c.shadowRoot, `.temps.${where} .temp`).map((e) => e.textContent.trim() + (e.classList.contains('hot') ? '!' : '')).join(); S.nas = S.card('NAS'); S.disks = S.card('NAS disks'); await T.card.call('button', 'press', { entity_id: 'button.nas_wake_on_lan' }); await T.card.waitState('sensor.nas_temperature_cpu', (s) => s.state !== 'unavailable', 10000);" },
+        { "assert": "await waitFor(() => S.badges(S.nas, 'top') === '38°', 3000, 'nas badges')", "msg": "nas: CPU at the top", "show": "S.badges(S.nas, 'top')" },
+        { "assert": "S.badges(S.nas, 'bottom') === '57°!,35°'", "msg": "nas: 4 sensors, 3 badges: the hottest disks (sdb hot from 55 °C)", "show": "S.badges(S.nas, 'bottom')" },
+        { "assert": "S.badges(S.disks, 'top') + '|' + S.badges(S.disks, 'bottom') === '57°!|35°!'", "msg": "forced sensors, max_temps 2, hot_disk_temp 35", "show": "S.badges(S.disks, 'top') + '|' + S.badges(S.disks, 'bottom')" },
+        { "js": "S.nas.shadowRoot.querySelector('ha-card').click();" },
+        { "assert": "deep(S.nas.dialogRoot, '.temps .temp .label').map((e) => e.textContent).join() === 'CPU,sda,sdb,sdc'", "msg": "the dialog lists every sensor", "show": "deep(S.nas.dialogRoot, '.temps .temp .label').map((e) => e.textContent)" },
+        { "js": "S.nas._close(); await T.card.call('button', 'press', { entity_id: 'button.nas_eteindre' }); await T.card.waitState('binary_sensor.nas_en_ligne', (s) => s.state === 'off', 10000);" },
+        { "assert": "await waitFor(() => deep(S.nas.shadowRoot, '.temp').length === 0 && deep(S.disks.shadowRoot, '.temp').length === 0, 3000, 'no badges')", "msg": "the badges go away when the PC shuts down" }
+      ],
+      "finally": [
+        { "js": "if (S.nas) S.nas._close(); if (T.hass().states['binary_sensor.nas_en_ligne'].state === 'on') await T.card.call('button', 'press', { entity_id: 'button.nas_eteindre' });" },
+        { "assert": "await T.card.waitState('binary_sensor.nas_en_ligne', (s) => s.state === 'off', 10000)", "msg": "nas off" }
+      ]
+    },
+    {
+      "name": "unavailable sensor, max_temps 0, editor",
+      "steps": [
+        { "js": "S.cards = await T.card.rendered('ha-plooum-pc-card', 6); S.bureau = S.cards.find((c) => c._name === 'bureau'); S.badges = (c) => deep(c.shadowRoot, '.temp').map((e) => e.textContent.trim()).join(); await waitFor(() => S.bureau._found.temps.length === 3, 10000, 'sensors found'); S.gpu = T.hass().states['sensor.bureau_temperature_gpu']; await T.hass().callApi('POST', 'states/sensor.bureau_temperature_gpu', { state: 'unavailable', attributes: S.gpu.attributes });" },
+        { "assert": "await waitFor(() => S.badges(S.bureau) === '86°,41°', 3000, 'gpu gone')", "msg": "no badge for an unavailable sensor", "show": "S.badges(S.bureau)" },
+        { "js": "S.config = S.bureau.config; S.bureau.setConfig({ ...S.config, max_temps: 0 }); await S.bureau.updateComplete;" },
+        { "assert": "S.badges(S.bureau) === ''", "msg": "max_temps: 0 hides the badges" },
+        { "js": "S.bureau.shadowRoot.querySelector('ha-card').click();" },
+        { "assert": "deep(S.bureau.dialogRoot, '.temps .temp .label').map((e) => e.textContent).join() === 'CPU,nvme0'", "msg": "the dialog still shows the available sensors" },
+        { "js": "S.bureau._close(); S.n = await T.card.editorRenders(S.bureau);" },
+        { "js": "const ed = document.createElement('ha-plooum-pc-card-editor'); ed.hass = T.hass(); ed.setConfig({ entity: 'binary_sensor.bureau_en_ligne' }); document.body.append(ed); await ed.updateComplete; S.schema = JSON.stringify(ed.shadowRoot.querySelector('ha-form').schema); ed.remove();" },
+        { "assert": "['temps', 'max_temps', 'hot_temp', 'hot_disk_temp'].every((n) => S.schema.includes(`\"${n}\"`))", "msg": "the editor has the temperature options" }
+      ],
+      "finally": [
+        { "js": "if (S.bureau) { S.bureau._close(); if (S.config) S.bureau.setConfig(S.config); } if (S.gpu) await T.hass().callApi('POST', 'states/sensor.bureau_temperature_gpu', { state: S.gpu.state, attributes: S.gpu.attributes });" }
+      ]
+    }
+  ]
+}

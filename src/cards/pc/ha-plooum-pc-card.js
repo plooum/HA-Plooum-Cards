@@ -11,6 +11,11 @@ const CARD_VERSION = '1.0.1';
  * attributes = its JSON state, `pending` = "shutdown" / "reboot" while an order runs) and two buttons whose
  * unique ids end with `_shutdown` and `_reboot`. The card only needs the sensor: it finds both buttons on
  * the sensor's device (shutdown_entity / reboot_entity override them).
+ *
+ * On Linux the agent also announces one temperature sensor per chip on the same device ("Température CPU",
+ * "Température GPU", "Température disque nvme0"…, unique ids ending with `_temp_<key>`). The card finds
+ * them too (`temps` overrides them), shows up to `max_temps` of them as badges straddling the tile's edges
+ * (the CPU at the top left, the GPU and the hottest disk at the bottom right) and all of them in the dialog.
  */
 
 const DEFAULTS = {
@@ -19,7 +24,20 @@ const DEFAULTS = {
   off_color: '#9E9E9E',
   pending_color: '#03A9F4',
   timeout: 120,
+  max_temps: 3,
+  hot_temp: 80,
+  hot_disk_temp: 55,
 };
+
+const TEMP_ICONS = {
+  cpu: 'mdi:cpu-64-bit',
+  gpu: 'mdi:expansion-card',
+  disk: 'mdi:harddisk',
+  other: 'mdi:thermometer',
+};
+
+// Badge order: CPU, GPU, disks, then anything else.
+const TEMP_RANK = { cpu: 0, gpu: 1, disk: 2, other: 3 };
 
 // Status -> label shown under the name in the dialog.
 const STATUS_LABELS = {
@@ -45,6 +63,7 @@ class HaPlooumPcCard extends LitElement {
       config: { attribute: false },
       _open: { state: true },
       _buttons: { state: true },
+      _found: { state: true },
       _local: { state: true },
       _error: { state: true },
     };
@@ -66,6 +85,7 @@ class HaPlooumPcCard extends LitElement {
     super();
     this._open = false;
     this._buttons = { shutdown: null, reboot: null };
+    this._found = { temps: [], uniques: {} };
     this._local = null;
     this._error = '';
     this._discoveredFor = undefined;
@@ -144,25 +164,40 @@ class HaPlooumPcCard extends LitElement {
     this._timer = setTimeout(() => { this._checkLocal(); this.requestUpdate(); }, timeout * 1000 + 50);
   }
 
-  // Finds the agent's shutdown / reboot buttons on the sensor's device: by unique id (`_shutdown`,
-  // `_reboot`, as the agent announces them), else by entity id.
+  // Finds the agent's entities on the sensor's device: the shutdown / reboot buttons by unique id
+  // (`_shutdown`, `_reboot`, as the agent announces them), else by entity id, and the temperature sensors
+  // (device class `temperature`).
   async _discover() {
     const entity = this.config.entity;
     this._discoveredFor = entity;
     const found = { shutdown: null, reboot: null };
+    const temps = [];
+    let uniques = {};
     const entry = this.hass.entities && this.hass.entities[entity];
     if (entry && entry.device_id) {
-      const ids = Object.values(this.hass.entities)
-        .filter((e) => e.device_id === entry.device_id && e.entity_id.startsWith('button.'))
-        .map((e) => e.entity_id);
-      let uniques = {};
-      if (ids.length) {
+      const onDevice = Object.values(this.hass.entities)
+        .filter((e) => e.device_id === entry.device_id).map((e) => e.entity_id);
+      const ids = onDevice.filter((id) => id.startsWith('button.'));
+      const sensors = onDevice.filter((id) => id.startsWith('sensor.'));
+      const entries = {};
+      if (ids.length || sensors.length) {
         try {
-          const res = await this.hass.callWS({ type: 'config/entity_registry/get_entries', entity_ids: ids });
-          for (const id of ids) uniques[id] = res && res[id] ? res[id].unique_id || '' : '';
+          const res = await this.hass.callWS({
+            type: 'config/entity_registry/get_entries', entity_ids: [...ids, ...sensors],
+          });
+          for (const id of [...ids, ...sensors]) {
+            entries[id] = (res && res[id]) || {};
+            uniques[id] = entries[id].unique_id || '';
+          }
         } catch (_e) {
           uniques = {};
         }
+      }
+      for (const id of sensors) {
+        const stateObj = this.hass.states[id];
+        const deviceClass = (entries[id] && (entries[id].device_class || entries[id].original_device_class))
+          || (stateObj && stateObj.attributes.device_class);
+        if (deviceClass === 'temperature') temps.push(id);
       }
       for (const id of ids) {
         const unique = String(uniques[id] || '');
@@ -175,7 +210,86 @@ class HaPlooumPcCard extends LitElement {
         if (!found.reboot && REBOOT_RE.test(object)) found.reboot = id;
       }
     }
-    if (this._discoveredFor === entity) this._buttons = found;
+    if (this._discoveredFor === entity) {
+      this._buttons = found;
+      this._found = { temps, uniques };
+    }
+  }
+
+  // --- Temperatures ---
+
+  /** Kind (cpu, gpu, disk or other) and short label of a temperature sensor. */
+  _tempInfo(id) {
+    const unique = String(this._found.uniques[id] || '');
+    let key = (unique.match(/_temp_(.+)$/) || [])[1];
+    let disk = !!key;
+    if (!key) {
+      const m = id.split('.')[1].match(/_temperature_(?:(disque|disk)_)?(.+)$/);
+      if (m) {
+        key = m[2];
+        disk = !!m[1];
+      }
+    }
+    if (key === 'cpu') return { kind: 'cpu', label: 'CPU' };
+    if (key && /^gpu\d*$/.test(key)) return { kind: 'gpu', label: key.toUpperCase() };
+    if (key && disk) return { kind: 'disk', label: key };
+    const stateObj = this.hass.states[id];
+    return { kind: 'other', label: (stateObj && stateObj.attributes.friendly_name) || id };
+  }
+
+  /** Every temperature sensor of the computer, with its value (null when unavailable) and whether it's hot. */
+  get _temps() {
+    const ids = Array.isArray(this.config.temps) && this.config.temps.length ? this.config.temps : this._found.temps;
+    const hot = Number.isFinite(Number(this.config.hot_temp)) && this.config.hot_temp !== undefined
+      ? Number(this.config.hot_temp) : DEFAULTS.hot_temp;
+    const hotDisk = Number.isFinite(Number(this.config.hot_disk_temp)) && this.config.hot_disk_temp !== undefined
+      ? Number(this.config.hot_disk_temp) : DEFAULTS.hot_disk_temp;
+    return ids.map((id) => {
+      const stateObj = this.hass.states[id];
+      const num = stateObj ? Number.parseFloat(stateObj.state) : NaN;
+      const value = Number.isFinite(num) ? num : null;
+      const info = this._tempInfo(id);
+      const limit = info.kind === 'disk' ? hotDisk : hot;
+      return { id, ...info, value, hot: value !== null && value >= limit };
+    });
+  }
+
+  /**
+   * The badges of the tile: up to max_temps available sensors, the CPU, the hottest GPU and the hottest disk
+   * first, shown in the order CPU, GPUs, disks. None while the computer is off.
+   */
+  _badgeTemps(temps) {
+    const stateObj = this.hass.states[this.config.entity];
+    if (!stateObj || stateObj.state !== 'on') return [];
+    const max = this.config.max_temps === undefined || this.config.max_temps === null
+      || !Number.isFinite(Number(this.config.max_temps))
+      ? DEFAULTS.max_temps : Math.max(0, Math.floor(Number(this.config.max_temps)));
+    const ok = temps.filter((t) => t.value !== null);
+    const of = (kind) => ok.filter((t) => t.kind === kind).sort((a, b) => b.value - a.value);
+    const cpus = ok.filter((t) => t.kind === 'cpu');
+    const gpus = of('gpu');
+    const disks = of('disk');
+    const priority = [cpus[0], gpus[0], disks[0], ...cpus.slice(1), ...gpus.slice(1), ...disks.slice(1),
+      ...ok.filter((t) => t.kind === 'other')].filter(Boolean);
+    const chosen = priority.slice(0, max);
+    return chosen.sort((a, b) => TEMP_RANK[a.kind] - TEMP_RANK[b.kind] || priority.indexOf(a) - priority.indexOf(b));
+  }
+
+  _badge(t) {
+    return html`
+      <span class="temp ${t.kind} ${t.hot ? 'hot' : ''}" data-entity=${t.id} title=${`${t.label}: ${t.value} °C`}>
+        <ha-icon icon=${TEMP_ICONS[t.kind]}></ha-icon>${Math.round(t.value)}°
+      </span>
+    `;
+  }
+
+  _moreInfo(entityId) {
+    this._close();
+    this.dispatchEvent(new CustomEvent('hass-more-info', {
+      detail: { entityId },
+      bubbles: true,
+      composed: true,
+    }));
   }
 
   get _shutdownEntity() {
@@ -287,6 +401,25 @@ class HaPlooumPcCard extends LitElement {
     `;
   }
 
+  // One cell per available temperature sensor; a tap opens its more-info dialog (history).
+  _tempsTemplate() {
+    const temps = this._temps.filter((t) => t.value !== null)
+      .sort((a, b) => TEMP_RANK[a.kind] - TEMP_RANK[b.kind]);
+    if (!temps.length) return nothing;
+    return html`
+      <div class="temps">
+        ${temps.map((t) => html`
+          <button class="temp ${t.kind} ${t.hot ? 'hot' : ''}" data-entity=${t.id}
+            aria-label=${`${t.label}: ${t.value} °C`} @click=${() => this._moreInfo(t.id)}>
+            <ha-icon icon=${TEMP_ICONS[t.kind]}></ha-icon>
+            <span class="label">${t.label}</span>
+            <span class="value">${Math.round(t.value * 10) / 10} °C</span>
+          </button>
+        `)}
+      </div>
+    `;
+  }
+
   _dialogTemplate() {
     const status = this._status;
     const name = this._name;
@@ -320,6 +453,7 @@ class HaPlooumPcCard extends LitElement {
           </div>
           <button class="close" aria-label="Close" @click=${() => this._close()}><ha-icon icon="mdi:close"></ha-icon></button>
         </div>
+        ${this._tempsTemplate()}
         <div class="body">${body}</div>
         ${this._error ? html`<div class="error">${this._error}</div>` : nothing}
       </div>
@@ -354,6 +488,7 @@ class HaPlooumPcCard extends LitElement {
     const status = this._status;
     const color = this._color(status);
     const busy = status === 'starting' || status === 'stopping' || status === 'restarting';
+    const [top, ...bottom] = this._badgeTemps(this._temps);
     return html`
       <ha-card
         class="pc ${status} ${this.config.show_name ? 'has-name' : ''}"
@@ -368,6 +503,8 @@ class HaPlooumPcCard extends LitElement {
           ? html`<ha-icon class="alert" icon="mdi:alert-circle"></ha-icon>`
           : nothing}
         ${this.config.show_name ? html`<div class="name" style="color: ${color}">${this._name}</div>` : nothing}
+        ${top ? html`<div class="temps top">${this._badge(top)}</div>` : nothing}
+        ${bottom.length ? html`<div class="temps bottom">${bottom.map((t) => this._badge(t))}</div>` : nothing}
       </ha-card>
     `;
   }
@@ -389,6 +526,7 @@ class HaPlooumPcCard extends LitElement {
         border: none;
         border-radius: 20px;
         box-shadow: none;
+        overflow: visible;
         cursor: pointer;
         user-select: none;
         -webkit-user-select: none;
@@ -428,6 +566,57 @@ class HaPlooumPcCard extends LitElement {
         font-weight: 700;
         line-height: 1.2;
         text-align: center;
+      }
+      /* Temperature badges, straddling the tile's top and bottom edges. */
+      .temps {
+        position: absolute;
+        display: flex;
+        gap: 3px;
+        z-index: 1;
+        pointer-events: none;
+      }
+      .temps.top {
+        top: 0;
+        left: 10px;
+        transform: translateY(-50%);
+      }
+      .temps.bottom {
+        bottom: 0;
+        right: 8px;
+        transform: translateY(50%);
+      }
+      .temp {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        height: 18px;
+        padding: 0 5px 0 4px;
+        box-sizing: border-box;
+        border-radius: 9px;
+        font-size: 11px;
+        font-weight: 600;
+        line-height: 1;
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+        color: var(--plooum-pc-temp-color, var(--primary-text-color, #e1e1e1));
+        background: var(--plooum-pc-temp-background, var(--card-background-color, #1c1c1c));
+        border: 1px solid var(--plooum-pc-temp-border, rgba(255, 255, 255, 0.14));
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+      }
+      .temp ha-icon {
+        --mdc-icon-size: 12px;
+        width: 12px;
+        height: 12px;
+        display: flex;
+        opacity: 0.75;
+      }
+      .temp.hot {
+        color: #1b1b1b;
+        background: var(--plooum-pc-temp-hot-color, #ff9800);
+        border-color: var(--plooum-pc-temp-hot-color, #ff9800);
+      }
+      .temp.hot ha-icon {
+        opacity: 1;
       }
       @keyframes pulse {
         50% { opacity: 0.35; }
@@ -497,6 +686,58 @@ const DIALOG_STYLES = css`
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+  .temps {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 8px;
+    margin-top: 16px;
+  }
+  .temp {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-areas: "icon label" "value value";
+    align-items: center;
+    column-gap: 6px;
+    row-gap: 2px;
+    padding: 8px 10px;
+    border: 1px solid var(--divider-color, rgba(0, 0, 0, 0.12));
+    border-radius: 14px;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .temp:hover {
+    background: var(--secondary-background-color, rgba(0, 0, 0, 0.05));
+  }
+  .temp ha-icon {
+    grid-area: icon;
+    --mdc-icon-size: 16px;
+    color: var(--secondary-text-color, #727272);
+  }
+  .temp .label {
+    grid-area: label;
+    font-size: 12px;
+    color: var(--secondary-text-color, #727272);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .temp .value {
+    grid-area: value;
+    font-size: 17px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .temp.hot {
+    border-color: #ff9800;
+    background: rgba(255, 152, 0, 0.12);
+  }
+  .temp.hot ha-icon,
+  .temp.hot .value {
+    color: #ff9800;
   }
   .body {
     display: flex;
@@ -589,6 +830,18 @@ const SCHEMA = [
     ],
   },
   {
+    type: 'expandable', name: '', title: 'Temperatures', icon: 'mdi:thermometer', schema: [
+      { name: 'temps', selector: { entity: { domain: 'sensor', device_class: 'temperature', multiple: true } } },
+      { name: 'max_temps', selector: { number: { min: 0, max: 6, step: 1, mode: 'box' } } },
+      {
+        type: 'grid', name: '', schema: [
+          { name: 'hot_temp', selector: { number: { min: 0, max: 150, step: 1, unit_of_measurement: '°C', mode: 'box' } } },
+          { name: 'hot_disk_temp', selector: { number: { min: 0, max: 150, step: 1, unit_of_measurement: '°C', mode: 'box' } } },
+        ],
+      },
+    ],
+  },
+  {
     type: 'expandable', name: '', title: 'Colors', icon: 'mdi:palette', schema: [
       {
         type: 'grid', name: '', schema: [
@@ -613,6 +866,10 @@ const LABELS = {
   reboot_entity: 'Restart button (default: found on the device)',
   shutdown_entity: 'Shut down button (default: found on the device)',
   timeout: 'Give up waiting after',
+  temps: 'Temperature sensors (default: found on the device)',
+  max_temps: `Badges on the button (${DEFAULTS.max_temps}, 0 = none)`,
+  hot_temp: `CPU / GPU hot from (${DEFAULTS.hot_temp} °C)`,
+  hot_disk_temp: `Disk hot from (${DEFAULTS.hot_disk_temp} °C)`,
   on_color: `Color when on (${DEFAULTS.on_color})`,
   off_color: `Color when off (${DEFAULTS.off_color})`,
   pending_color: `Color while waiting (${DEFAULTS.pending_color})`,
@@ -633,7 +890,9 @@ class HaPlooumPcCardEditor extends LitElement {
   _valueChanged(ev) {
     const config = { ...ev.detail.value };
     for (const key of Object.keys(config)) {
-      if (config[key] === '' || config[key] === undefined || config[key] === null) delete config[key];
+      const empty = config[key] === '' || config[key] === undefined || config[key] === null
+        || (Array.isArray(config[key]) && !config[key].length);
+      if (empty) delete config[key];
     }
     this._config = config;
     this.dispatchEvent(new CustomEvent('config-changed', {
@@ -654,8 +913,8 @@ class HaPlooumPcCardEditor extends LitElement {
         @value-changed=${this._valueChanged}
       ></ha-form>
       <div class="hint">
-        The MAC address needs <code>wake_on_lan:</code> in configuration.yaml. The restart and shut down buttons are
-        the PC agent's, found on the sensor's device.
+        The MAC address needs <code>wake_on_lan:</code> in configuration.yaml. The restart and shut down buttons and
+        the temperature sensors are the PC agent's, found on the sensor's device.
       </div>
     `;
   }
@@ -686,7 +945,7 @@ if (!window.customCards.some(card => card.type === 'ha-plooum-pc-card')) {
   window.customCards.push({
     type: 'ha-plooum-pc-card',
     name: 'Ha Plooum PC Card',
-    description: 'A button for a computer run by the Plooum PC agent: turn it on (Wake on LAN), restart it or shut it down.',
+    description: 'A button for a computer run by the Plooum PC agent: turn it on (Wake on LAN), restart it or shut it down, and see its temperatures.',
     preview: true,
   });
 }

@@ -90,9 +90,11 @@ Carte compacte pour suivre plusieurs entités booléennes (lumière, pompe, CO2.
 ![Multi Status preview](docs/previews/multistatus.png)
 
 ### Ha Plooum PC Card
-Un simple bouton pour un ordinateur géré par l'agent PC Plooum. Un tap ouvre une fenêtre avec les actions que permet son état : l'allumer (Wake on LAN) quand il est éteint, le redémarrer ou l'éteindre quand il est allumé.
+Un simple bouton pour un ordinateur géré par l'agent PC Plooum. Un tap ouvre une fenêtre avec les actions que permet son état : l'allumer (Wake on LAN) quand il est éteint, le redémarrer ou l'éteindre quand il est allumé. Des pastilles sur ses bords montrent les températures du CPU, du GPU et des disques que publie l'agent, en orange quand elles sont élevées ; la fenêtre les liste toutes.
 
 ![PC preview](docs/previews/pc.png)
+
+![PC temperature badges](docs/previews/pc-temps.png)
 
 ### Ha Plooum Sky Card
 Le ciel au-dessus de la maison en dôme : étoiles brillantes, constellations, planètes, Lune avec sa phase et Soleil, sur un fond qui suit le jour, le crépuscule et la nuit. On fait défiler le temps de ±6 h en faisant tourner le ciel au doigt. Une ligne sous le dôme annonce le prochain événement du ciel (éclipse, conjonction, opposition, pleine Lune ou super-lune, équinoxe ou solstice, pluie d'étoiles filantes) ; un tap dessus amène le dôme sur l'événement quand il tombe dans les 6 h.
