@@ -114,6 +114,18 @@ const FR = {
   'Mode when a slot turns the heating on': 'Mode quand un créneau rallume le chauffage',
   'Automatic (current mode, else heat)': 'Automatique (mode actuel, sinon chauffage)',
   'Schedule on': 'Programmation active',
+  'Slot parameters': 'Paramètres des créneaux',
+  "Switches and numbers this program's slots also set (an eco mode, a hysteresis…). A value holds until a slot changes it.": "Interrupteurs et nombres que les créneaux de ce programme règlent aussi (un mode éco, une hystérésis…). Une valeur tient jusqu'au créneau qui la change.",
+  'Entity (switch, number…)': 'Entité (switch, number…)',
+  'Name (optional)': 'Nom (facultatif)',
+  'Icon (mdi:…)': 'Icône (mdi:…)',
+  'Icon when inactive': 'Icône inactif',
+  'Add a parameter': 'Ajouter un paramètre',
+  'Remove': 'Retirer',
+  'Active': 'Actif',
+  'Inactive': 'Inactif',
+  'A parameter is a switch, input_boolean, number or input_number entity.': 'Un paramètre est une entité switch, input_boolean, number ou input_number.',
+  '{entity} is twice in the parameters.': '{entity} est deux fois dans les paramètres.',
   'The thermostat turns itself off (eco mode, standby)': "Le thermostat s'éteint tout seul (mode éco, veille)",
   'Going off by itself is then no manual change, and the schedule only turns back on what an Off slot turned off.': "Son extinction n'est alors pas un changement manuel, et la programmation ne rallume que ce qu'un créneau Éteint a éteint.",
   'Profiles of the house': 'Profils de la maison',
@@ -170,7 +182,7 @@ const clone = (o) => JSON.parse(JSON.stringify(o));
 function weekFromEngine(week) {
   const out = {};
   for (const d of DAYS) {
-    out[d] = ((week && week[d]) || []).map((p) => ({ at: toMin(p.at), value: p.value }))
+    out[d] = ((week && week[d]) || []).map((p) => ({ at: toMin(p.at), value: p.value, ...(p.params ? { params: { ...p.params } } : {}) }))
       .filter((p) => !Number.isNaN(p.at) && p.at < DAY_MIN)
       .sort((a, b) => a.at - b.at);
   }
@@ -179,7 +191,7 @@ function weekFromEngine(week) {
 
 function weekToEngine(week) {
   const out = {};
-  for (const d of DAYS) out[d] = merge(week[d]).map((p) => ({ at: fmtTime(p.at), value: p.value }));
+  for (const d of DAYS) out[d] = merge(week[d]).map((p) => ({ at: fmtTime(p.at), value: p.value, ...(hasParams(p) ? { params: { ...p.params } } : {}) }));
   return out;
 }
 
@@ -202,42 +214,85 @@ function normalizeWeek(week, fallback = DEFAULT_TEMP) {
   return out;
 }
 
-/** Drop points that repeat the value before them (the 00:00 point stays). */
+const hasParams = (p) => !!(p && p.params && Object.keys(p.params).length);
+
+function sameParam(a, b) {
+  if (typeof a === 'boolean' || typeof b === 'boolean' || a === undefined || b === undefined) return a === b;
+  return Math.abs(Number(a) - Number(b)) < 1e-6;
+}
+
+/** Drop points that repeat the value before them and set no parameter (the 00:00 point stays). */
 function merge(points) {
   const out = [];
   for (const p of [...points].sort((a, b) => a.at - b.at)) {
     if (out.length && out[out.length - 1].at === p.at) out[out.length - 1] = { ...p };
-    else if (!out.length || p.at === 0 || !sameValue(out[out.length - 1].value, p.value)) out.push({ ...p });
+    else if (!out.length || p.at === 0 || hasParams(p) || !sameValue(out[out.length - 1].value, p.value)) out.push({ ...p });
   }
   return out;
 }
 
-/** Slots of a normalized day: [{start, end, value}]. */
+/** Slots of a normalized day: [{start, end, value, own}] (`own`: the parameters its point sets). */
 function segments(points) {
-  return points.map((p, i) => ({ start: p.at, end: i + 1 < points.length ? points[i + 1].at : DAY_MIN, value: p.value }));
+  return points.map((p, i) => ({ start: p.at, end: i + 1 < points.length ? points[i + 1].at : DAY_MIN, value: p.value, own: p.params || {} }));
 }
 
-function valueAt(points, minute) {
-  let v = points.length ? points[0].value : null;
-  for (const p of points) if (p.at <= minute) v = p.value;
-  return v;
+/**
+ * Slots of a normalized week, each with the parameters in force (`params`): a value holds until a slot
+ * changes it, round the week (the second round starts with what the end of the week set).
+ */
+function weekSegments(week) {
+  let params = {};
+  let out = {};
+  for (let round = 0; round < 2; round++) {
+    out = {};
+    for (const d of DAYS) {
+      out[d] = segments(week[d]).map((s) => {
+        params = { ...params, ...s.own };
+        return { ...s, params: { ...params } };
+      });
+    }
+  }
+  return out;
 }
 
-/** Give [start, end) the value; what follows `end` keeps its value. */
-function setRange(points, start, end, value) {
-  const after = valueAt(points, end);
-  let out = points.filter((p) => p.at < start || p.at >= end);
-  out.push({ at: start, value });
-  if (end < DAY_MIN && !out.some((p) => p.at === end)) out.push({ at: end, value: after });
+/**
+ * Give [start, end) the value, and the parameters `params` (default: those the point at `start` already
+ * sets). What follows `end` keeps its value, and the parameters this slot sets get back `restore` (the
+ * values in force at `end` before the change).
+ */
+function setRange(points, start, end, value, params, restore = {}) {
+  const holder = [...points].reverse().find((p) => p.at <= end) || points[0];
+  const own = params !== undefined ? params : (points.find((p) => p.at === start) || {}).params;
+  const out = points.filter((p) => p.at < start || p.at >= end).map((p) => ({ ...p }));
+  out.push({ at: start, value, ...(own && Object.keys(own).length ? { params: { ...own } } : {}) });
+  if (end < DAY_MIN) {
+    const back = {};
+    for (const k of Object.keys(own || {})) if (k in restore) back[k] = restore[k];
+    const existing = out.find((p) => p.at === end);
+    if (existing) {
+      const merged = { ...back, ...(existing.params || {}) };
+      if (Object.keys(merged).length) existing.params = merged;
+    } else {
+      const merged = { ...((holder && holder.params) || {}), ...back };
+      out.push({ at: end, value: holder ? holder.value : value, ...(Object.keys(merged).length ? { params: merged } : {}) });
+    }
+  }
   return merge(out);
 }
+
+const PARAMETER_KIND = { switch: 'toggle', input_boolean: 'toggle', number: 'number', input_number: 'number' };
+const paramKind = (entity) => PARAMETER_KIND[String(entity || '').split('.')[0]];
+const paramIcon = (p, active = true) => {
+  const base = p.icon || (paramKind(p.entity) === 'number' ? 'mdi:numeric' : 'mdi:toggle-switch-outline');
+  return active ? base : (p.icon_off || base);
+};
 
 /** Remove the slot starting at `start`: the slot before takes its time (the first slot takes the next one's value). */
 function removeSlot(points, start) {
   if (points.length < 2) return points;
   if (start === 0) {
     const out = points.slice(1);
-    out[0] = { at: 0, value: out[0].value };
+    out[0] = { ...out[0], at: 0 };
     return merge(out);
   }
   return merge(points.filter((p) => p.at !== start));
@@ -416,6 +471,13 @@ class HaPlooumClimateScheduleCard extends LitElement {
     let text = Number.isInteger(n) ? String(n) : n.toFixed(1);
     if (LANG === 'fr') text = text.replace('.', ',');
     return unit ? `${text} ${this._unit}` : `${text}°`;
+  }
+
+  _fmtNumber(value) {
+    const n = Number(value);
+    let text = Number.isInteger(n) ? String(n) : n.toFixed(1);
+    if (LANG === 'fr') text = text.replace('.', ',');
+    return text;
   }
 
   _profileName(id) {
@@ -666,7 +728,7 @@ class HaPlooumClimateScheduleCard extends LitElement {
   _newProgram() {
     const id = `new:${++this._dlg.newCount}`;
     const week = normalizeWeek(Object.fromEntries(DAYS.map((d) => [d, []])));
-    this._dlg.drafts[id] = { id: null, name: t('New program'), entities: [], enabled: true, hvac_mode: null, self_off: false, profiles: { default: week } };
+    this._dlg.drafts[id] = { id: null, name: t('New program'), entities: [], enabled: true, hvac_mode: null, self_off: false, parameters: [], profiles: { default: week } };
     this._dlg.programId = id;
     this._dlg.profileId = 'default';
     this._dlg.sel = null;
@@ -687,6 +749,8 @@ class HaPlooumClimateScheduleCard extends LitElement {
         const program = { id: d.id || undefined, name: d.name.trim(), entities: d.entities, enabled: d.enabled, hvac_mode: d.hvac_mode || null, profiles };
         // self_off came with the engine's 0.2.0: an older engine refuses the key, so it is only sent when known or set.
         if (d.self_off || this._engine.programs.some((p) => 'self_off' in p)) program.self_off = !!d.self_off;
+        // Slot parameters came with the engine's 0.3.0 (same reason).
+        if ((d.parameters && d.parameters.length) || this._engine.programs.some((p) => 'parameters' in p)) program.parameters = d.parameters || [];
         const saved = await this._ws('program/save', { program });
         delete this._dlg.drafts[id];
         if (this._dlg.programId === id) this._dlg.programId = saved.id;
@@ -756,7 +820,8 @@ class HaPlooumClimateScheduleCard extends LitElement {
       if (end - start < STEP) end = Math.min(DAY_MIN, start + STEP);
       if (end === start) start = end - STEP;
       const value = this._dlg.brush ?? this._lastTemp();
-      this._editDay(drag.day, (pts) => setRange(pts, start, end, value));
+      const restore = end < DAY_MIN ? this._paramsAt(drag.day, end) : {};
+      this._editDay(drag.day, (pts) => setRange(pts, start, end, value, undefined, restore));
       if (this._dlg.brush !== null && this._dlg.brush !== undefined) this._dlgSet({ sel: null, panel: null });
       else this._selectSlot(drag.day, start);
     } else if (drag.mode === 'press') {
@@ -773,17 +838,37 @@ class HaPlooumClimateScheduleCard extends LitElement {
     }
   }
 
+  /** Parameters in force at a minute of a day of the edited week. */
+  _paramsAt(dayIndex, minute) {
+    const segs = weekSegments(this._week().week)[DAYS[dayIndex]];
+    const seg = segs.find((x) => x.start <= minute && minute < x.end) || segs[segs.length - 1];
+    return seg ? { ...seg.params } : {};
+  }
+
+  /** Parameters in force just before a minute (what a slot starting there inherits). */
+  _inheritedAt(dayIndex, minute) {
+    return minute > 0 ? this._paramsAt(dayIndex, minute - 1) : this._paramsAt((dayIndex + 6) % 7, DAY_MIN - 1);
+  }
+
+  get _parameters() {
+    const program = this._program();
+    return (program && program.parameters) || [];
+  }
+
   _lastTemp() {
     return this._dlg.lastTemp ?? DEFAULT_TEMP;
   }
 
   _selectSlot(dayIndex, start) {
-    const seg = segments(this._week().week[DAYS[dayIndex]]).find((s) => s.start === start);
+    const seg = weekSegments(this._week().week)[DAYS[dayIndex]].find((s) => s.start === start);
     if (!seg) return;
     this._dlgSet({
       sel: { day: dayIndex, start },
       panel: 'slot',
-      form: { from: fmtTime(seg.start), to: fmtTime(seg.end % DAY_MIN), value: seg.value, lastTemp: seg.value === OFF ? this._lastTemp() : seg.value },
+      form: {
+        from: fmtTime(seg.start), to: fmtTime(seg.end % DAY_MIN), value: seg.value,
+        lastTemp: seg.value === OFF ? this._lastTemp() : seg.value, params: { ...seg.params },
+      },
       error: '',
     });
   }
@@ -795,7 +880,7 @@ class HaPlooumClimateScheduleCard extends LitElement {
     this._dlgSet({
       sel: null,
       panel: 'add',
-      form: { day, from: '08:00', to: '09:00', value: this._lastTemp(), lastTemp: this._lastTemp() },
+      form: { day, from: '08:00', to: '09:00', value: this._lastTemp(), lastTemp: this._lastTemp(), params: this._paramsAt(day, 480) },
       error: '',
     });
   }
@@ -830,11 +915,20 @@ class HaPlooumClimateScheduleCard extends LitElement {
     const value = f.value === OFF ? OFF : Number(f.value);
     if (value !== OFF && (!Number.isFinite(value) || value < -50 || value > 100)) return this._dlgSet({ error: t('Enter a temperature.') });
     const day = this._dlg.panel === 'add' ? f.day : this._dlg.sel.day;
+    // The slot sets the parameters whose value differs from what it inherits; after it, they get back
+    // what was in force at its end.
+    const inherited = this._inheritedAt(day, range.start);
+    const restore = range.end < DAY_MIN ? this._paramsAt(day, range.end) : {};
+    const params = {};
+    for (const p of this._parameters) {
+      const v = f.params[p.id];
+      if (v !== undefined && !sameParam(v, inherited[p.id])) params[p.id] = v;
+    }
     if (this._dlg.panel === 'slot') {
       const old = this._dlg.sel.start;
-      this._editDay(day, (pts) => setRange(removeSlot(pts, old), range.start, range.end, value));
+      this._editDay(day, (pts) => setRange(removeSlot(pts, old), range.start, range.end, value, params, restore));
     } else {
-      this._editDay(day, (pts) => setRange(pts, range.start, range.end, value));
+      this._editDay(day, (pts) => setRange(pts, range.start, range.end, value, params, restore));
     }
     if (value !== OFF) this._dlg.lastTemp = value;
     this._dlgSet({ sel: null, panel: null, form: null, error: '' });
@@ -888,7 +982,10 @@ class HaPlooumClimateScheduleCard extends LitElement {
   // --- Program panel ---
 
   _programForm(program) {
-    return { name: program.name, entities: [...program.entities], enabled: program.enabled, hvac_mode: program.hvac_mode || '', self_off: !!program.self_off };
+    return {
+      name: program.name, entities: [...program.entities], enabled: program.enabled, hvac_mode: program.hvac_mode || '',
+      self_off: !!program.self_off, parameters: clone(program.parameters || []),
+    };
   }
 
   _openProgram() {
@@ -898,7 +995,20 @@ class HaPlooumClimateScheduleCard extends LitElement {
   _applyProgram() {
     const f = this._dlg.form;
     if (!f.name.trim()) return this._dlgSet({ error: t('Give the program a name.') });
-    Object.assign(this._draft(), { name: f.name.trim(), entities: f.entities, enabled: f.enabled, hvac_mode: f.hvac_mode || null, self_off: f.self_off });
+    const parameters = [];
+    for (const p of f.parameters) {
+      const entity = (p.entity || '').trim();
+      if (!entity) continue;
+      if (!paramKind(entity) || !entity.includes('.')) return this._dlgSet({ error: t('A parameter is a switch, input_boolean, number or input_number entity.') });
+      if (parameters.some((x) => x.entity === entity)) return this._dlgSet({ error: t('{entity} is twice in the parameters.', { entity }) });
+      const kept = { ...p, entity, name: (p.name || '').trim() || null, icon: (p.icon || '').trim() || null };
+      kept.icon_off = paramKind(entity) === 'toggle' ? ((p.icon_off || '').trim() || null) : null;
+      if (!kept.id) kept.id = `p${Date.now().toString(36)}${parameters.length}`;
+      parameters.push(kept);
+    }
+    Object.assign(this._draft(), {
+      name: f.name.trim(), entities: f.entities, enabled: f.enabled, hvac_mode: f.hvac_mode || null, self_off: f.self_off, parameters,
+    });
     this._dlgSet({ panel: null, form: null, error: '' });
   }
 
@@ -1089,9 +1199,23 @@ class HaPlooumClimateScheduleCard extends LitElement {
     return { day: (now.getDay() + 6) % 7, minute: now.getHours() * 60 + now.getMinutes() };
   }
 
-  _column(week, dayIndex) {
+  _paramIcons(params) {
+    const list = this._parameters.filter((p) => p.id in params);
+    if (!list.length) return nothing;
+    return html`<span class="params">${list.map((p) => {
+      const v = params[p.id];
+      const name = p.name || this._entityName(p.entity);
+      if (typeof v === 'boolean') {
+        return html`<span class="p ${v ? '' : 'inactive'} ${!v && !p.icon_off ? 'struck' : ''}" data-param=${p.id}
+          title=${`${name}: ${v ? t('Active') : t('Inactive')}`}><ha-icon icon=${paramIcon(p, v)}></ha-icon></span>`;
+      }
+      return html`<span class="p" data-param=${p.id} title=${`${name}: ${this._fmtNumber(v)}`}><ha-icon icon=${paramIcon(p)}></ha-icon>${this._fmtNumber(v)}</span>`;
+    })}</span>`;
+  }
+
+  _column(week, dayIndex, allSegs) {
     const dlg = this._dlg;
-    const segs = segments(week[DAYS[dayIndex]]);
+    const segs = (allSegs || weekSegments(week))[DAYS[dayIndex]];
     const now = this._nowMinute();
     const drag = dlg.drag && dlg.drag.mode === 'draw' && dlg.drag.day === dayIndex ? dlg.drag : null;
     return html`
@@ -1107,6 +1231,7 @@ class HaPlooumClimateScheduleCard extends LitElement {
               style="top:${(s.start / DAY_MIN) * 100}%;height:${((s.end - s.start) / DAY_MIN) * 100}%;background:${c.bg};color:${c.fg}">
               ${s.start > 0 ? html`<div class="handle" data-at=${s.start} title=${fmtTime(s.start)}></div>` : nothing}
               ${(s.end - s.start) >= 25 ? html`<span class="label">${this._fmtValue(s.value)}</span>` : nothing}
+              ${(s.end - s.start) >= 120 ? this._paramIcons(s.params) : nothing}
             </div>`;
         })}
         ${drag && drag.to !== undefined ? html`
@@ -1130,8 +1255,54 @@ class HaPlooumClimateScheduleCard extends LitElement {
           <button class="day ${i === today ? 'today' : ''}" title=${t('Copy {day} to other days', { day: dayName(i) })} @click=${() => this._openCopy(i)}>
             ${dayShort(i)}<ha-icon icon="mdi:content-copy"></ha-icon>
           </button>`)}</div>
-        <div class="grid">${this._hours()}${DAYS.map((_, i) => this._column(week, i))}</div>
+        <div class="grid">${this._hours()}${(() => { const segs = weekSegments(week); return DAYS.map((_, i) => this._column(week, i, segs)); })()}</div>
       </div>
+    `;
+  }
+
+  _paramControl(p, f) {
+    const name = p.name || this._entityName(p.entity);
+    const v = f.params[p.id];
+    if (paramKind(p.entity) === 'toggle') {
+      return html`
+        <div class="param-line" data-param=${p.id}>
+          <span class="p ${v === false && !p.icon_off ? 'struck' : ''}"><ha-icon icon=${paramIcon(p, v !== false)}></ha-icon></span><span class="param-name">${name}</span><span class="spacer"></span>
+          <button class="chip ${v === true ? 'on' : ''}" data-v="on" @click=${() => { f.params[p.id] = true; this._renderDialog(); }}>${t('Active')}</button>
+          <button class="chip ${v === false ? 'on' : ''}" data-v="off" @click=${() => { f.params[p.id] = false; this._renderDialog(); }}>${t('Inactive')}</button>
+        </div>`;
+    }
+    const attrs = (this.hass.states[p.entity] || {}).attributes || {};
+    return html`
+      <div class="param-line" data-param=${p.id}>
+        <ha-icon icon=${paramIcon(p)}></ha-icon><span class="param-name">${name}</span><span class="spacer"></span>
+        <input type="number" class="param-number" step=${attrs.step || 'any'} min=${attrs.min ?? ''} max=${attrs.max ?? ''} placeholder="—"
+          .value=${v === undefined ? '' : String(v)} aria-label=${name}
+          @change=${(e) => { const x = String(e.target.value).replace(',', '.'); f.params[p.id] = x === '' ? undefined : Number(x); }}>
+        ${attrs.unit_of_measurement ? html`<span class="muted">${attrs.unit_of_measurement}</span>` : nothing}
+      </div>`;
+  }
+
+  _paramRows(f) {
+    const candidates = Object.values(this.hass.states).filter((st) => paramKind(st.entity_id))
+      .sort((a, b) => (a.attributes.friendly_name || a.entity_id).localeCompare(b.attributes.friendly_name || b.entity_id));
+    return html`
+      <div class="field">${t('Slot parameters')}</div>
+      <div class="hint">${t("Switches and numbers this program's slots also set (an eco mode, a hysteresis…). A value holds until a slot changes it.")}</div>
+      <datalist id="cs-param-entities">${candidates.map((st) => html`<option value=${st.entity_id}>${st.attributes.friendly_name || ''}</option>`)}</datalist>
+      ${f.parameters.map((p, i) => html`
+        <div class="param-row" data-index=${i}>
+          <input type="text" list="cs-param-entities" data-field="entity" placeholder=${t('Entity (switch, number…)')} .value=${p.entity || ''}
+            @change=${(e) => { p.entity = e.target.value.trim(); this._renderDialog(); }}>
+          <input type="text" data-field="name" placeholder=${t('Name (optional)')} .value=${p.name || ''} @input=${(e) => { p.name = e.target.value; }}>
+          <span class="icon-field"><ha-icon icon=${paramIcon(p)}></ha-icon>
+            <input type="text" data-field="icon" placeholder=${t('Icon (mdi:…)')} .value=${p.icon || ''} @change=${(e) => { p.icon = e.target.value.trim(); this._renderDialog(); }}></span>
+          ${paramKind(p.entity) === 'toggle' ? html`
+            <span class="icon-field"><span class="p ${p.icon_off ? '' : 'struck'}"><ha-icon icon=${paramIcon(p, false)}></ha-icon></span>
+              <input type="text" data-field="icon_off" placeholder=${t('Icon when inactive')} .value=${p.icon_off || ''} @change=${(e) => { p.icon_off = e.target.value.trim(); this._renderDialog(); }}></span>` : nothing}
+          <button class="icon-btn small" title=${t('Remove')} aria-label=${t('Remove')} @click=${() => { f.parameters.splice(i, 1); this._renderDialog(); }}><ha-icon icon="mdi:delete"></ha-icon></button>
+        </div>`)}
+      <div><button class="btn" data-action="add-parameter" @click=${() => { f.parameters.push({ entity: '', name: '', icon: '', icon_off: '' }); this._renderDialog(); }}>
+        <ha-icon icon="mdi:plus"></ha-icon>${t('Add a parameter')}</button></div>
     `;
   }
 
@@ -1167,6 +1338,7 @@ class HaPlooumClimateScheduleCard extends LitElement {
                 <ha-icon icon="mdi:power"></ha-icon>${t('Off')}
               </button>
             </div>
+            ${this._parameters.map((p) => this._paramControl(p, f))}
             <div class="panel-actions">
               ${dlg.panel === 'slot' ? html`<button class="btn danger" @click=${() => this._deleteSlot()}><ha-icon icon="mdi:delete"></ha-icon>${t('Delete')}</button>` : nothing}
               <span class="spacer"></span>
@@ -1214,6 +1386,7 @@ class HaPlooumClimateScheduleCard extends LitElement {
                 </label>`;
               }) : html`<span class="muted">${t('No climate entity in Home Assistant.')}</span>`}
             </div>
+            ${this._paramRows(f)}
             <label class="field">${t('Mode when a slot turns the heating on')}
               <select @change=${(e) => { f.hvac_mode = e.target.value; }}>
                 <option value="" ?selected=${!f.hvac_mode}>${t('Automatic (current mode, else heat)')}</option>
@@ -1754,6 +1927,80 @@ const DIALOG_STYLES = css`
     font-weight: 500;
     pointer-events: none;
     overflow: hidden;
+  }
+  .params {
+    position: absolute;
+    left: 2px;
+    right: 3px;
+    bottom: 2px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 2px 6px;
+    font-size: 11px;
+    pointer-events: none;
+  }
+  .p {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 1px;
+  }
+  .p ha-icon {
+    --mdc-icon-size: 14px;
+  }
+  .p.inactive {
+    opacity: 0.75;
+  }
+  .p.struck::after {
+    content: '';
+    position: absolute;
+    left: -2px;
+    width: calc(1em + 6px);
+    top: 50%;
+    border-top: 2px solid currentColor;
+    transform: rotate(45deg);
+  }
+  .narrow .params {
+    font-size: 10px;
+    gap: 1px 3px;
+  }
+  .narrow .p ha-icon {
+    --mdc-icon-size: 12px;
+  }
+  .param-line .p ha-icon {
+    --mdc-icon-size: 18px;
+  }
+  .param-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+  }
+  .param-number {
+    width: 80px;
+  }
+  .param-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 0;
+    border-top: 1px dashed var(--divider-color, #ddd);
+  }
+  .param-row > input {
+    flex: 1 1 150px;
+    min-width: 0;
+  }
+  .icon-field {
+    flex: 1 1 140px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .icon-field input {
+    flex: 1;
+    min-width: 0;
   }
   .handle {
     position: absolute;
