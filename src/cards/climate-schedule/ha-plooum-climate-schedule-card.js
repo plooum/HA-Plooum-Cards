@@ -22,9 +22,6 @@ const CARD_VERSION = '1.0.0';
 
 const WS = 'plooum_climate_scheduler/';
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
-const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-const DAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const DAY_LETTER = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const OFF = 'off';
 const STEP = 5; // minutes
 const DAY_MIN = 1440;
@@ -32,6 +29,127 @@ const DEFAULT_TEMP = 19;
 const TEMP_STEP = 0.5;
 const NARROW = 700; // px: below, the dialog shows one day at a time
 const DRAG_THRESHOLD = 6; // px before a press on a day becomes a drawing
+
+/* ==========================================================================
+   LANGUAGES: English, French when Home Assistant's language is French
+   ========================================================================== */
+
+const DAYS_I18N = {
+  en: {
+    names: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+    short: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    letter: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
+  },
+  fr: {
+    names: ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'],
+    short: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
+    letter: ['L', 'M', 'M', 'J', 'V', 'S', 'D'],
+  },
+};
+
+// English text -> French. A missing key shows the English text.
+const FR = {
+  'Heating': 'Chauffage',
+  'The Plooum Climate Scheduler integration is not installed.': "L'intégration Plooum Climate Scheduler n'est pas installée.",
+  'Off': 'Éteint',
+  'Default': 'Défaut',
+  'Loading…': 'Chargement…',
+  'No program yet: open the schedule to create one.': 'Aucun programme : ouvrez la programmation pour en créer un.',
+  'Schedule off': 'Programmation désactivée',
+  'No schedule': 'Pas de programmation',
+  '→ {value} at {time}': '→ {value} à {time}',
+  'midnight': 'minuit',
+  'tomorrow {time}': 'demain {time}',
+  '{name}: {value} by hand': '{name} : {value} à la main',
+  '{name}: {value} by hand until {time}': "{name} : {value} à la main jusqu'à {time}",
+  'Resume': 'Reprendre',
+  'Schedule': 'Programmer',
+  'Discard your unsaved changes?': 'Abandonner les modifications non enregistrées ?',
+  'New program': 'Nouveau programme',
+  'Give the program a name.': 'Donnez un nom au programme.',
+  'Times are set by {step} minutes.': 'Les heures vont de {step} en {step} minutes.',
+  'The slot must end after it starts.': 'Le créneau doit finir après son début.',
+  'Enter a temperature.': 'Saisissez une température.',
+  'Pick at least one day.': 'Choisissez au moins un jour.',
+  'Delete the program {name}? Its thermostats will no longer be scheduled.': 'Supprimer le programme {name} ? Ses thermostats ne seront plus programmés.',
+  'Heating schedule': 'Programmation du chauffage',
+  'Unsaved': 'Non enregistré',
+  'Active profile': 'Profil actif',
+  'No thermostat': 'Aucun thermostat',
+  'Profiles': 'Profils',
+  'Program settings': 'Réglages du programme',
+  '{profile} week of {program}.': 'Semaine {profile} de {program}.',
+  'Use the {default} week instead': 'Utiliser plutôt la semaine {default}',
+  'Under {profile}, {program} follows its {default} week.': 'En {profile}, {program} suit sa semaine {default}.',
+  'Make its own {profile} week': 'Lui faire sa propre semaine {profile}',
+  'No schedule.': 'Pas de programmation.',
+  'No program.': 'Aucun programme.',
+  'Paint with it: draw or tap slots': 'Peindre avec : dessinez ou touchez des créneaux',
+  'Edit the palette': 'Modifier la palette',
+  'Cancel': 'Annuler',
+  'Save': 'Enregistrer',
+  'Close': 'Fermer',
+  'Add a slot': 'Ajouter un créneau',
+  'Copy {day} to other days': "Copier {day} vers d'autres jours",
+  'Copy the day': 'Copier le jour',
+  'New slot · {day}': 'Nouveau créneau · {day}',
+  'From': 'De',
+  'To': 'À',
+  'Colder': 'Moins chaud',
+  'Warmer': 'Plus chaud',
+  'Temperature': 'Température',
+  'Delete': 'Supprimer',
+  'Add': 'Ajouter',
+  'Copy {day} to': 'Copier {day} vers',
+  'Mon – Fri': 'Lun – Ven',
+  'Sat – Sun': 'Sam – Dim',
+  'Every day': 'Tous les jours',
+  'Copy': 'Copier',
+  'Program': 'Programme',
+  'Name': 'Nom',
+  'Thermostats': 'Thermostats',
+  'in {name}': 'dans {name}',
+  'No climate entity in Home Assistant.': 'Aucune entité climate dans Home Assistant.',
+  'Mode when a slot turns the heating on': 'Mode quand un créneau rallume le chauffage',
+  'Automatic (current mode, else heat)': 'Automatique (mode actuel, sinon chauffage)',
+  'Schedule on': 'Programmation active',
+  'Profiles of the house': 'Profils de la maison',
+  'Profile name': 'Nom du profil',
+  'Delete {name}': 'Supprimer {name}',
+  'default': 'par défaut',
+  'New profile (Holidays…)': 'Nouveau profil (Vacances…)',
+  'A program without a week for a profile follows its {default} week.': 'Un programme sans semaine pour un profil suit sa semaine {default}.',
+  'Save profiles': 'Enregistrer les profils',
+  'Palette': 'Palette',
+  'Remove {value}': 'Retirer {value}',
+  'Shortcuts only: a slot takes any temperature. Shared by the whole house.': "De simples raccourcis : un créneau accepte n'importe quelle température. Commune à toute la maison.",
+  'Done': 'Terminé',
+  'Painting {value}: draw on a day or tap slots. Tap the color again to stop.': 'Peinture {value} : dessinez sur un jour ou touchez des créneaux. Touchez de nouveau la couleur pour arrêter.',
+  'Draw on a day to add a slot, tap a slot to change it, drag its top edge to move it. A color of the palette paints.': 'Dessinez sur un jour pour ajouter un créneau, touchez un créneau pour le modifier, faites glisser son bord haut pour le déplacer. Une couleur de la palette peint.',
+  'Title (Heating)': 'Titre (Chauffage)',
+  'Programs shown (none checked: all)': 'Programmes affichés (aucun coché : tous)',
+  'Show the profile switch': 'Afficher le choix du profil',
+  'This card needs the Plooum Climate Scheduler integration (HACS), which stores and applies the schedules.': "Cette carte nécessite l'intégration Plooum Climate Scheduler (HACS), qui enregistre et applique les programmes.",
+  'Programs, profiles and the week of each program are edited in the card itself: Schedule.': 'Les programmes, les profils et la semaine de chaque programme se modifient dans la carte elle-même : Programmer.',
+};
+
+let LANG = 'en';
+
+/** Follow Home Assistant's language (the user's profile setting). */
+function setLanguage(hass) {
+  const lang = (hass && ((hass.locale && hass.locale.language) || hass.language)) || 'en';
+  LANG = lang.toLowerCase().startsWith('fr') ? 'fr' : 'en';
+}
+
+function t(text, vars = {}) {
+  const out = (LANG === 'fr' && FR[text]) || text;
+  return out.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m));
+}
+
+const dayName = (i) => DAYS_I18N[LANG].names[i];
+const dayShort = (i) => DAYS_I18N[LANG].short[i];
+const dayLetter = (i) => DAYS_I18N[LANG].letter[i];
+const capitalize = (text) => text.charAt(0).toUpperCase() + text.slice(1);
 
 /* ==========================================================================
    SCHEDULE HELPERS (pure)
@@ -236,6 +354,10 @@ class HaPlooumClimateScheduleCard extends LitElement {
     return { columns: 6, min_columns: 4 };
   }
 
+  willUpdate(changed) {
+    if (changed.has('hass')) setLanguage(this.hass);
+  }
+
   updated(changed) {
     if (changed.has('hass') && this.hass && !this._unsub && this.isConnected) this._subscribe();
   }
@@ -249,7 +371,7 @@ class HaPlooumClimateScheduleCard extends LitElement {
       .catch((err) => {
         this._unsub = null;
         this._error = err && err.code === 'unknown_command'
-          ? 'The Plooum Climate Scheduler integration is not installed.'
+          ? t('The Plooum Climate Scheduler integration is not installed.')
           : `Plooum Climate Scheduler: ${(err && err.message) || err}`;
         throw err;
       });
@@ -285,16 +407,19 @@ class HaPlooumClimateScheduleCard extends LitElement {
   }
 
   _fmtValue(value, unit = false) {
-    if (value === OFF) return 'Off';
+    if (value === OFF) return t('Off');
     if (value === null || value === undefined) return '—';
     const n = Number(value);
-    const text = Number.isInteger(n) ? String(n) : n.toFixed(1);
+    let text = Number.isInteger(n) ? String(n) : n.toFixed(1);
+    if (LANG === 'fr') text = text.replace('.', ',');
     return unit ? `${text} ${this._unit}` : `${text}°`;
   }
 
   _profileName(id) {
     const p = this._engine.profiles.find((x) => x.id === id);
-    return p ? p.name : id;
+    if (!p) return id;
+    // The engine names its default profile "Default": shown in the user's language until renamed.
+    return p.id === 'default' && p.name === 'Default' ? t('Default') : p.name;
   }
 
   _entityName(entity) {
@@ -309,8 +434,8 @@ class HaPlooumClimateScheduleCard extends LitElement {
     const time = fmtTime(d.getHours() * 60 + d.getMinutes());
     const days = Math.round((new Date(d.toDateString()) - new Date(now.toDateString())) / 86400000);
     if (days === 0) return time;
-    if (days === 1) return time === '00:00' ? 'midnight' : `tomorrow ${time}`;
-    return `${DAY_SHORT[(d.getDay() + 6) % 7]} ${time}`;
+    if (days === 1) return time === '00:00' ? t('midnight') : t('tomorrow {time}', { time });
+    return `${dayShort((d.getDay() + 6) % 7)} ${time}`;
   }
 
   async _activateProfile(id) {
@@ -334,7 +459,7 @@ class HaPlooumClimateScheduleCard extends LitElement {
 
   render() {
     if (!this.config) return nothing;
-    const title = this.config.title ?? 'Heating';
+    const title = this.config.title ?? t('Heating');
     const engine = this._engine;
     const showProfile = this.config.show_profile !== false && engine.profiles.length > 1;
     return html`
@@ -353,19 +478,19 @@ class HaPlooumClimateScheduleCard extends LitElement {
                   ${engine.profiles.map((p) => html`
                     <button role="option" aria-selected=${p.id === engine.active_profile ? 'true' : 'false'}
                       class=${p.id === engine.active_profile ? 'current' : ''} @click=${() => this._activateProfile(p.id)}>
-                      <ha-icon icon=${p.id === engine.active_profile ? 'mdi:check' : 'mdi:blank'}></ha-icon>${p.name}
+                      <ha-icon icon=${p.id === engine.active_profile ? 'mdi:check' : 'mdi:blank'}></ha-icon>${this._profileName(p.id)}
                     </button>`)}
                 </div>` : nothing}
             </div>` : nothing}
         </div>
         ${this._error ? html`<div class="error">${this._error}</div>` : nothing}
-        ${!this._data && !this._error ? html`<div class="empty">Loading…</div>` : nothing}
-        ${this._data && !this._programs.length ? html`<div class="empty">No program yet: open the schedule to create one.</div>` : nothing}
+        ${!this._data && !this._error ? html`<div class="empty">${t('Loading…')}</div>` : nothing}
+        ${this._data && !this._programs.length ? html`<div class="empty">${t('No program yet: open the schedule to create one.')}</div>` : nothing}
         ${this._programs.map((p) => this._renderRow(p))}
         ${this._data ? html`
           <div class="footer">
             <button class="open" @click=${() => this._openDialog()}>
-              <ha-icon icon="mdi:calendar-week"></ha-icon>Schedule
+              <ha-icon icon="mdi:calendar-week"></ha-icon>${t('Schedule')}
             </button>
           </div>` : nothing}
       </ha-card>
@@ -376,11 +501,11 @@ class HaPlooumClimateScheduleCard extends LitElement {
     const st = this._status[program.id] || {};
     const overrides = Object.entries(st.overrides || {});
     let detail;
-    if (!program.enabled) detail = html`<span class="muted">Schedule off</span>`;
-    else if (st.value === null || st.value === undefined) detail = html`<span class="muted">No schedule</span>`;
+    if (!program.enabled) detail = html`<span class="muted">${t('Schedule off')}</span>`;
+    else if (st.value === null || st.value === undefined) detail = html`<span class="muted">${t('No schedule')}</span>`;
     else {
       detail = html`<span class="now">${this._fmtValue(st.value)}</span>${st.next_change ? html`
-        <span class="muted">→ ${this._fmtValue(st.next_value)} at ${this._fmtClock(st.next_change)}</span>` : nothing}`;
+        <span class="muted">${t('→ {value} at {time}', { value: this._fmtValue(st.next_value), time: this._fmtClock(st.next_change) })}</span>` : nothing}`;
     }
     const { week } = resolveWeek(program, this._engine.active_profile);
     const segs = program.enabled ? todaySegments(week) : [];
@@ -404,11 +529,16 @@ class HaPlooumClimateScheduleCard extends LitElement {
         ${overrides.map(([entity, o]) => html`
           <div class="override" data-entity=${entity}>
             <ha-icon icon="mdi:hand-back-right"></ha-icon>
-            <span>${this._entityName(entity)}: ${this._fmtValue(o.value)} by hand${o.until ? ` until ${this._fmtClock(o.until)}` : ''}</span>
-            <button class="link" @click=${() => this._resume(program.id, entity)}>Resume</button>
+            <span>${this._overrideText(entity, o)}</span>
+            <button class="link" @click=${() => this._resume(program.id, entity)}>${t('Resume')}</button>
           </div>`)}
       </div>
     `;
+  }
+
+  _overrideText(entity, o) {
+    const vars = { name: this._entityName(entity), value: this._fmtValue(o.value), time: o.until ? this._fmtClock(o.until) : '' };
+    return o.until ? t('{name}: {value} by hand until {time}', vars) : t('{name}: {value} by hand', vars);
   }
 
   /* ==========================================================================
@@ -448,7 +578,7 @@ class HaPlooumClimateScheduleCard extends LitElement {
 
   _closeDialog(force = false) {
     if (!this._dlgHost) return;
-    if (!force && this._dirtyIds().length && !window.confirm('Discard your unsaved changes?')) return;
+    if (!force && this._dirtyIds().length && !window.confirm(t('Discard your unsaved changes?'))) return;
     window.removeEventListener('keydown', this._onKey);
     window.removeEventListener('resize', this._resize);
     this._dlgHost.remove();
@@ -533,7 +663,7 @@ class HaPlooumClimateScheduleCard extends LitElement {
   _newProgram() {
     const id = `new:${++this._dlg.newCount}`;
     const week = normalizeWeek(Object.fromEntries(DAYS.map((d) => [d, []])));
-    this._dlg.drafts[id] = { id: null, name: 'New program', entities: [], enabled: true, hvac_mode: null, profiles: { default: week } };
+    this._dlg.drafts[id] = { id: null, name: t('New program'), entities: [], enabled: true, hvac_mode: null, profiles: { default: week } };
     this._dlg.programId = id;
     this._dlg.profileId = 'default';
     this._dlg.sel = null;
@@ -548,7 +678,7 @@ class HaPlooumClimateScheduleCard extends LitElement {
     try {
       for (const id of ids) {
         const d = this._dlg.drafts[id];
-        if (!d.name || !d.name.trim()) throw new Error('Give the program a name.');
+        if (!d.name || !d.name.trim()) throw new Error(t('Give the program a name.'));
         const profiles = {};
         for (const [pid, week] of Object.entries(d.profiles)) profiles[pid] = weekToEngine(week);
         const saved = await this._ws('program/save', {
@@ -671,8 +801,8 @@ class HaPlooumClimateScheduleCard extends LitElement {
     const start = toMin(f.from);
     let end = toMin(f.to);
     if (end === 0) end = DAY_MIN;
-    if (Number.isNaN(start) || Number.isNaN(end) || start % STEP || end % STEP) return { error: `Times are set by ${STEP} minutes.` };
-    if (end <= start) return { error: 'The slot must end after it starts.' };
+    if (Number.isNaN(start) || Number.isNaN(end) || start % STEP || end % STEP) return { error: t('Times are set by {step} minutes.', { step: STEP }) };
+    if (end <= start) return { error: t('The slot must end after it starts.') };
     return { start, end };
   }
 
@@ -694,7 +824,7 @@ class HaPlooumClimateScheduleCard extends LitElement {
     const range = this._formRange();
     if (range.error) return this._dlgSet({ error: range.error });
     const value = f.value === OFF ? OFF : Number(f.value);
-    if (value !== OFF && (!Number.isFinite(value) || value < -50 || value > 100)) return this._dlgSet({ error: 'Enter a temperature.' });
+    if (value !== OFF && (!Number.isFinite(value) || value < -50 || value > 100)) return this._dlgSet({ error: t('Enter a temperature.') });
     const day = this._dlg.panel === 'add' ? f.day : this._dlg.sel.day;
     if (this._dlg.panel === 'slot') {
       const old = this._dlg.sel.start;
@@ -731,7 +861,7 @@ class HaPlooumClimateScheduleCard extends LitElement {
 
   _applyCopy() {
     const { from, to } = this._dlg.form;
-    if (!to.length) return this._dlgSet({ error: 'Pick at least one day.' });
+    if (!to.length) return this._dlgSet({ error: t('Pick at least one day.') });
     this._editWeek((week) => {
       for (const i of to) week[DAYS[i]] = clone(week[DAYS[from]]);
       return week;
@@ -763,7 +893,7 @@ class HaPlooumClimateScheduleCard extends LitElement {
 
   _applyProgram() {
     const f = this._dlg.form;
-    if (!f.name.trim()) return this._dlgSet({ error: 'Give the program a name.' });
+    if (!f.name.trim()) return this._dlgSet({ error: t('Give the program a name.') });
     Object.assign(this._draft(), { name: f.name.trim(), entities: f.entities, enabled: f.enabled, hvac_mode: f.hvac_mode || null });
     this._dlgSet({ panel: null, form: null, error: '' });
   }
@@ -771,7 +901,7 @@ class HaPlooumClimateScheduleCard extends LitElement {
   async _deleteProgram() {
     const id = this._dlg.programId;
     const program = this._program();
-    if (!window.confirm(`Delete the program ${program.name}? Its thermostats will no longer be scheduled.`)) return;
+    if (!window.confirm(t('Delete the program {name}? Its thermostats will no longer be scheduled.', { name: program.name }))) return;
     delete this._dlg.drafts[id];
     try {
       if (program.id) await this._ws('program/delete', { program_id: program.id });
@@ -848,7 +978,7 @@ class HaPlooumClimateScheduleCard extends LitElement {
   _addPaletteValue() {
     const f = this._dlg.form || {};
     const value = Number(String(f.paletteValue ?? '').replace(',', '.'));
-    if (!Number.isFinite(value)) return this._dlgSet({ error: 'Enter a temperature.' });
+    if (!Number.isFinite(value)) return this._dlgSet({ error: t('Enter a temperature.') });
     this._dlg.form = { ...f, paletteValue: '' };
     this._savePalette([...this._palette(), value]);
   }
@@ -872,19 +1002,19 @@ class HaPlooumClimateScheduleCard extends LitElement {
     const st = program && program.id ? this._status[program.id] : null;
     return html`
       <div class="backdrop" @click=${() => this._closeDialog()}></div>
-      <div class="dialog ${narrow ? 'narrow' : ''} ${this._touch ? 'touch' : ''}" role="dialog" aria-modal="true" aria-label="Heating schedule">
+      <div class="dialog ${narrow ? 'narrow' : ''} ${this._touch ? 'touch' : ''}" role="dialog" aria-modal="true" aria-label=${t('Heating schedule')}>
         <div class="top">
           <div class="tabs" role="tablist">
             ${this._dialogPrograms().map((p) => html`
               <button role="tab" class="tab ${p.key === dlg.programId ? 'on' : ''}" aria-selected=${p.key === dlg.programId ? 'true' : 'false'}
                 @click=${() => this._dlgSet({ programId: p.key, sel: null, panel: null, error: '' })}>
-                ${p.name}${dirty.includes(p.key) ? html`<span class="dot" title="Unsaved"></span>` : nothing}
+                ${p.name}${dirty.includes(p.key) ? html`<span class="dot" title=${t('Unsaved')}></span>` : nothing}
               </button>`)}
-            <button class="tab icon" title="New program" aria-label="New program" @click=${() => { this._newProgram(); this._renderDialog(); }}>
+            <button class="tab icon" title=${t('New program')} aria-label=${t('New program')} @click=${() => { this._newProgram(); this._renderDialog(); }}>
               <ha-icon icon="mdi:plus"></ha-icon>
             </button>
           </div>
-          <button class="icon-btn" title="Close" aria-label="Close" @click=${() => this._closeDialog()}><ha-icon icon="mdi:close"></ha-icon></button>
+          <button class="icon-btn" title=${t('Close')} aria-label=${t('Close')} @click=${() => this._closeDialog()}><ha-icon icon="mdi:close"></ha-icon></button>
         </div>
 
         ${program ? html`
@@ -892,40 +1022,40 @@ class HaPlooumClimateScheduleCard extends LitElement {
             <div class="profiles">
               ${engine.profiles.map((p) => html`
                 <button class="chip ${p.id === dlg.profileId ? 'on' : ''}" data-profile=${p.id}
-                  title=${p.id === engine.active_profile ? 'Active profile' : ''}
+                  title=${p.id === engine.active_profile ? t('Active profile') : ''}
                   @click=${() => this._dlgSet({ profileId: p.id, sel: null, panel: null })}>
-                  ${p.id === engine.active_profile ? html`<ha-icon icon="mdi:home-thermometer"></ha-icon>` : nothing}${p.name}
+                  ${p.id === engine.active_profile ? html`<ha-icon icon="mdi:home-thermometer"></ha-icon>` : nothing}${this._profileName(p.id)}
                 </button>`)}
-              <button class="icon-btn small" title="Profiles" aria-label="Profiles" @click=${() => this._openProfiles()}><ha-icon icon="mdi:pencil"></ha-icon></button>
+              <button class="icon-btn small" title=${t('Profiles')} aria-label=${t('Profiles')} @click=${() => this._openProfiles()}><ha-icon icon="mdi:pencil"></ha-icon></button>
             </div>
             <div class="program-info">
               ${program.entities.length
                 ? html`<span class="muted">${program.entities.map((e) => this._entityName(e)).join(', ')}</span>`
-                : html`<span class="warn">No thermostat</span>`}
-              ${!program.enabled ? html`<span class="warn">Off</span>` : nothing}
-              <button class="icon-btn small" title="Program settings" aria-label="Program settings" @click=${() => this._openProgram()}><ha-icon icon="mdi:cog"></ha-icon></button>
+                : html`<span class="warn">${t('No thermostat')}</span>`}
+              ${!program.enabled ? html`<span class="warn">${t('Off')}</span>` : nothing}
+              <button class="icon-btn small" title=${t('Program settings')} aria-label=${t('Program settings')} @click=${() => this._openProgram()}><ha-icon icon="mdi:cog"></ha-icon></button>
             </div>
           </div>
 
           ${dlg.profileId !== 'default' ? html`
             <div class="note">
               ${own
-                ? html`<span>${this._profileName(dlg.profileId)} week of ${program.name}.</span>
-                    <button class="link" @click=${() => this._removeProfileWeek()}>Use the Default week instead</button>`
-                : html`<span>Under ${this._profileName(dlg.profileId)}, ${program.name} follows its ${from ? 'Default' : ''} week.</span>
-                    <button class="link" @click=${() => this._createProfileWeek()}>Make its own ${this._profileName(dlg.profileId)} week</button>`}
+                ? html`<span>${t('{profile} week of {program}.', { profile: this._profileName(dlg.profileId), program: program.name })}</span>
+                    <button class="link" @click=${() => this._removeProfileWeek()}>${t('Use the {default} week instead', { default: this._profileName('default') })}</button>`
+                : html`<span>${t('Under {profile}, {program} follows its {default} week.', { profile: this._profileName(dlg.profileId), program: program.name, default: from ? this._profileName('default') : '' })}</span>
+                    <button class="link" @click=${() => this._createProfileWeek()}>${t('Make its own {profile} week', { profile: this._profileName(dlg.profileId) })}</button>`}
             </div>` : nothing}
 
           ${st && Object.keys(st.overrides || {}).length ? html`
             <div class="note">
-              ${Object.entries(st.overrides).map(([e, o]) => html`<span>${this._entityName(e)}: ${this._fmtValue(o.value)} by hand${o.until ? ` until ${this._fmtClock(o.until)}` : ''}</span>`)}
+              ${Object.entries(st.overrides).map(([e, o]) => html`<span>${this._overrideText(e, o)}</span>`)}
             </div>` : nothing}
 
           <div class="week-wrap ${dlg.profileId !== 'default' && !own ? 'inherited' : ''}">
-            ${week ? (narrow ? this._dayView(week) : this._weekView(week)) : html`<div class="empty">No schedule.</div>`}
+            ${week ? (narrow ? this._dayView(week) : this._weekView(week)) : html`<div class="empty">${t('No schedule.')}</div>`}
           </div>
           ${this._panelTemplate()}
-        ` : html`<div class="empty">No program.</div>`}
+        ` : html`<div class="empty">${t('No program.')}</div>`}
 
         <div class="bottom">
           <div class="palette">
@@ -933,19 +1063,19 @@ class HaPlooumClimateScheduleCard extends LitElement {
               const c = tempColors(v);
               const on = dlg.brush !== null && sameValue(dlg.brush, v);
               return html`<button class="swatch ${on ? 'on' : ''}" style="background:${c.bg};color:${c.fg}" data-value=${v}
-                title=${narrow ? '' : 'Paint with it: draw or tap slots'} @click=${() => this._pickBrush(v)}>${this._fmtValue(v)}</button>`;
+                title=${narrow ? '' : t('Paint with it: draw or tap slots')} @click=${() => this._pickBrush(v)}>${this._fmtValue(v)}</button>`;
             })}
-            <button class="swatch off ${dlg.brush === OFF ? 'on' : ''}" data-value="off" @click=${() => this._pickBrush(OFF)}>Off</button>
-            <button class="icon-btn small" title="Edit the palette" aria-label="Edit the palette"
+            <button class="swatch off ${dlg.brush === OFF ? 'on' : ''}" data-value="off" @click=${() => this._pickBrush(OFF)}>${t('Off')}</button>
+            <button class="icon-btn small" title=${t('Edit the palette')} aria-label=${t('Edit the palette')}
               @click=${() => this._dlgSet({ panel: 'palette', sel: null, form: { paletteValue: '' }, error: '' })}><ha-icon icon="mdi:palette-outline"></ha-icon></button>
           </div>
           ${dlg.error ? html`<div class="error">${dlg.error}</div>` : nothing}
           <div class="actions">
-            <button class="btn" @click=${() => this._closeDialog()}>Cancel</button>
-            <button class="btn primary" ?disabled=${dlg.saving} @click=${() => this._save()}>${dirty.length ? 'Save' : 'Close'}</button>
+            <button class="btn" @click=${() => this._closeDialog()}>${t('Cancel')}</button>
+            <button class="btn primary" ?disabled=${dlg.saving} @click=${() => this._save()}>${dirty.length ? t('Save') : t('Close')}</button>
           </div>
         </div>
-        ${program && week && !dlg.panel ? html`<button class="fab" title="Add a slot" aria-label="Add a slot" @click=${() => this._openAdd()}><ha-icon icon="mdi:plus"></ha-icon></button>` : nothing}
+        ${program && week && !dlg.panel ? html`<button class="fab" title=${t('Add a slot')} aria-label=${t('Add a slot')} @click=${() => this._openAdd()}><ha-icon icon="mdi:plus"></ha-icon></button>` : nothing}
       </div>
     `;
   }
@@ -993,9 +1123,9 @@ class HaPlooumClimateScheduleCard extends LitElement {
     const today = this._nowMinute().day;
     return html`
       <div class="week">
-        <div class="head"><span></span>${DAY_SHORT.map((d, i) => html`
-          <button class="day ${i === today ? 'today' : ''}" title="Copy ${DAY_NAMES[i]} to other days" @click=${() => this._openCopy(i)}>
-            ${d}<ha-icon icon="mdi:content-copy"></ha-icon>
+        <div class="head"><span></span>${DAYS.map((d, i) => html`
+          <button class="day ${i === today ? 'today' : ''}" title=${t('Copy {day} to other days', { day: dayName(i) })} @click=${() => this._openCopy(i)}>
+            ${dayShort(i)}<ha-icon icon="mdi:content-copy"></ha-icon>
           </button>`)}</div>
         <div class="grid">${this._hours()}${DAYS.map((_, i) => this._column(week, i))}</div>
       </div>
@@ -1007,10 +1137,10 @@ class HaPlooumClimateScheduleCard extends LitElement {
     const today = this._nowMinute().day;
     return html`
       <div class="days">
-        ${DAY_LETTER.map((d, i) => html`
-          <button class="chip day-chip ${i === dlg.day ? 'on' : ''} ${i === today ? 'today' : ''}" aria-label=${DAY_NAMES[i]}
-            @click=${() => this._dlgSet({ day: i, sel: null, panel: dlg.panel === 'copy' ? null : dlg.panel })}>${d}</button>`)}
-        <button class="icon-btn small" title="Copy ${DAY_NAMES[dlg.day]} to other days" aria-label="Copy the day"
+        ${DAYS.map((d, i) => html`
+          <button class="chip day-chip ${i === dlg.day ? 'on' : ''} ${i === today ? 'today' : ''}" aria-label=${dayName(i)}
+            @click=${() => this._dlgSet({ day: i, sel: null, panel: dlg.panel === 'copy' ? null : dlg.panel })}>${dayLetter(i)}</button>`)}
+        <button class="icon-btn small" title=${t('Copy {day} to other days', { day: dayName(dlg.day) })} aria-label=${t('Copy the day')}
           @click=${() => this._openCopy(dlg.day)}><ha-icon icon="mdi:content-copy"></ha-icon></button>
       </div>
       <div class="day-view">${this._hours()}${this._column(week, dlg.day)}</div>
@@ -1027,48 +1157,48 @@ class HaPlooumClimateScheduleCard extends LitElement {
         const c = tempColors(value);
         return html`
           <div class="panel" data-panel=${dlg.panel}>
-            <div class="panel-title">${dlg.panel === 'add' ? `New slot · ${DAY_NAMES[f.day]}` : `${DAY_NAMES[dlg.sel.day]}`}</div>
+            <div class="panel-title">${dlg.panel === 'add' ? t('New slot · {day}', { day: dayName(f.day) }) : capitalize(dayName(dlg.sel.day))}</div>
             <div class="times">
-              <label>From <input type="time" step=${STEP * 60} .value=${f.from} @change=${(e) => { f.from = e.target.value; }}></label>
-              <label>To <input type="time" step=${STEP * 60} .value=${f.to} @change=${(e) => { f.to = e.target.value; }}></label>
+              <label>${t('From')} <input type="time" step=${STEP * 60} .value=${f.from} @change=${(e) => { f.from = e.target.value; }}></label>
+              <label>${t('To')} <input type="time" step=${STEP * 60} .value=${f.to} @change=${(e) => { f.to = e.target.value; }}></label>
             </div>
             <div class="temp">
-              <button class="round" aria-label="Colder" @click=${() => this._stepTemp(-TEMP_STEP)}><ha-icon icon="mdi:minus"></ha-icon></button>
+              <button class="round" aria-label=${t('Colder')} @click=${() => this._stepTemp(-TEMP_STEP)}><ha-icon icon="mdi:minus"></ha-icon></button>
               <span class="temp-value ${value === OFF ? 'off' : ''}" style="background:${c.bg};color:${c.fg}">
-                ${value === OFF ? 'Off' : html`<input type="number" step="0.5" .value=${String(value)} aria-label="Temperature"
+                ${value === OFF ? t('Off') : html`<input type="number" step="0.5" .value=${String(value)} aria-label=${t('Temperature')}
                   @change=${(e) => this._setFormValue(Number(String(e.target.value).replace(',', '.')))}>`}
                 ${value === OFF ? nothing : this._unit}
               </span>
-              <button class="round" aria-label="Warmer" @click=${() => this._stepTemp(TEMP_STEP)}><ha-icon icon="mdi:plus"></ha-icon></button>
+              <button class="round" aria-label=${t('Warmer')} @click=${() => this._stepTemp(TEMP_STEP)}><ha-icon icon="mdi:plus"></ha-icon></button>
               <button class="chip ${value === OFF ? 'on' : ''}" @click=${() => this._setFormValue(value === OFF ? f.lastTemp : OFF)}>
-                <ha-icon icon="mdi:power"></ha-icon>Off
+                <ha-icon icon="mdi:power"></ha-icon>${t('Off')}
               </button>
             </div>
             <div class="panel-actions">
-              ${dlg.panel === 'slot' ? html`<button class="btn danger" @click=${() => this._deleteSlot()}><ha-icon icon="mdi:delete"></ha-icon>Delete</button>` : nothing}
+              ${dlg.panel === 'slot' ? html`<button class="btn danger" @click=${() => this._deleteSlot()}><ha-icon icon="mdi:delete"></ha-icon>${t('Delete')}</button>` : nothing}
               <span class="spacer"></span>
-              <button class="btn" @click=${() => this._dlgSet({ panel: null, sel: null, form: null, error: '' })}>Cancel</button>
-              <button class="btn primary" @click=${() => this._applySlot()}>${dlg.panel === 'add' ? 'Add' : 'OK'}</button>
+              <button class="btn" @click=${() => this._dlgSet({ panel: null, sel: null, form: null, error: '' })}>${t('Cancel')}</button>
+              <button class="btn primary" @click=${() => this._applySlot()}>${dlg.panel === 'add' ? t('Add') : 'OK'}</button>
             </div>
           </div>`;
       }
       case 'copy':
         return html`
           <div class="panel" data-panel="copy">
-            <div class="panel-title">Copy ${DAY_NAMES[f.from]} to</div>
+            <div class="panel-title">${capitalize(t('Copy {day} to', { day: dayName(f.from) }))}</div>
             <div class="chips">
-              ${DAY_SHORT.map((d, i) => html`<button class="chip ${f.to.includes(i) ? 'on' : ''}" ?disabled=${i === f.from} data-day=${i}
-                @click=${() => this._toggleCopyDay(i)}>${d}</button>`)}
+              ${DAYS.map((d, i) => html`<button class="chip ${f.to.includes(i) ? 'on' : ''}" ?disabled=${i === f.from} data-day=${i}
+                @click=${() => this._toggleCopyDay(i)}>${dayShort(i)}</button>`)}
             </div>
             <div class="chips">
-              <button class="link" @click=${() => this._setCopyDays([0, 1, 2, 3, 4])}>Mon – Fri</button>
-              <button class="link" @click=${() => this._setCopyDays([5, 6])}>Sat – Sun</button>
-              <button class="link" @click=${() => this._setCopyDays([0, 1, 2, 3, 4, 5, 6])}>Every day</button>
+              <button class="link" @click=${() => this._setCopyDays([0, 1, 2, 3, 4])}>${t('Mon – Fri')}</button>
+              <button class="link" @click=${() => this._setCopyDays([5, 6])}>${t('Sat – Sun')}</button>
+              <button class="link" @click=${() => this._setCopyDays([0, 1, 2, 3, 4, 5, 6])}>${t('Every day')}</button>
             </div>
             <div class="panel-actions">
               <span class="spacer"></span>
-              <button class="btn" @click=${() => this._dlgSet({ panel: null, form: null, error: '' })}>Cancel</button>
-              <button class="btn primary" @click=${() => this._applyCopy()}>Copy</button>
+              <button class="btn" @click=${() => this._dlgSet({ panel: null, form: null, error: '' })}>${t('Cancel')}</button>
+              <button class="btn primary" @click=${() => this._applyCopy()}>${t('Copy')}</button>
             </div>
           </div>`;
       case 'program': {
@@ -1077,9 +1207,9 @@ class HaPlooumClimateScheduleCard extends LitElement {
         for (const e of f.entities) for (const m of ((this.hass.states[e] || {}).attributes || {}).hvac_modes || []) if (m !== 'off') modes.add(m);
         return html`
           <div class="panel" data-panel="program">
-            <div class="panel-title">Program</div>
-            <label class="field">Name <input type="text" .value=${f.name} @input=${(e) => { f.name = e.target.value; }}></label>
-            <div class="field">Thermostats</div>
+            <div class="panel-title">${t('Program')}</div>
+            <label class="field">${t('Name')} <input type="text" .value=${f.name} @input=${(e) => { f.name = e.target.value; }}></label>
+            <div class="field">${t('Thermostats')}</div>
             <div class="checks">
               ${climates.length ? climates.map(({ entity, owner }) => {
                 const mine = f.entities.includes(entity);
@@ -1087,21 +1217,21 @@ class HaPlooumClimateScheduleCard extends LitElement {
                 return html`<label class=${taken ? 'taken' : ''}>
                   <input type="checkbox" .checked=${mine} ?disabled=${taken} data-entity=${entity}
                     @change=${(e) => { f.entities = e.target.checked ? [...f.entities, entity] : f.entities.filter((x) => x !== entity); this._renderDialog(); }}>
-                  ${this._entityName(entity)}${taken ? html`<small>in ${owner.name}</small>` : nothing}
+                  ${this._entityName(entity)}${taken ? html`<small>${t('in {name}', { name: owner.name })}</small>` : nothing}
                 </label>`;
-              }) : html`<span class="muted">No climate entity in Home Assistant.</span>`}
+              }) : html`<span class="muted">${t('No climate entity in Home Assistant.')}</span>`}
             </div>
-            <label class="field">Mode when a slot turns the heating on
+            <label class="field">${t('Mode when a slot turns the heating on')}
               <select @change=${(e) => { f.hvac_mode = e.target.value; }}>
-                <option value="" ?selected=${!f.hvac_mode}>Automatic (current mode, else heat)</option>
+                <option value="" ?selected=${!f.hvac_mode}>${t('Automatic (current mode, else heat)')}</option>
                 ${[...modes].map((m) => html`<option value=${m} ?selected=${f.hvac_mode === m}>${m}</option>`)}
               </select>
             </label>
-            <label class="switch"><input type="checkbox" .checked=${f.enabled} @change=${(e) => { f.enabled = e.target.checked; }}> Schedule on</label>
+            <label class="switch"><input type="checkbox" .checked=${f.enabled} @change=${(e) => { f.enabled = e.target.checked; }}> ${t('Schedule on')}</label>
             <div class="panel-actions">
-              <button class="btn danger" @click=${() => this._deleteProgram()}><ha-icon icon="mdi:delete"></ha-icon>Delete</button>
+              <button class="btn danger" @click=${() => this._deleteProgram()}><ha-icon icon="mdi:delete"></ha-icon>${t('Delete')}</button>
               <span class="spacer"></span>
-              <button class="btn" @click=${() => this._dlgSet({ panel: null, form: null, error: '' })}>Cancel</button>
+              <button class="btn" @click=${() => this._dlgSet({ panel: null, form: null, error: '' })}>${t('Cancel')}</button>
               <button class="btn primary" @click=${() => this._applyProgram()}>OK</button>
             </div>
           </div>`;
@@ -1109,52 +1239,52 @@ class HaPlooumClimateScheduleCard extends LitElement {
       case 'profiles':
         return html`
           <div class="panel" data-panel="profiles">
-            <div class="panel-title">Profiles of the house</div>
+            <div class="panel-title">${t('Profiles of the house')}</div>
             ${f.profiles.map((p, i) => html`
               <div class="profile-row">
-                <input type="text" .value=${p.name} aria-label="Profile name" @input=${(e) => { p.name = e.target.value; }}>
-                ${p.id === 'default' ? html`<span class="muted">default</span>` : html`
-                  <button class="icon-btn small" title="Delete" aria-label="Delete ${p.name}"
+                <input type="text" .value=${p.name} aria-label=${t('Profile name')} @input=${(e) => { p.name = e.target.value; }}>
+                ${p.id === 'default' ? html`<span class="muted">${t('default')}</span>` : html`
+                  <button class="icon-btn small" title=${t('Delete')} aria-label=${t('Delete {name}', { name: p.name })}
                     @click=${() => { f.profiles.splice(i, 1); this._renderDialog(); }}><ha-icon icon="mdi:delete"></ha-icon></button>`}
               </div>`)}
             <div class="profile-row">
-              <input type="text" placeholder="New profile (Holidays…)" .value=${f.name} @input=${(e) => { f.name = e.target.value; }}>
+              <input type="text" placeholder=${t('New profile (Holidays…)')} .value=${f.name} @input=${(e) => { f.name = e.target.value; }}>
             </div>
-            <div class="hint">A program without a week for a profile follows its Default week.</div>
+            <div class="hint">${t('A program without a week for a profile follows its {default} week.', { default: this._profileName('default') })}</div>
             <div class="panel-actions">
               <span class="spacer"></span>
-              <button class="btn" @click=${() => this._dlgSet({ panel: null, form: null, error: '' })}>Cancel</button>
-              <button class="btn primary" @click=${() => this._saveProfiles()}>Save profiles</button>
+              <button class="btn" @click=${() => this._dlgSet({ panel: null, form: null, error: '' })}>${t('Cancel')}</button>
+              <button class="btn primary" @click=${() => this._saveProfiles()}>${t('Save profiles')}</button>
             </div>
           </div>`;
       case 'palette':
         return html`
           <div class="panel" data-panel="palette">
-            <div class="panel-title">Palette</div>
+            <div class="panel-title">${t('Palette')}</div>
             <div class="chips">
               ${this._palette().map((v) => html`
                 <span class="swatch" style="background:${tempColors(v).bg};color:${tempColors(v).fg}">${this._fmtValue(v)}
-                  <button class="x" aria-label="Remove ${v}" @click=${() => this._savePalette(this._palette().filter((x) => !sameValue(x, v)))}>
+                  <button class="x" aria-label=${t('Remove {value}', { value: this._fmtValue(v) })} @click=${() => this._savePalette(this._palette().filter((x) => !sameValue(x, v)))}>
                     <ha-icon icon="mdi:close"></ha-icon></button>
                 </span>`)}
             </div>
             <div class="profile-row">
-              <input type="number" step="0.5" placeholder="Temperature" .value=${f.paletteValue ?? ''}
+              <input type="number" step="0.5" placeholder=${t('Temperature')} .value=${f.paletteValue ?? ''}
                 @input=${(e) => { f.paletteValue = e.target.value; }}
                 @keydown=${(e) => { if (e.key === 'Enter') this._addPaletteValue(); }}>
-              <button class="btn" @click=${() => this._addPaletteValue()}><ha-icon icon="mdi:plus"></ha-icon>Add</button>
+              <button class="btn" @click=${() => this._addPaletteValue()}><ha-icon icon="mdi:plus"></ha-icon>${t('Add')}</button>
             </div>
-            <div class="hint">Shortcuts only: a slot takes any temperature. Shared by the whole house.</div>
+            <div class="hint">${t('Shortcuts only: a slot takes any temperature. Shared by the whole house.')}</div>
             <div class="panel-actions">
               <span class="spacer"></span>
-              <button class="btn" @click=${() => this._dlgSet({ panel: null, form: null, error: '' })}>Done</button>
+              <button class="btn" @click=${() => this._dlgSet({ panel: null, form: null, error: '' })}>${t('Done')}</button>
             </div>
           </div>`;
       default:
         return this._narrow ? nothing : html`<div class="hint center">
           ${this._dlg.brush !== null && this._dlg.brush !== undefined
-            ? `Painting ${this._fmtValue(this._dlg.brush)}: draw on a day or tap slots. Tap the color again to stop.`
-            : 'Draw on a day to add a slot, tap a slot to change it, drag its top edge to move it. A color of the palette paints.'}
+            ? t('Painting {value}: draw on a day or tap slots. Tap the color again to stop.', { value: this._fmtValue(this._dlg.brush) })
+            : t('Draw on a day to add a slot, tap a slot to change it, drag its top edge to move it. A color of the palette paints.')}
         </div>`;
     }
   }
@@ -1938,6 +2068,10 @@ class HaPlooumClimateScheduleCardEditor extends LitElement {
     this._config = config;
   }
 
+  willUpdate(changed) {
+    if (changed.has('hass')) setLanguage(this.hass);
+  }
+
   updated(changed) {
     if (changed.has('hass') && this.hass && this._programs === null && !this._loading) {
       this._loading = true;
@@ -1977,13 +2111,14 @@ class HaPlooumClimateScheduleCardEditor extends LitElement {
         .hass=${this.hass}
         .data=${data}
         .schema=${this._schema}
-        .computeLabel=${(s) => LABELS[s.name] || s.name}
+        .computeLabel=${(s) => (LABELS[s.name] ? t(LABELS[s.name]) : s.name)}
         @value-changed=${this._valueChanged}
       ></ha-form>
       <div class="hint">
+        <ha-icon icon="mdi:information-outline"></ha-icon>
         ${this._missing
-          ? html`This card needs the <b>Plooum Climate Scheduler</b> integration (HACS), which stores and applies the schedules.`
-          : html`Programs, profiles and the week of each program are edited in the card itself: <b>Schedule</b>.`}
+          ? t('This card needs the Plooum Climate Scheduler integration (HACS), which stores and applies the schedules.')
+          : t('Programs, profiles and the week of each program are edited in the card itself: Schedule.')}
       </div>
     `;
   }
@@ -1991,9 +2126,16 @@ class HaPlooumClimateScheduleCardEditor extends LitElement {
   static get styles() {
     return css`
       .hint {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
         color: var(--secondary-text-color);
         font-size: 0.9em;
         padding-top: 8px;
+      }
+      .hint ha-icon {
+        flex: none;
+        --mdc-icon-size: 18px;
       }
     `;
   }

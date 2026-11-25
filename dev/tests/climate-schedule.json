@@ -136,6 +136,20 @@
       ]
     },
     {
+      "name": "French: the card follows Home Assistant's language",
+      "steps": [
+        { "js": "S.c = (await T.card.rendered('ha-plooum-climate-schedule-card', 2))[0]; await waitFor(() => S.c._data, 5000, 'data'); const h = T.hass(); S.c.hass = { ...h, locale: { ...h.locale, language: 'fr' } }; await S.c.updateComplete;" },
+        { "assert": "S.c.shadowRoot.querySelector('.title').textContent === 'Chauffage' && S.c.shadowRoot.querySelector('.open').textContent.includes('Programmer') && S.c.shadowRoot.querySelector('.profile .chip').textContent.includes('Défaut')", "msg": "title, button and the Default profile in French", "show": "S.c.shadowRoot.textContent.replace(/\\s+/g, ' ')" },
+        { "js": "S.c.shadowRoot.querySelector('.open').click(); S.r = S.c.dialogRoot; S.c._selectSlot(0, 0);" },
+        { "assert": "S.r.querySelectorAll('.week .head .day')[0].textContent.includes('Lun') && S.r.querySelector('.panel-title').textContent === 'Lundi' && S.r.querySelector('[aria-label=\"Plus chaud\"]') && [...S.r.querySelectorAll('.bottom .btn')].some((b) => b.textContent.trim() === 'Annuler')", "msg": "days, slot panel and buttons in French", "show": "S.r.textContent.replace(/\\s+/g, ' ').slice(0, 400)" },
+        { "js": "S.r.querySelector('[aria-label=\"Plus chaud\"]').click();" },
+        { "assert": "S.r.querySelector('.temp-value input').value === '17.5' && S.c._fmtValue(17.5) === '17,5°'", "msg": "decimal comma in French text", "show": "S.c._fmtValue(17.5)" }
+      ],
+      "finally": [
+        { "js": "if (S.c) { S.c._closeDialog(true); S.c.hass = T.hass(); }" }
+      ]
+    },
+    {
       "name": "card: a manual override shows with Resume; editor",
       "steps": [
         { "js": "S.c = (await T.card.rendered('ha-plooum-climate-schedule-card', 2))[0]; await waitFor(() => S.c._data, 5000, 'data'); const id = S.c._engine.programs.find((p) => p.name === 'Bedroom').id; const until = new Date(); until.setHours(23, 0, 0, 0); S.c._data = { ...S.c._data, status: { ...S.c._data.status, [id]: { ...S.c._data.status[id], overrides: { 'climate.bedroom_thermostat': { value: 23, until: until.toISOString() } } } } }; await S.c.updateComplete;" },
