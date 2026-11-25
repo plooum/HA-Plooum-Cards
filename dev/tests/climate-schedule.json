@@ -128,6 +128,28 @@
       ]
     },
     {
+      "name": "slot parameters: declared in the program, set in a slot, shown, applied by the engine",
+      "steps": [
+        { "js": "S.ws = (t, d = {}) => T.hass().callWS({ type: 'plooum_climate_scheduler/' + t, ...d }); S.snap = (await S.ws('get')).config; S.c = (await T.card.rendered('ha-plooum-climate-schedule-card', 2))[0]; await waitFor(() => S.c._data, 5000, 'data'); S.c.shadowRoot.querySelector('.open').click(); S.r = S.c.dialogRoot; S.r.querySelector('[aria-label=\"Program settings\"]').click();" },
+        { "js": "const add = () => S.r.querySelector('[data-action=add-parameter]').click(); const set = (i, field, v, ev = 'change') => { const el = S.r.querySelector(`.param-row[data-index=\"${i}\"] [data-field=${field}]`); el.value = v; el.dispatchEvent(new Event(ev)); }; add(); set(0, 'entity', 'input_boolean.heating_eco_mode'); set(0, 'name', 'Eco', 'input'); set(0, 'icon', 'mdi:leaf'); add(); set(1, 'entity', 'input_number.heating_hysteresis'); set(1, 'icon', 'mdi:arrow-collapse-down');" },
+        { "assert": "S.r.querySelector('.param-row[data-index=\"0\"] [data-field=icon_off]') && !S.r.querySelector('.param-row[data-index=\"1\"] [data-field=icon_off]')", "msg": "an icon when inactive for the switch only" },
+        { "js": "S.r.querySelector('[data-panel=program] .btn.primary').click(); S.params = S.c._program().parameters; S.eco = S.params[0].id; S.hyst = S.params[1].id;" },
+        { "assert": "S.params.length === 2 && S.params[0].icon === 'mdi:leaf' && S.params[0].name === 'Eco' && S.params[1].icon_off === null", "msg": "two parameters in the program", "show": "JSON.stringify(S.params)" },
+        { "js": "S.now = S.c._nowMinute(); S.col = S.r.querySelector(`.col[data-day=\"${S.now.day}\"]`); const r = S.col.getBoundingClientRect(); const pt = { x: r.x + r.width / 2, y: r.y + r.height * S.now.minute / 1440 }; await T.pointerDrag(S.col, pt, pt);" },
+        { "assert": "S.c._dlg.panel === 'slot' && S.r.querySelectorAll('[data-panel=slot] .param-line').length === 2", "msg": "the slot panel has a line per parameter" },
+        { "js": "S.r.querySelector(`[data-panel=slot] .param-line[data-param=\"${S.eco}\"] [data-v=off]`).click(); const n = S.r.querySelector(`[data-panel=slot] .param-line[data-param=\"${S.hyst}\"] input`); n.value = '1.5'; n.dispatchEvent(new Event('change')); S.start = S.c._dlg.sel.start; S.r.querySelector('[data-panel=slot] .btn.primary').click();" },
+        { "js": "S.pts = () => S.c._dlg.drafts[S.c._dlg.programId].profiles.default[['mon','tue','wed','thu','fri','sat','sun'][S.now.day]];" },
+        { "assert": "JSON.stringify(S.pts().find((p) => p.at === S.start).params) === JSON.stringify({ [S.eco]: false, [S.hyst]: 1.5 })", "msg": "the slot sets eco off and hysteresis 1.5", "show": "JSON.stringify(S.pts())" },
+        { "assert": "(() => { const slot = S.col.querySelector(`.slot[data-start=\"${S.start}\"]`); return slot.querySelector(`.p.struck[data-param=\"${S.eco}\"]`) && slot.querySelector(`.p[data-param=\"${S.hyst}\"]`).textContent.includes('1.5'); })()", "msg": "at the bottom of the slot: the leaf struck out, the hysteresis value" },
+        { "js": "[...S.r.querySelectorAll('.bottom .btn')].find((b) => b.textContent.trim() === 'Save').click(); await waitFor(() => !S.c.dialogRoot, 5000, 'dialog closed');" },
+        { "assert": "(await S.ws('get')).config.programs.find((p) => p.name === 'Living room').parameters.length === 2", "msg": "saved in the engine" },
+        { "assert": "await T.card.waitState('input_boolean.heating_eco_mode', (s) => s.state === 'off') && await T.card.waitState('input_number.heating_hysteresis', (s) => Number(s.state) === 1.5)", "msg": "the engine applies them: eco off, hysteresis 1.5" }
+      ],
+      "finally": [
+        { "js": "const ws = S.ws; const cur = (await ws('get')).config; for (const p of cur.programs) if (!S.snap.programs.some((q) => q.id === p.id)) await ws('program/delete', { program_id: p.id }); await ws('profiles/save', { profiles: S.snap.profiles }); for (const p of S.snap.programs) await ws('program/save', { program: p }); await ws('palette/save', { palette: S.snap.palette }); await ws('profile/activate', { profile_id: S.snap.active_profile }); if (S.c) S.c._closeDialog(true); await T.card.call('input_boolean', 'turn_on', { entity_id: 'input_boolean.heating_eco_mode' }); await T.card.call('input_number', 'set_value', { entity_id: 'input_number.heating_hysteresis', value: 0.5 });" }
+      ]
+    },
+    {
       "name": "phone: the whole week, the round + adds a slot on a chosen day, a tap edits it",
       "viewport": [400, 850],
       "steps": [

@@ -162,8 +162,20 @@ input_boolean:
     name: Bedroom heater
   kitchen_heater:
     name: Kitchen heater
+  # Climate schedule card: a slot parameter (like a pellet stove's eco mode).
+  heating_eco_mode:
+    name: Heating eco mode
+    initial: true
 
 input_number:
+  # Climate schedule card: a slot parameter (like a pellet stove's hysteresis).
+  heating_hysteresis:
+    name: Heating hysteresis
+    min: 0
+    max: 3
+    step: 0.5
+    initial: 0.5
+    unit_of_measurement: "°C"
   living_room_temperature:
     name: Living room temperature (backing)
     min: -10

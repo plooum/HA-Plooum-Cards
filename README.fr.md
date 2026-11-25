@@ -52,7 +52,7 @@ La température et l'humidité de chaque pièce dans une seule bande : sa couleu
 ![Climate Band preview](docs/previews/climate-band.png)
 
 ### Ha Plooum Climate Schedule Card
-Programmation hebdomadaire de vos thermostats, avec des profils communs à toute la maison (Défaut, Vacances…). La carte montre la température actuelle et la suivante de chaque programme, et les dérogations manuelles ; sa vue de la semaine permet de dessiner des créneaux, de les peindre avec une palette, de déplacer leurs bords et de copier un jour sur d'autres, sur téléphone aussi avec un bouton + rond pour ajouter un créneau. En français ou en anglais, selon la langue de Home Assistant. Nécessite l'intégration [Plooum Climate Scheduler](https://github.com/plooum/HA-Plooum-ClimateScheduler), qui enregistre et applique les programmes.
+Programmation hebdomadaire de vos thermostats, avec des profils communs à toute la maison (Défaut, Vacances…). La carte montre la température actuelle et la suivante de chaque programme, et les dérogations manuelles ; sa vue de la semaine permet de dessiner des créneaux, de les peindre avec une palette, de déplacer leurs bords et de copier un jour sur d'autres, sur téléphone aussi avec un bouton + rond pour ajouter un créneau. Les créneaux peuvent aussi régler des interrupteurs et des nombres, comme le mode éco et l'hystérésis d'un poêle, affichés en icônes en bas des créneaux. En français ou en anglais, selon la langue de Home Assistant. Nécessite l'intégration [Plooum Climate Scheduler](https://github.com/plooum/HA-Plooum-ClimateScheduler), qui enregistre et applique les programmes.
 
 ![Climate schedule preview](docs/previews/climate-schedule.png)
 
