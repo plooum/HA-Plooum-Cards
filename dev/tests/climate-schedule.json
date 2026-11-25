@@ -141,6 +141,8 @@
         { "js": "S.pts = () => S.c._dlg.drafts[S.c._dlg.programId].profiles.default[['mon','tue','wed','thu','fri','sat','sun'][S.now.day]];" },
         { "assert": "JSON.stringify(S.pts().find((p) => p.at === S.start).params) === JSON.stringify({ [S.eco]: false, [S.hyst]: 1.5 })", "msg": "the slot sets eco off and hysteresis 1.5", "show": "JSON.stringify(S.pts())" },
         { "assert": "(() => { const slot = S.col.querySelector(`.slot[data-start=\"${S.start}\"]`); return slot.querySelector(`.p.struck[data-param=\"${S.eco}\"]`) && slot.querySelector(`.p[data-param=\"${S.hyst}\"]`).textContent.includes('1.5'); })()", "msg": "at the bottom of the slot: the leaf struck out, the hysteresis value" },
+        { "js": "const pr = S.c._draft(); pr.parameters = pr.parameters.map((p) => (p.id === S.hyst ? { ...p, icon: null } : p)); S.c._renderDialog();" },
+        { "assert": "(() => { const p = S.col.querySelector(`.slot[data-start=\"${S.start}\"] .p[data-param=\"${S.hyst}\"]`); return !p.querySelector('ha-icon') && p.textContent.trim() === '1.5'; })()", "msg": "a number without an icon shows its value only" },
         { "js": "[...S.r.querySelectorAll('.bottom .btn')].find((b) => b.textContent.trim() === 'Save').click(); await waitFor(() => !S.c.dialogRoot, 5000, 'dialog closed');" },
         { "assert": "(await S.ws('get')).config.programs.find((p) => p.name === 'Living room').parameters.length === 2", "msg": "saved in the engine" },
         { "assert": "await T.card.waitState('input_boolean.heating_eco_mode', (s) => s.state === 'off') && await T.card.waitState('input_number.heating_hysteresis', (s) => Number(s.state) === 1.5)", "msg": "the engine applies them: eco off, hysteresis 1.5" }

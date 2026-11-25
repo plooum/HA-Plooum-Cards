@@ -282,8 +282,10 @@ function setRange(points, start, end, value, params, restore = {}) {
 
 const PARAMETER_KIND = { switch: 'toggle', input_boolean: 'toggle', number: 'number', input_number: 'number' };
 const paramKind = (entity) => PARAMETER_KIND[String(entity || '').split('.')[0]];
+/** A parameter's icon: a switch always has one (its state must show), a number only the one it is given. */
 const paramIcon = (p, active = true) => {
-  const base = p.icon || (paramKind(p.entity) === 'number' ? 'mdi:numeric' : 'mdi:toggle-switch-outline');
+  if (paramKind(p.entity) === 'number') return p.icon || '';
+  const base = p.icon || 'mdi:toggle-switch-outline';
   return active ? base : (p.icon_off || base);
 };
 
@@ -1209,7 +1211,7 @@ class HaPlooumClimateScheduleCard extends LitElement {
         return html`<span class="p ${v ? '' : 'inactive'} ${!v && !p.icon_off ? 'struck' : ''}" data-param=${p.id}
           title=${`${name}: ${v ? t('Active') : t('Inactive')}`}><ha-icon icon=${paramIcon(p, v)}></ha-icon></span>`;
       }
-      return html`<span class="p" data-param=${p.id} title=${`${name}: ${this._fmtNumber(v)}`}><ha-icon icon=${paramIcon(p)}></ha-icon>${this._fmtNumber(v)}</span>`;
+      return html`<span class="p" data-param=${p.id} title=${`${name}: ${this._fmtNumber(v)}`}>${paramIcon(p) ? html`<ha-icon icon=${paramIcon(p)}></ha-icon>` : nothing}${this._fmtNumber(v)}</span>`;
     })}</span>`;
   }
 
@@ -1274,7 +1276,7 @@ class HaPlooumClimateScheduleCard extends LitElement {
     const attrs = (this.hass.states[p.entity] || {}).attributes || {};
     return html`
       <div class="param-line" data-param=${p.id}>
-        <ha-icon icon=${paramIcon(p)}></ha-icon><span class="param-name">${name}</span><span class="spacer"></span>
+        ${paramIcon(p) ? html`<ha-icon icon=${paramIcon(p)}></ha-icon>` : html`<span class="no-icon"></span>`}<span class="param-name">${name}</span><span class="spacer"></span>
         <input type="number" class="param-number" step=${attrs.step || 'any'} min=${attrs.min ?? ''} max=${attrs.max ?? ''} placeholder="—"
           .value=${v === undefined ? '' : String(v)} aria-label=${name}
           @change=${(e) => { const x = String(e.target.value).replace(',', '.'); f.params[p.id] = x === '' ? undefined : Number(x); }}>
@@ -1294,7 +1296,7 @@ class HaPlooumClimateScheduleCard extends LitElement {
           <input type="text" list="cs-param-entities" data-field="entity" placeholder=${t('Entity (switch, number…)')} .value=${p.entity || ''}
             @change=${(e) => { p.entity = e.target.value.trim(); this._renderDialog(); }}>
           <input type="text" data-field="name" placeholder=${t('Name (optional)')} .value=${p.name || ''} @input=${(e) => { p.name = e.target.value; }}>
-          <span class="icon-field"><ha-icon icon=${paramIcon(p)}></ha-icon>
+          <span class="icon-field">${paramIcon(p) ? html`<ha-icon icon=${paramIcon(p)}></ha-icon>` : html`<span class="no-icon"></span>`}
             <input type="text" data-field="icon" placeholder=${t('Icon (mdi:…)')} .value=${p.icon || ''} @change=${(e) => { p.icon = e.target.value.trim(); this._renderDialog(); }}></span>
           ${paramKind(p.entity) === 'toggle' ? html`
             <span class="icon-field"><span class="p ${p.icon_off ? '' : 'struck'}"><ha-icon icon=${paramIcon(p, false)}></ha-icon></span>
@@ -1976,6 +1978,10 @@ const DIALOG_STYLES = css`
     align-items: center;
     gap: 8px;
     font-size: 14px;
+  }
+  .no-icon {
+    flex: none;
+    width: 18px;
   }
   .param-number {
     width: 80px;
