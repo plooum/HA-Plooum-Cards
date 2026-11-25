@@ -1930,12 +1930,12 @@ const DIALOG_STYLES = css`
   }
   .params {
     position: absolute;
-    left: 0;
-    right: 0;
+    left: 2px;
+    right: 3px;
     bottom: 2px;
     display: flex;
     flex-wrap: wrap;
-    justify-content: center;
+    justify-content: flex-end;
     gap: 2px 6px;
     font-size: 11px;
     pointer-events: none;
