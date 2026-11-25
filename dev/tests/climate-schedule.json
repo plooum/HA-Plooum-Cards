@@ -114,6 +114,20 @@
       ]
     },
     {
+      "name": "program settings: the thermostat turns itself off",
+      "steps": [
+        { "js": "S.ws = (t, d = {}) => T.hass().callWS({ type: 'plooum_climate_scheduler/' + t, ...d }); S.snap = (await S.ws('get')).config; S.c = (await T.card.rendered('ha-plooum-climate-schedule-card', 2))[0]; await waitFor(() => S.c._data, 5000, 'data'); S.c.shadowRoot.querySelector('.open').click(); S.r = S.c.dialogRoot; S.r.querySelector('[aria-label=\"Program settings\"]').click();" },
+        { "assert": "S.r.querySelector('[data-field=self_off]') && !S.r.querySelector('[data-field=self_off]').checked", "msg": "the option is there, off by default" },
+        { "js": "const b = S.r.querySelector('[data-field=self_off]'); b.checked = true; b.dispatchEvent(new Event('change')); S.r.querySelector('[data-panel=program] .btn.primary').click(); [...S.r.querySelectorAll('.bottom .btn')].find((x) => x.textContent.trim() === 'Save').click(); await waitFor(() => !S.c.dialogRoot, 5000, 'dialog closed');" },
+        { "assert": "(await S.ws('get')).config.programs.find((p) => p.name === 'Living room').self_off === true", "msg": "saved in the engine" },
+        { "js": "S.c.shadowRoot.querySelector('.open').click(); S.r = S.c.dialogRoot; S.r.querySelector('[aria-label=\"Program settings\"]').click();" },
+        { "assert": "S.r.querySelector('[data-field=self_off]').checked", "msg": "shown ticked when reopened" }
+      ],
+      "finally": [
+        { "js": "const ws = S.ws; const cur = (await ws('get')).config; for (const p of cur.programs) if (!S.snap.programs.some((q) => q.id === p.id)) await ws('program/delete', { program_id: p.id }); await ws('profiles/save', { profiles: S.snap.profiles }); for (const p of S.snap.programs) await ws('program/save', { program: p }); await ws('palette/save', { palette: S.snap.palette }); await ws('profile/activate', { profile_id: S.snap.active_profile }); if (S.c) S.c._closeDialog(true);" }
+      ]
+    },
+    {
       "name": "phone: the whole week, the round + adds a slot on a chosen day, a tap edits it",
       "viewport": [400, 850],
       "steps": [

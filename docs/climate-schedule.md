@@ -26,7 +26,7 @@ A tab per program, a chip per profile (the house's active one wears a house icon
 - **Copy a day**: tap the day's name, pick the days (or Mon – Fri, Sat – Sun, every day), **Copy**.
 - **Palette** (🎨): add or remove temperatures. It is shared by the whole house, and only holds shortcuts: a slot takes any temperature.
 - **Profiles** (✏️): rename, add or delete profiles (Default can't be deleted). A program without its own week for a profile follows its Default week, shown dimmed; **Make its own … week** copies it to start from.
-- **Program settings** (⚙️): name, thermostats (a thermostat belongs to one program), the mode used to turn the heating back on after an Off slot, schedule on or off, delete. **+** creates a program.
+- **Program settings** (⚙️): name, thermostats (a thermostat belongs to one program), the mode used to turn the heating back on after an Off slot, **The thermostat turns itself off** (for a pellet stove in eco mode or anything that goes to standby: going off is then not a manual change, and the schedule only turns back on what an Off slot turned off), schedule on or off, delete. **+** creates a program.
 
 Changes are kept until **Save**; **Cancel** drops them.
 

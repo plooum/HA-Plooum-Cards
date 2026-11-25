@@ -114,6 +114,8 @@ const FR = {
   'Mode when a slot turns the heating on': 'Mode quand un créneau rallume le chauffage',
   'Automatic (current mode, else heat)': 'Automatique (mode actuel, sinon chauffage)',
   'Schedule on': 'Programmation active',
+  'The thermostat turns itself off (eco mode, standby)': "Le thermostat s'éteint tout seul (mode éco, veille)",
+  'Going off by itself is then no manual change, and the schedule only turns back on what an Off slot turned off.': "Son extinction n'est alors pas un changement manuel, et la programmation ne rallume que ce qu'un créneau Éteint a éteint.",
   'Profiles of the house': 'Profils de la maison',
   'Profile name': 'Nom du profil',
   'Delete {name}': 'Supprimer {name}',
@@ -664,7 +666,7 @@ class HaPlooumClimateScheduleCard extends LitElement {
   _newProgram() {
     const id = `new:${++this._dlg.newCount}`;
     const week = normalizeWeek(Object.fromEntries(DAYS.map((d) => [d, []])));
-    this._dlg.drafts[id] = { id: null, name: t('New program'), entities: [], enabled: true, hvac_mode: null, profiles: { default: week } };
+    this._dlg.drafts[id] = { id: null, name: t('New program'), entities: [], enabled: true, hvac_mode: null, self_off: false, profiles: { default: week } };
     this._dlg.programId = id;
     this._dlg.profileId = 'default';
     this._dlg.sel = null;
@@ -682,9 +684,10 @@ class HaPlooumClimateScheduleCard extends LitElement {
         if (!d.name || !d.name.trim()) throw new Error(t('Give the program a name.'));
         const profiles = {};
         for (const [pid, week] of Object.entries(d.profiles)) profiles[pid] = weekToEngine(week);
-        const saved = await this._ws('program/save', {
-          program: { id: d.id || undefined, name: d.name.trim(), entities: d.entities, enabled: d.enabled, hvac_mode: d.hvac_mode || null, profiles },
-        });
+        const program = { id: d.id || undefined, name: d.name.trim(), entities: d.entities, enabled: d.enabled, hvac_mode: d.hvac_mode || null, profiles };
+        // self_off came with the engine's 0.2.0: an older engine refuses the key, so it is only sent when known or set.
+        if (d.self_off || this._engine.programs.some((p) => 'self_off' in p)) program.self_off = !!d.self_off;
+        const saved = await this._ws('program/save', { program });
         delete this._dlg.drafts[id];
         if (this._dlg.programId === id) this._dlg.programId = saved.id;
       }
@@ -885,7 +888,7 @@ class HaPlooumClimateScheduleCard extends LitElement {
   // --- Program panel ---
 
   _programForm(program) {
-    return { name: program.name, entities: [...program.entities], enabled: program.enabled, hvac_mode: program.hvac_mode || '' };
+    return { name: program.name, entities: [...program.entities], enabled: program.enabled, hvac_mode: program.hvac_mode || '', self_off: !!program.self_off };
   }
 
   _openProgram() {
@@ -895,7 +898,7 @@ class HaPlooumClimateScheduleCard extends LitElement {
   _applyProgram() {
     const f = this._dlg.form;
     if (!f.name.trim()) return this._dlgSet({ error: t('Give the program a name.') });
-    Object.assign(this._draft(), { name: f.name.trim(), entities: f.entities, enabled: f.enabled, hvac_mode: f.hvac_mode || null });
+    Object.assign(this._draft(), { name: f.name.trim(), entities: f.entities, enabled: f.enabled, hvac_mode: f.hvac_mode || null, self_off: f.self_off });
     this._dlgSet({ panel: null, form: null, error: '' });
   }
 
@@ -1217,6 +1220,8 @@ class HaPlooumClimateScheduleCard extends LitElement {
                 ${[...modes].map((m) => html`<option value=${m} ?selected=${f.hvac_mode === m}>${m}</option>`)}
               </select>
             </label>
+            <label class="switch"><input type="checkbox" data-field="self_off" .checked=${f.self_off} @change=${(e) => { f.self_off = e.target.checked; }}> ${t('The thermostat turns itself off (eco mode, standby)')}</label>
+            <div class="hint">${t('Going off by itself is then no manual change, and the schedule only turns back on what an Off slot turned off.')}</div>
             <label class="switch"><input type="checkbox" .checked=${f.enabled} @change=${(e) => { f.enabled = e.target.checked; }}> ${t('Schedule on')}</label>
             <div class="panel-actions">
               <button class="btn danger" @click=${() => this._deleteProgram()}><ha-icon icon="mdi:delete"></ha-icon>${t('Delete')}</button>
