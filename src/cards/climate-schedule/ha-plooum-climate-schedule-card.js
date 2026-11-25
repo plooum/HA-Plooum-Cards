@@ -1,6 +1,6 @@
 import { LitElement, html, css, nothing, render as litRender } from "lit";
 
-const CARD_VERSION = '1.2.0';
+const CARD_VERSION = '1.3.0';
 
 /*
  * Climate schedule card: the interface of the Plooum Climate Scheduler integration
