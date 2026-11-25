@@ -15,6 +15,7 @@ A collection of custom Lovelace cards for Home Assistant, packaged as **a single
 | Ha Plooum Button Badge Card | `custom:ha-plooum-buttonbadge-card` | [docs/button-badge.md](docs/button-badge.md) |
 | Ha Plooum Camera Card | `custom:ha-plooum-camera-card` | [docs/camera.md](docs/camera.md) |
 | Ha Plooum Climate Band Card | `custom:ha-plooum-climate-band-card` | [docs/climate-band.md](docs/climate-band.md) |
+| Ha Plooum Climate Schedule Card | `custom:ha-plooum-climate-schedule-card` | [docs/climate-schedule.md](docs/climate-schedule.md) |
 | Ha Plooum Cover Card | `custom:ha-plooum-cover-card` | [docs/cover.md](docs/cover.md) |
 | Ha Plooum D-Pad Card | `custom:ha-plooum-dpad-card` | [docs/dpad.md](docs/dpad.md) |
 | Ha Plooum Floorplan Card | `custom:ha-plooum-floorplan-card` | [docs/floorplan.md](docs/floorplan.md) |
@@ -49,6 +50,11 @@ A live camera that plays as soon as it shows, with a digital zoom (wheel, pinch,
 Every room's temperature and humidity in one band: its color glides with the temperature, a water table rises with the humidity, and a humidity above the threshold pulses in red. Too narrow (a phone), it splits into two centered lines. A tap on a room opens its history: temperature and humidity over 6 h, 24 h, 7 or 30 days.
 
 ![Climate Band preview](docs/previews/climate-band.png)
+
+### Ha Plooum Climate Schedule Card
+Week schedules for your thermostats, with profiles shared by the whole house (Default, Holidays…). The card shows each program's current and next temperature and the manual overrides; its week view lets you draw slots, paint them with a palette, move their edges and copy a day onto others, one day at a time on a phone. Needs the [Plooum Climate Scheduler](https://github.com/plooum/HA-Plooum-ClimateScheduler) integration, which stores and applies the schedules.
+
+![Climate schedule preview](docs/previews/climate-schedule.png)
 
 ### Ha Plooum Cover Card
 Controls several roller shutters side by side, with vertical sliders, action icons and a safety lock.
@@ -154,6 +160,7 @@ src/
     ├── button-badge/
     ├── camera/
     ├── climate-band/
+    ├── climate-schedule/
     ├── cover/
     ├── dpad/
     ├── floorplan/

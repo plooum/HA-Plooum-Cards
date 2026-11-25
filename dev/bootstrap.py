@@ -233,6 +233,53 @@ async def ensure_edit_dashboard(session: aiohttp.ClientSession) -> None:
         print(f"Dashboard /{EDIT_DASHBOARD} created")
 
 
+def _week(points: list[tuple[str, object]], weekend: list[tuple[str, object]] | None = None) -> dict:
+    days = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+    return {d: [{"at": a, "value": v} for a, v in (weekend if weekend and d in ("sat", "sun") else points)] for d in days}
+
+
+async def ensure_climate_scheduler(session: aiohttp.ClientSession) -> None:
+    """Set up Plooum Climate Scheduler (linked by dev/ha.sh) with two programs and a Holidays profile, once."""
+    headers = auth_headers(TOKEN_FILE.read_text().strip())
+    async with session.get(f"{URL}/api/config/config_entries/entry?domain=plooum_climate_scheduler", headers=headers) as r:
+        entries = await r.json() if r.status == 200 else []
+    if not any(e.get("domain") == "plooum_climate_scheduler" for e in entries):
+        async with session.post(f"{URL}/api/config/config_entries/flow", headers=headers,
+                                json={"handler": "plooum_climate_scheduler"}) as r:
+            if r.status != 200:
+                print("Plooum Climate Scheduler not installed (see dev/ha.sh): climate schedule card untestable")
+                return
+            flow = await r.json()
+        async with session.post(f"{URL}/api/config/config_entries/flow/{flow['flow_id']}", headers=headers, json={}) as r:
+            r.raise_for_status()
+    client = await WsClient.connect(session)
+    try:
+        config = (await client.call(type="plooum_climate_scheduler/get"))["config"]
+        if config["programs"]:
+            return
+        profiles = await client.call(type="plooum_climate_scheduler/profiles/save",
+                                     profiles=[{"id": "default", "name": "Default"}, {"name": "Holidays"}])
+        holidays = profiles[1]["id"]
+        # The owner's example: living room 17 then 21 from 17:00; bedroom 17, 15 from 08:00, 20 from 18:00.
+        await client.call(type="plooum_climate_scheduler/program/save", program={
+            "name": "Living room", "entities": ["climate.living_room_thermostat"],
+            "profiles": {
+                "default": _week([("00:00", 17), ("17:00", 21)], [("00:00", 17), ("08:00", 21)]),
+                holidays: _week([("00:00", 17), ("09:00", 21)]),
+            },
+        })
+        await client.call(type="plooum_climate_scheduler/program/save", program={
+            "name": "Bedroom", "entities": ["climate.bedroom_thermostat"],
+            "profiles": {
+                "default": _week([("00:00", 17), ("08:00", 15), ("18:00", 20), ("23:00", "off")]),
+                holidays: _week([("00:00", 17), ("10:00", 15), ("18:00", 20)]),
+            },
+        })
+        print("Plooum Climate Scheduler: programs Living room, Bedroom and profile Holidays created")
+    finally:
+        await client.ws.close()
+
+
 async def main() -> None:
     async with aiohttp.ClientSession() as session:
         if not await token_is_valid(session):
@@ -241,6 +288,7 @@ async def main() -> None:
         await ensure_areas(session)
         await ensure_english(session)
         await ensure_edit_dashboard(session)
+        await ensure_climate_scheduler(session)
 
 
 if __name__ == "__main__":

@@ -78,6 +78,7 @@ pick_port() {
 # A worktree has neither venv nor node_modules of its own: link the main checkout's, so that
 # `dev/.venv/bin/python dev/ui_test.py ...` and `npm run build` work there unchanged.
 cmd_setup() {
+  link_climate_scheduler
   $IS_WORKTREE || { echo "Main checkout: nothing to set up (npm install, dev/ha.sh start)"; return 0; }
   if [[ ! -e "$DEV/.venv" && -x "$VENV/bin/python" ]]; then
     ln -s "$VENV" "$DEV/.venv"
@@ -87,6 +88,18 @@ cmd_setup() {
     [[ -d "$MAIN/node_modules" ]] || { echo "No node_modules in $MAIN: run npm install there first" >&2; return 1; }
     ln -s "$MAIN/node_modules" "$DEV/../node_modules"
     echo "node_modules linked to $MAIN/node_modules"
+  fi
+}
+
+# The climate schedule card needs the real engine, the Plooum Climate Scheduler integration: link it
+# from a checkout of plooum/HA-Plooum-ClimateScheduler next to the main checkout (or CLIMATE_SCHEDULER_DIR).
+link_climate_scheduler() {
+  local src="${CLIMATE_SCHEDULER_DIR:-$(dirname "$MAIN")/HA-Plooum-ClimateScheduler}/custom_components/plooum_climate_scheduler"
+  local dst="$CONF/custom_components/plooum_climate_scheduler"
+  if [[ -d "$src" ]]; then
+    [[ "$(readlink "$dst" 2>/dev/null)" == "$src" ]] || ln -sfn "$src" "$dst"
+  elif [[ ! -e "$dst" ]]; then
+    echo "No Plooum Climate Scheduler (climate schedule card): git clone https://github.com/plooum/HA-Plooum-ClimateScheduler $(dirname "$MAIN")/HA-Plooum-ClimateScheduler" >&2
   fi
 }
 

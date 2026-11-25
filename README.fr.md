@@ -15,6 +15,7 @@ Une collection de cartes Lovelace personnalisées pour Home Assistant, packagée
 | Ha Plooum Button Badge Card | `custom:ha-plooum-buttonbadge-card` | [docs/button-badge.md](docs/button-badge.md) |
 | Ha Plooum Camera Card | `custom:ha-plooum-camera-card` | [docs/camera.md](docs/camera.md) |
 | Ha Plooum Climate Band Card | `custom:ha-plooum-climate-band-card` | [docs/climate-band.md](docs/climate-band.md) |
+| Ha Plooum Climate Schedule Card | `custom:ha-plooum-climate-schedule-card` | [docs/climate-schedule.md](docs/climate-schedule.md) |
 | Ha Plooum Cover Card | `custom:ha-plooum-cover-card` | [docs/cover.md](docs/cover.md) |
 | Ha Plooum D-Pad Card | `custom:ha-plooum-dpad-card` | [docs/dpad.md](docs/dpad.md) |
 | Ha Plooum Floorplan Card | `custom:ha-plooum-floorplan-card` | [docs/floorplan.md](docs/floorplan.md) |
@@ -49,6 +50,11 @@ Une caméra en direct qui se lance dès l'affichage, avec un zoom numérique (mo
 La température et l'humidité de chaque pièce dans une seule bande : sa couleur suit la température, une nappe d'eau monte avec l'humidité, et une humidité au-dessus du seuil pulse en rouge. Trop étroite (téléphone), elle passe sur deux lignes centrées. Un appui sur une pièce ouvre son historique : température et humidité sur 6 h, 24 h, 7 ou 30 jours.
 
 ![Climate Band preview](docs/previews/climate-band.png)
+
+### Ha Plooum Climate Schedule Card
+Programmation hebdomadaire de vos thermostats, avec des profils communs à toute la maison (Défaut, Vacances…). La carte montre la température actuelle et la suivante de chaque programme, et les dérogations manuelles ; sa vue de la semaine permet de dessiner des créneaux, de les peindre avec une palette, de déplacer leurs bords et de copier un jour sur d'autres, un jour à la fois sur téléphone. Nécessite l'intégration [Plooum Climate Scheduler](https://github.com/plooum/HA-Plooum-ClimateScheduler), qui enregistre et applique les programmes.
+
+![Climate schedule preview](docs/previews/climate-schedule.png)
 
 ### Ha Plooum Cover Card
 Contrôle de plusieurs volets roulants côte à côte avec sliders verticaux, icônes d'action et verrouillage de sécurité.
@@ -154,6 +160,7 @@ src/
     ├── button-badge/
     ├── camera/
     ├── climate-band/
+    ├── climate-schedule/
     ├── cover/
     ├── dpad/
     ├── floorplan/

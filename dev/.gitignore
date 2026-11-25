@@ -12,3 +12,5 @@ ha-config/*
 !ha-config/dashboards/
 !ha-config/custom_components/
 !ha-config/themes/
+# Linked by dev/ha.sh from a HA-Plooum-ClimateScheduler checkout (climate schedule card).
+ha-config/custom_components/plooum_climate_scheduler

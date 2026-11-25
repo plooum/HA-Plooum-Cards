@@ -251,6 +251,19 @@
       ]
     },
     {
+      "name": "climate-schedule: renders, opens the week, editor",
+      "path": "/plooum-test/climate-schedule",
+      "steps": [
+        { "js": "S.c = (await T.card.rendered('ha-plooum-climate-schedule-card', 2))[0]; await waitFor(() => S.c._data && S.c.shadowRoot.querySelectorAll('.row').length >= 2, 5000, 'programs from the engine');" },
+        { "js": "S.c.shadowRoot.querySelector('.open').click();" },
+        { "assert": "S.c.dialogRoot.querySelectorAll('.col').length === 7 && S.c.dialogRoot.querySelectorAll('.slot').length > 7", "msg": "the dialog shows the week's slots" },
+        { "js": "S.c._closeDialog(true); await T.card.editorRenders(S.c);" }
+      ],
+      "finally": [
+        { "js": "if (S.c) S.c._closeDialog(true);" }
+      ]
+    },
+    {
       "name": "floorplan: renders, reacts, editor",
       "path": "/plooum-test/floorplan",
       "steps": [
