@@ -141,6 +141,7 @@ views:
           - name: Missing
             temperature: sensor.does_not_exist
             humidity: sensor.does_not_exist
+      - type: custom:ha-plooum-climate-schedule-card
 
   - title: D-Pad
     path: dpad
@@ -1153,3 +1154,30 @@ views:
               - input_select.garden_camera_fault
               - input_boolean.garage_camera_available
             type: entities
+
+  # Climate schedule card: needs the Plooum Climate Scheduler integration (linked by dev/ha.sh from
+  # ../HA-Plooum-ClimateScheduler, seeded by dev/bootstrap.py: programs Living room and Bedroom, profiles
+  # Default and Holidays). Thermostats: generic_thermostat climate.living_room_thermostat /
+  # bedroom_thermostat / kitchen_thermostat (the kitchen one is in no program).
+  - title: Climate schedule
+    path: climate-schedule
+    cards:
+      # All programs, profile switch.
+      - type: custom:ha-plooum-climate-schedule-card
+      # One program (by name), own title, no profile switch.
+      - type: custom:ha-plooum-climate-schedule-card
+        title: Bedroom heating
+        programs:
+          - Bedroom
+        show_profile: false
+      - type: entities
+        title: Test controls
+        entities:
+          - select.climate_scheduler_profile
+          - switch.living_room_schedule
+          - sensor.living_room_scheduled_temperature
+          - climate.living_room_thermostat
+          - switch.bedroom_schedule
+          - sensor.bedroom_scheduled_temperature
+          - climate.bedroom_thermostat
+          - climate.kitchen_thermostat

@@ -1,0 +1,149 @@
+// Climate schedule card (/plooum-test/climate-schedule), against the real Plooum Climate Scheduler engine
+// (linked by dev/ha.sh, seeded by dev/bootstrap.py: Living room, Bedroom, profiles Default and Holidays).
+// Every test snapshots the engine's config first and restores it in `finally`.
+// dev/.venv/bin/python dev/ui_test.py dev/tests/climate-schedule.json [--only <name substring>]
+{
+  "path": "/plooum-test/climate-schedule",
+  "viewport": [1400, 900],
+  "tests": [
+    {
+      "name": "card: rows, today's strip, profile switch",
+      "steps": [
+        { "js": "S.ws = (t, d = {}) => T.hass().callWS({ type: 'plooum_climate_scheduler/' + t, ...d }); S.snap = (await S.ws('get')).config; S.cards = await T.card.rendered('ha-plooum-climate-schedule-card', 2); S.c = S.cards[0]; await waitFor(() => S.c._data && S.cards[1]._data, 5000, 'data');" },
+        { "assert": "S.c.shadowRoot.querySelectorAll('.row').length === 2 && S.cards[1].shadowRoot.querySelectorAll('.row').length === 1", "msg": "all programs on the first card, the Bedroom only on the second", "show": "[S.c.shadowRoot.querySelectorAll('.row').length, S.cards[1].shadowRoot.querySelectorAll('.row').length]" },
+        { "assert": "S.c.shadowRoot.querySelectorAll('.strip span').length >= 2 && S.c.shadowRoot.querySelector('.strip i')", "msg": "today's slots and the now mark" },
+        { "assert": "!S.cards[1].shadowRoot.querySelector('.profile')", "msg": "show_profile: false hides the profile switch" },
+        { "js": "S.c.shadowRoot.querySelector('.profile .chip').click(); await S.c.updateComplete; [...S.c.shadowRoot.querySelectorAll('.menu button')].find((b) => b.textContent.includes('Holidays')).click();" },
+        { "assert": "await T.card.waitState('select.climate_scheduler_profile', (s) => s.state === 'Holidays')", "msg": "the menu switches the house profile" },
+        { "assert": "await waitFor(() => S.c.shadowRoot.querySelector('.profile .chip').textContent.includes('Holidays'), 3000, 'chip')", "msg": "the chip follows" }
+      ],
+      "finally": [
+        { "js": "const ws = S.ws; const cur = (await ws('get')).config; for (const p of cur.programs) if (!S.snap.programs.some((q) => q.id === p.id)) await ws('program/delete', { program_id: p.id }); await ws('profiles/save', { profiles: S.snap.profiles }); for (const p of S.snap.programs) await ws('program/save', { program: p }); await ws('palette/save', { palette: S.snap.palette }); await ws('profile/activate', { profile_id: S.snap.active_profile }); if (S.c) S.c._closeDialog(true);" }
+      ]
+    },
+    {
+      "name": "dialog: draw a slot, set it warmer, save",
+      "steps": [
+        { "js": "S.ws = (t, d = {}) => T.hass().callWS({ type: 'plooum_climate_scheduler/' + t, ...d }); S.snap = (await S.ws('get')).config; S.c = (await T.card.rendered('ha-plooum-climate-schedule-card', 2))[0]; await waitFor(() => S.c._data, 5000, 'data'); S.c.shadowRoot.querySelector('.open').click(); S.r = S.c.dialogRoot; S.col = (d) => S.r.querySelector(`.col[data-day=\"${d}\"]`); S.pt = (d, m) => { const r = S.col(d).getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height * m / 1440 }; };" },
+        { "assert": "S.r.querySelectorAll('.col').length === 7 && S.r.querySelector('.tab.on').textContent.includes('Living room')", "msg": "a week of 7 days, Living room first" },
+        { "js": "await T.pointerDrag(S.col(0), S.pt(0, 360), S.pt(0, 480));" },
+        { "assert": "S.r.querySelector('[data-panel=slot]') && S.c._dlg.form.from === '06:00' && S.c._dlg.form.to === '08:00'", "msg": "drawing 06:00 – 08:00 makes a slot and opens it", "show": "S.c._dlg.form" },
+        { "js": "S.r.querySelector('[aria-label=Warmer]').click(); S.r.querySelector('.panel .btn.primary').click();" },
+        { "assert": "S.c._dlg.drafts[S.c._dlg.programId].profiles.default.mon.some((p) => p.at === 360 && p.value === 19.5)", "msg": "the slot holds 19.5", "show": "JSON.stringify(S.c._dlg.drafts[S.c._dlg.programId].profiles.default.mon)" },
+        { "js": "[...S.r.querySelectorAll('.bottom .btn')].find((b) => b.textContent.trim() === 'Save').click(); await waitFor(() => !S.c.dialogRoot, 5000, 'dialog closed');" },
+        { "assert": "(await S.ws('get')).config.programs.find((p) => p.name === 'Living room').profiles.default.mon.some((p) => p.at === '06:00' && p.value === 19.5)", "msg": "saved in the engine" }
+      ],
+      "finally": [
+        { "js": "const ws = S.ws; const cur = (await ws('get')).config; for (const p of cur.programs) if (!S.snap.programs.some((q) => q.id === p.id)) await ws('program/delete', { program_id: p.id }); await ws('profiles/save', { profiles: S.snap.profiles }); for (const p of S.snap.programs) await ws('program/save', { program: p }); await ws('palette/save', { palette: S.snap.palette }); await ws('profile/activate', { profile_id: S.snap.active_profile }); if (S.c) S.c._closeDialog(true);" }
+      ]
+    },
+    {
+      "name": "dialog: tap a slot to turn it off, delete it, move an edge",
+      "steps": [
+        { "js": "S.ws = (t, d = {}) => T.hass().callWS({ type: 'plooum_climate_scheduler/' + t, ...d }); S.snap = (await S.ws('get')).config; S.c = (await T.card.rendered('ha-plooum-climate-schedule-card', 2))[0]; await waitFor(() => S.c._data, 5000, 'data'); S.c.shadowRoot.querySelector('.open').click(); S.r = S.c.dialogRoot; S.col = (d) => S.r.querySelector(`.col[data-day=\"${d}\"]`); S.pt = (d, m) => { const r = S.col(d).getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height * m / 1440 }; }; S.day = (d) => S.c._dlg.drafts[S.c._dlg.programId].profiles.default[d];" },
+        { "js": "await T.pointerDrag(S.col(1), S.pt(1, 600), S.pt(1, 600));" },
+        { "assert": "S.c._dlg.panel === 'slot' && S.c._dlg.sel.start === 0 && S.c._dlg.form.to === '17:00'", "msg": "a tap selects the Tuesday 00:00 – 17:00 slot", "show": "[S.c._dlg.panel, S.c._dlg.sel, S.c._dlg.form]" },
+        { "js": "[...S.r.querySelectorAll('.panel .chip')].find((b) => b.textContent.includes('Off')).click(); S.r.querySelector('.panel .btn.primary').click();" },
+        { "assert": "JSON.stringify(S.day('tue')) === JSON.stringify([{ at: 0, value: 'off' }, { at: 1020, value: 21 }])", "msg": "Off from 00:00 to 17:00", "show": "JSON.stringify(S.day('tue'))" },
+        { "assert": "S.r.querySelector('.col[data-day=\"1\"] .slot.off')", "msg": "drawn striped" },
+        { "js": "await T.pointerDrag(S.col(1), S.pt(1, 1200), S.pt(1, 1200)); [...S.r.querySelectorAll('.panel .btn')].find((b) => b.textContent.includes('Delete')).click();" },
+        { "assert": "JSON.stringify(S.day('tue')) === JSON.stringify([{ at: 0, value: 'off' }])", "msg": "deleting the 21° slot gives its time to the slot before", "show": "JSON.stringify(S.day('tue'))" },
+        { "js": "const h = S.col(2).querySelector('.handle[data-at=\"1020\"]'); await T.pointerDrag(S.col(2), S.pt(2, 1020), S.pt(2, 1080), { target: h });" },
+        { "assert": "S.day('wed').some((p) => p.at === 1080 && p.value === 21) && !S.day('wed').some((p) => p.at === 1020)", "msg": "dragging the 17:00 edge moves it to 18:00", "show": "JSON.stringify(S.day('wed'))" }
+      ],
+      "finally": [
+        { "js": "const ws = S.ws; const cur = (await ws('get')).config; for (const p of cur.programs) if (!S.snap.programs.some((q) => q.id === p.id)) await ws('program/delete', { program_id: p.id }); await ws('profiles/save', { profiles: S.snap.profiles }); for (const p of S.snap.programs) await ws('program/save', { program: p }); await ws('palette/save', { palette: S.snap.palette }); await ws('profile/activate', { profile_id: S.snap.active_profile }); if (S.c) S.c._closeDialog(true);" }
+      ]
+    },
+    {
+      "name": "dialog: copy Saturday to Monday – Friday",
+      "steps": [
+        { "js": "S.ws = (t, d = {}) => T.hass().callWS({ type: 'plooum_climate_scheduler/' + t, ...d }); S.snap = (await S.ws('get')).config; S.c = (await T.card.rendered('ha-plooum-climate-schedule-card', 2))[0]; await waitFor(() => S.c._data, 5000, 'data'); S.c.shadowRoot.querySelector('.open').click(); S.r = S.c.dialogRoot;" },
+        { "js": "S.r.querySelectorAll('.week .head .day')[5].click(); [...S.r.querySelectorAll('[data-panel=copy] .link')].find((b) => b.textContent.includes('Mon')).click(); [...S.r.querySelectorAll('[data-panel=copy] .btn')].find((b) => b.textContent.trim() === 'Copy').click();" },
+        { "js": "S.w = S.c._dlg.drafts[S.c._dlg.programId].profiles.default;" },
+        { "assert": "['mon', 'tue', 'wed', 'thu', 'fri'].every((d) => JSON.stringify(S.w[d]) === JSON.stringify(S.w.sat)) && S.w.sat.some((p) => p.at === 480)", "msg": "every weekday now has Saturday's slots", "show": "JSON.stringify(S.w)" }
+      ],
+      "finally": [
+        { "js": "if (S.c) S.c._closeDialog(true);" }
+      ]
+    },
+    {
+      "name": "dialog: a profile without its own week follows Default",
+      "steps": [
+        { "js": "S.ws = (t, d = {}) => T.hass().callWS({ type: 'plooum_climate_scheduler/' + t, ...d }); S.snap = (await S.ws('get')).config; S.hol = S.snap.profiles.find((p) => p.name === 'Holidays').id; S.c = (await T.card.rendered('ha-plooum-climate-schedule-card', 2))[0]; await waitFor(() => S.c._data, 5000, 'data'); S.c.shadowRoot.querySelector('.open').click(); S.r = S.c.dialogRoot;" },
+        { "js": "S.r.querySelector(`.chip[data-profile=\"${S.hol}\"]`).click();" },
+        { "assert": "S.r.querySelector('.note').textContent.includes('Use the Default week instead')", "msg": "Living room has its own Holidays week" },
+        { "js": "[...S.r.querySelectorAll('.note .link')][0].click();" },
+        { "assert": "S.r.querySelector('.note').textContent.includes('follows its Default week') && S.r.querySelector('.week-wrap.inherited')", "msg": "removed: the Default week shows, dimmed", "show": "S.r.querySelector('.note').textContent" },
+        { "js": "[...S.r.querySelectorAll('.bottom .btn')].find((b) => b.textContent.trim() === 'Save').click(); await waitFor(() => !S.c.dialogRoot, 5000, 'dialog closed');" },
+        { "assert": "!(S.hol in (await S.ws('get')).config.programs.find((p) => p.name === 'Living room').profiles)", "msg": "saved without its Holidays week" }
+      ],
+      "finally": [
+        { "js": "const ws = S.ws; const cur = (await ws('get')).config; for (const p of cur.programs) if (!S.snap.programs.some((q) => q.id === p.id)) await ws('program/delete', { program_id: p.id }); await ws('profiles/save', { profiles: S.snap.profiles }); for (const p of S.snap.programs) await ws('program/save', { program: p }); await ws('palette/save', { palette: S.snap.palette }); await ws('profile/activate', { profile_id: S.snap.active_profile }); if (S.c) S.c._closeDialog(true);" }
+      ]
+    },
+    {
+      "name": "dialog: add 23° to the palette and paint with it",
+      "steps": [
+        { "js": "S.ws = (t, d = {}) => T.hass().callWS({ type: 'plooum_climate_scheduler/' + t, ...d }); S.snap = (await S.ws('get')).config; S.c = (await T.card.rendered('ha-plooum-climate-schedule-card', 2))[0]; await waitFor(() => S.c._data, 5000, 'data'); S.c.shadowRoot.querySelector('.open').click(); S.r = S.c.dialogRoot; S.col = (d) => S.r.querySelector(`.col[data-day=\"${d}\"]`); S.pt = (d, m) => { const r = S.col(d).getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height * m / 1440 }; };" },
+        { "js": "S.r.querySelector('[aria-label=\"Edit the palette\"]').click(); const i = S.r.querySelector('[data-panel=palette] input'); i.value = '23'; i.dispatchEvent(new Event('input')); [...S.r.querySelectorAll('[data-panel=palette] .btn')].find((b) => b.textContent.includes('Add')).click();" },
+        { "assert": "await waitFor(() => S.c._palette().includes(23) && S.r.querySelector('.palette .swatch[data-value=\"23\"]'), 5000, 'palette')", "msg": "23 is in the engine's palette and shown" },
+        { "js": "[...S.r.querySelectorAll('[data-panel=palette] .btn')].find((b) => b.textContent.includes('Done')).click(); S.r.querySelector('.palette .swatch[data-value=\"23\"]').click(); await T.pointerDrag(S.col(3), S.pt(3, 600), S.pt(3, 600));" },
+        { "assert": "JSON.stringify(S.c._dlg.drafts[S.c._dlg.programId].profiles.default.thu) === JSON.stringify([{ at: 0, value: 23 }, { at: 1020, value: 21 }])", "msg": "a tap paints the Thursday morning slot 23", "show": "JSON.stringify(S.c._dlg.drafts[S.c._dlg.programId].profiles.default.thu)" },
+        { "js": "await T.pointerDrag(S.col(4), S.pt(4, 120), S.pt(4, 240));" },
+        { "assert": "S.c._dlg.drafts[S.c._dlg.programId].profiles.default.fri.some((p) => p.at === 120 && p.value === 23) && S.c._dlg.panel !== 'slot'", "msg": "drawing paints 02:00 – 04:00 without opening the slot", "show": "JSON.stringify(S.c._dlg.drafts[S.c._dlg.programId].profiles.default.fri)" }
+      ],
+      "finally": [
+        { "js": "const ws = S.ws; const cur = (await ws('get')).config; for (const p of cur.programs) if (!S.snap.programs.some((q) => q.id === p.id)) await ws('program/delete', { program_id: p.id }); await ws('profiles/save', { profiles: S.snap.profiles }); for (const p of S.snap.programs) await ws('program/save', { program: p }); await ws('palette/save', { palette: S.snap.palette }); await ws('profile/activate', { profile_id: S.snap.active_profile }); if (S.c) S.c._closeDialog(true);" }
+      ]
+    },
+    {
+      "name": "dialog: new program with the kitchen thermostat",
+      "steps": [
+        { "js": "S.ws = (t, d = {}) => T.hass().callWS({ type: 'plooum_climate_scheduler/' + t, ...d }); S.snap = (await S.ws('get')).config; S.c = (await T.card.rendered('ha-plooum-climate-schedule-card', 2))[0]; await waitFor(() => S.c._data, 5000, 'data'); S.c.shadowRoot.querySelector('.open').click(); S.r = S.c.dialogRoot;" },
+        { "js": "S.r.querySelector('[aria-label=\"New program\"]').click();" },
+        { "assert": "S.r.querySelector('[data-panel=program]') && S.r.querySelector('input[data-entity=\"climate.living_room_thermostat\"]').disabled && !S.r.querySelector('input[data-entity=\"climate.kitchen_thermostat\"]').disabled", "msg": "the program panel opens; thermostats of other programs are taken" },
+        { "js": "const n = S.r.querySelector('[data-panel=program] input[type=text]'); n.value = 'Kitchen'; n.dispatchEvent(new Event('input')); const k = S.r.querySelector('input[data-entity=\"climate.kitchen_thermostat\"]'); k.checked = true; k.dispatchEvent(new Event('change')); S.r.querySelector('[data-panel=program] .btn.primary').click();" },
+        { "assert": "S.r.querySelector('.tab.on').textContent.includes('Kitchen') && S.r.querySelectorAll('.slot').length === 7", "msg": "a Kitchen tab with a 19° week" },
+        { "js": "[...S.r.querySelectorAll('.bottom .btn')].find((b) => b.textContent.trim() === 'Save').click(); await waitFor(() => !S.c.dialogRoot, 5000, 'dialog closed');" },
+        { "assert": "(await S.ws('get')).config.programs.some((p) => p.name === 'Kitchen' && p.entities[0] === 'climate.kitchen_thermostat')", "msg": "created in the engine" },
+        { "assert": "await T.card.waitState('climate.kitchen_thermostat', (s) => s.attributes.temperature === 19)", "msg": "the engine applies 19° to the kitchen thermostat" }
+      ],
+      "finally": [
+        { "js": "const ws = S.ws; const cur = (await ws('get')).config; for (const p of cur.programs) if (!S.snap.programs.some((q) => q.id === p.id)) await ws('program/delete', { program_id: p.id }); await ws('profiles/save', { profiles: S.snap.profiles }); for (const p of S.snap.programs) await ws('program/save', { program: p }); await ws('palette/save', { palette: S.snap.palette }); await ws('profile/activate', { profile_id: S.snap.active_profile }); if (S.c) S.c._closeDialog(true); await T.card.call('climate', 'set_temperature', { entity_id: 'climate.kitchen_thermostat', temperature: 7 });" }
+      ]
+    },
+    {
+      "name": "phone: one day, the round + adds a slot, a tap edits it",
+      "viewport": [400, 850],
+      "steps": [
+        { "js": "S.c = (await T.card.rendered('ha-plooum-climate-schedule-card', 2))[0]; await waitFor(() => S.c._data, 5000, 'data'); S.c.shadowRoot.querySelector('.open').click(); S.r = S.c.dialogRoot; S.c._dlgSet({ day: 0 }); S.col = () => S.r.querySelector('.col'); S.pt = (m) => { const r = S.col().getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height * m / 1440 }; };" },
+        { "assert": "S.r.querySelector('.dialog.narrow') && S.r.querySelectorAll('.col').length === 1 && S.r.querySelectorAll('.day-chip').length === 7 && getComputedStyle(S.r.querySelector('.fab')).display !== 'none'", "msg": "one day at a time, day chips, the round + button" },
+        { "js": "S.r.querySelector('.fab').click();" },
+        { "assert": "S.r.querySelector('[data-panel=add]')", "msg": "+ opens a new slot" },
+        { "js": "const [a, b] = S.r.querySelectorAll('[data-panel=add] input[type=time]'); a.value = '18:00'; a.dispatchEvent(new Event('change')); b.value = '19:30'; b.dispatchEvent(new Event('change')); S.r.querySelector('.palette .swatch[data-value=\"15\"]').click(); S.r.querySelector('.panel .btn.primary').click();" },
+        { "js": "S.mon = () => S.c._dlg.drafts[S.c._dlg.programId].profiles.default.mon;" },
+        { "assert": "JSON.stringify(S.mon().filter((p) => p.at >= 1020)) === JSON.stringify([{ at: 1020, value: 21 }, { at: 1080, value: 15 }, { at: 1170, value: 21 }])", "msg": "15° from 18:00 to 19:30 (the palette sets the slot's temperature)", "show": "JSON.stringify(S.mon())" },
+        { "js": "await T.pointerDrag(S.col(), S.pt(1100), S.pt(1100), { pointerType: 'touch' });" },
+        { "assert": "S.c._dlg.panel === 'slot' && S.c._dlg.sel.start === 1080", "msg": "a tap opens the slot", "show": "[S.c._dlg.panel, S.c._dlg.sel]" },
+        { "js": "[...S.r.querySelectorAll('.panel .btn')].find((b) => b.textContent.includes('Delete')).click();" },
+        { "assert": "JSON.stringify(S.mon().filter((p) => p.at >= 1020)) === JSON.stringify([{ at: 1020, value: 21 }])", "msg": "deleted", "show": "JSON.stringify(S.mon())" },
+        { "js": "await T.pointerDrag(S.col(), S.pt(600), S.pt(700), { pointerType: 'touch' });" },
+        { "assert": "S.c._dlg.panel !== 'add' && !S.mon().some((p) => p.at > 0 && p.at < 1020)", "msg": "a touch drag doesn't draw (it scrolls)" }
+      ],
+      "finally": [
+        { "js": "if (S.c) S.c._closeDialog(true);" }
+      ]
+    },
+    {
+      "name": "card: a manual override shows with Resume; editor",
+      "steps": [
+        { "js": "S.c = (await T.card.rendered('ha-plooum-climate-schedule-card', 2))[0]; await waitFor(() => S.c._data, 5000, 'data'); const id = S.c._engine.programs.find((p) => p.name === 'Bedroom').id; const until = new Date(); until.setHours(23, 0, 0, 0); S.c._data = { ...S.c._data, status: { ...S.c._data.status, [id]: { ...S.c._data.status[id], overrides: { 'climate.bedroom_thermostat': { value: 23, until: until.toISOString() } } } } }; await S.c.updateComplete;" },
+        { "assert": "S.c.shadowRoot.querySelector('.override').textContent.replace(/\\s+/g, ' ').includes('Bedroom thermostat: 23° by hand until 23:00')", "msg": "the override and until when", "show": "S.c.shadowRoot.querySelector('.override').textContent" },
+        { "js": "S.c.shadowRoot.querySelector('.override .link').click();" },
+        { "assert": "await waitFor(() => !S.c.shadowRoot.querySelector('.override'), 5000, 'resumed')", "msg": "Resume clears it (the engine pushes a fresh status)" },
+        { "js": "S.n = await T.card.editorRenders(S.c);" }
+      ]
+    }
+  ]
+}

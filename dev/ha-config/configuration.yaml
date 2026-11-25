@@ -155,6 +155,13 @@ input_boolean:
   pellet_stove:
     name: Pellet stove (backing)
     initial: true
+  # Climate schedule card: heaters of the generic_thermostat thermostats below.
+  living_room_heater:
+    name: Living room heater
+  bedroom_heater:
+    name: Bedroom heater
+  kitchen_heater:
+    name: Kitchen heater
 
 input_number:
   living_room_temperature:
@@ -322,6 +329,31 @@ counter:
     name: CamRecorder videos
   script_runs:
     name: Script runs
+
+# Climate schedule card: thermostats driven by the Plooum Climate Scheduler engine (linked by
+# dev/ha.sh, programs seeded by dev/bootstrap.py).
+climate:
+  - platform: generic_thermostat
+    name: Living room thermostat
+    unique_id: plooum_dev_living_room_thermostat
+    heater: input_boolean.living_room_heater
+    target_sensor: sensor.living_room_temperature
+    initial_hvac_mode: heat
+    target_temp_step: 0.5
+  - platform: generic_thermostat
+    name: Bedroom thermostat
+    unique_id: plooum_dev_bedroom_thermostat
+    heater: input_boolean.bedroom_heater
+    target_sensor: sensor.bedroom_temperature
+    initial_hvac_mode: heat
+    target_temp_step: 0.5
+  - platform: generic_thermostat
+    name: Kitchen thermostat
+    unique_id: plooum_dev_kitchen_thermostat
+    heater: input_boolean.kitchen_heater
+    target_sensor: sensor.kitchen_temperature
+    initial_hvac_mode: heat
+    target_temp_step: 0.5
 
 script:
   test_script:

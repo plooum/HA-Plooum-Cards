@@ -10,6 +10,7 @@ import './cards/berlin-clock/ha-plooum-berlin-clock-card.js';
 import './cards/button-badge/ha-plooum-buttonbadge-card.js';
 import './cards/camera/ha-plooum-camera-card.js';
 import './cards/climate-band/ha-plooum-climate-band-card.js';
+import './cards/climate-schedule/ha-plooum-climate-schedule-card.js';
 import './cards/cover/ha-plooum-cover-card.js';
 import './cards/dpad/ha-plooum-dpad-card.js';
 import './cards/floorplan/ha-plooum-floorplan-card.js';
