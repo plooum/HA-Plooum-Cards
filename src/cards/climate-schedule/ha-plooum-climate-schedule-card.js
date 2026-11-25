@@ -118,7 +118,8 @@ const FR = {
   "Switches and numbers this program's slots also set (an eco mode, a hysteresis…). A value holds until a slot changes it.": "Interrupteurs et nombres que les créneaux de ce programme règlent aussi (un mode éco, une hystérésis…). Une valeur tient jusqu'au créneau qui la change.",
   'Entity (switch, number…)': 'Entité (switch, number…)',
   'Name (optional)': 'Nom (facultatif)',
-  'Icon (mdi:…)': 'Icône (mdi:…)',
+  'Icon': 'Icône',
+  'Struck out when no icon is set': "Barrée quand aucune icône n'est choisie",
   'Icon when inactive': 'Icône inactif',
   'Add a parameter': 'Ajouter un paramètre',
   'Remove': 'Retirer',
@@ -609,7 +610,9 @@ class HaPlooumClimateScheduleCard extends LitElement {
   }
 
   /* ==========================================================================
-     DIALOG (rendered in a container on document.body, so no card ancestor can clip or trap it)
+     DIALOG (rendered in a fixed container in the home-assistant element's shadow root: no card ancestor can
+     clip or trap it, and Home Assistant's own pickers inside it get the app's context, which they need to
+     work; on document.body the icon picker opens but never returns a choice)
      ========================================================================== */
 
   _openDialog(programId) {
@@ -635,7 +638,8 @@ class HaPlooumClimateScheduleCard extends LitElement {
     host.setAttribute('data-plooum-climate-schedule-dialog', '');
     const root = host.attachShadow({ mode: 'open' });
     root.adoptedStyleSheets = [DIALOG_STYLES.styleSheet];
-    document.body.appendChild(host);
+    const app = document.querySelector('home-assistant');
+    ((app && app.shadowRoot) || document.body).appendChild(host);
     this._dlgHost = host;
     this._resize = () => this._renderDialog();
     window.addEventListener('keydown', this._onKey);
@@ -992,6 +996,22 @@ class HaPlooumClimateScheduleCard extends LitElement {
 
   _openProgram() {
     this._dlgSet({ sel: null, panel: 'program', form: this._programForm(this._program()), error: '' });
+    if (!customElements.get('ha-icon-picker')) {
+      // Home Assistant loads its icon picker with its editors: load one, then draw the picker.
+      const tile = customElements.get('hui-tile-card');
+      if (tile && tile.getConfigElement) Promise.resolve(tile.getConfigElement()).catch(() => {});
+      customElements.whenDefined('ha-icon-picker').then(() => this._renderDialog());
+    }
+  }
+
+  /** Home Assistant's icon picker (a plain text field until it is loaded). */
+  _iconPicker(p, field, label, placeholder) {
+    const set = (value) => { p[field] = (value || '').trim(); this._renderDialog(); };
+    if (customElements.get('ha-icon-picker')) {
+      return html`<ha-icon-picker class="icon-picker" data-field=${field} .hass=${this.hass} .label=${label}
+        .value=${p[field] || ''} .placeholder=${placeholder || ''} @value-changed=${(e) => { e.stopPropagation(); set(e.detail.value); }}></ha-icon-picker>`;
+    }
+    return html`<input type="text" data-field=${field} placeholder=${label} .value=${p[field] || ''} @change=${(e) => set(e.target.value)}>`;
   }
 
   _applyProgram() {
@@ -1296,11 +1316,10 @@ class HaPlooumClimateScheduleCard extends LitElement {
           <input type="text" list="cs-param-entities" data-field="entity" placeholder=${t('Entity (switch, number…)')} .value=${p.entity || ''}
             @change=${(e) => { p.entity = e.target.value.trim(); this._renderDialog(); }}>
           <input type="text" data-field="name" placeholder=${t('Name (optional)')} .value=${p.name || ''} @input=${(e) => { p.name = e.target.value; }}>
-          <span class="icon-field">${paramIcon(p) ? html`<ha-icon icon=${paramIcon(p)}></ha-icon>` : html`<span class="no-icon"></span>`}
-            <input type="text" data-field="icon" placeholder=${t('Icon (mdi:…)')} .value=${p.icon || ''} @change=${(e) => { p.icon = e.target.value.trim(); this._renderDialog(); }}></span>
+          <span class="icon-field">${this._iconPicker(p, 'icon', t('Icon'), paramKind(p.entity) === 'toggle' ? paramIcon(p) : '')}</span>
           ${paramKind(p.entity) === 'toggle' ? html`
-            <span class="icon-field"><span class="p ${p.icon_off ? '' : 'struck'}"><ha-icon icon=${paramIcon(p, false)}></ha-icon></span>
-              <input type="text" data-field="icon_off" placeholder=${t('Icon when inactive')} .value=${p.icon_off || ''} @change=${(e) => { p.icon_off = e.target.value.trim(); this._renderDialog(); }}></span>` : nothing}
+            <span class="icon-field">${p.icon_off ? nothing : html`<span class="p struck" title=${t('Struck out when no icon is set')}><ha-icon icon=${paramIcon(p, false)}></ha-icon></span>`}
+              ${this._iconPicker(p, 'icon_off', t('Icon when inactive'), '')}</span>` : nothing}
           <button class="icon-btn small" title=${t('Remove')} aria-label=${t('Remove')} @click=${() => { f.parameters.splice(i, 1); this._renderDialog(); }}><ha-icon icon="mdi:delete"></ha-icon></button>
         </div>`)}
       <div><button class="btn" data-action="add-parameter" @click=${() => { f.parameters.push({ entity: '', name: '', icon: '', icon_off: '' }); this._renderDialog(); }}>
@@ -1999,12 +2018,13 @@ const DIALOG_STYLES = css`
     min-width: 0;
   }
   .icon-field {
-    flex: 1 1 140px;
+    flex: 1 1 180px;
     display: flex;
     align-items: center;
     gap: 4px;
   }
-  .icon-field input {
+  .icon-field input,
+  .icon-field .icon-picker {
     flex: 1;
     min-width: 0;
   }
