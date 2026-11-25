@@ -29,6 +29,7 @@ C'est un unique plugin Lovelace HACS (Home Assistant Community Store) qui regrou
 
 - **Tout est en français dans ce dépôt, sauf le code et la documentation utilisateur** (décision du 2026-10-14).
   - Restent en anglais : le code (identifiants, commentaires, textes affichés par les cartes et leurs éditeurs : libellés, infobulles, messages), [README.md](README.md) et `docs/*.md`. [README.fr.md](README.fr.md) reste en français.
+  - Exception voulue par le propriétaire (2026-11-25) : une carte peut avoir une **VF**. Ses textes restent écrits en anglais dans le code et passent par un dictionnaire anglais → français de la carte (`t()`), choisi d'après la langue de l'utilisateur HA (`hass.locale.language`) ; toute autre langue reste en anglais. Première carte traduite : `climate-schedule`. Un texte ajouté à une carte traduite prend aussi sa traduction.
   - Passent en français : ce fichier, les skills du projet, les fichiers du pilote, les prompts, les titres et descriptions de PR, les messages de commit, les notes de release.
 - **Le README existe en deux langues** : [README.md](README.md) en anglais (affiché par GitHub et HACS) et [README.fr.md](README.fr.md) en français, chacun renvoyant vers l'autre en haut. Toute modification de l'un doit être faite dans l'autre, dans la même PR.
 - Les problèmes hors périmètre repérés en travaillant vont dans [TODO.md](TODO.md), pas dans des tâches de fond ni des worktrees lancés à part.

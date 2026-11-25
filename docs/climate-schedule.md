@@ -32,6 +32,10 @@ Changes are kept until **Save**; **Cancel** drops them.
 
 On a phone the dialog shows one day at a time (day chips at the top): the round **+** button adds a slot, a tap on a slot changes or deletes it, and a color of the palette starts a new slot with that temperature.
 
+## Language
+
+The card speaks French when your Home Assistant profile's language is French, English otherwise. The engine's default profile, named *Default*, shows as *Défaut* in French until you rename it.
+
 ## Options
 
 | Option | Default | Description |
