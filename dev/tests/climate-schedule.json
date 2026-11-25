@@ -114,22 +114,23 @@
       ]
     },
     {
-      "name": "phone: one day, the round + adds a slot, a tap edits it",
+      "name": "phone: the whole week, the round + adds a slot on a chosen day, a tap edits it",
       "viewport": [400, 850],
       "steps": [
-        { "js": "S.c = (await T.card.rendered('ha-plooum-climate-schedule-card', 2))[0]; await waitFor(() => S.c._data, 5000, 'data'); S.c.shadowRoot.querySelector('.open').click(); S.r = S.c.dialogRoot; S.c._dlgSet({ day: 0 }); S.col = () => S.r.querySelector('.col'); S.pt = (m) => { const r = S.col().getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height * m / 1440 }; };" },
-        { "assert": "S.r.querySelector('.dialog.narrow') && S.r.querySelectorAll('.col').length === 1 && S.r.querySelectorAll('.day-chip').length === 7 && getComputedStyle(S.r.querySelector('.fab')).display !== 'none'", "msg": "one day at a time, day chips, the round + button" },
+        { "js": "S.c = (await T.card.rendered('ha-plooum-climate-schedule-card', 2))[0]; await waitFor(() => S.c._data, 5000, 'data'); S.c.shadowRoot.querySelector('.open').click(); S.r = S.c.dialogRoot; S.col = (d) => S.r.querySelector(`.col[data-day=\"${d}\"]`); S.pt = (d, m) => { const r = S.col(d).getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height * m / 1440 }; };" },
+        { "assert": "S.r.querySelector('.dialog.narrow') && S.r.querySelectorAll('.col').length === 7 && S.col(6).getBoundingClientRect().right <= 400 && S.col(0).getBoundingClientRect().width >= 36 && getComputedStyle(S.r.querySelector('.fab')).display !== 'none'", "msg": "the seven days fit the phone's width, with the round + button", "show": "[...S.r.querySelectorAll('.col')].map((c) => Math.round(c.getBoundingClientRect().width))" },
+        { "assert": "S.r.querySelector('.col[data-day=\"0\"] .label').textContent.trim() === '17°'", "msg": "slots show their temperature" },
         { "js": "S.r.querySelector('.fab').click();" },
-        { "assert": "S.r.querySelector('[data-panel=add]')", "msg": "+ opens a new slot" },
-        { "js": "const [a, b] = S.r.querySelectorAll('[data-panel=add] input[type=time]'); a.value = '18:00'; a.dispatchEvent(new Event('change')); b.value = '19:30'; b.dispatchEvent(new Event('change')); S.r.querySelector('.palette .swatch[data-value=\"15\"]').click(); S.r.querySelector('.panel .btn.primary').click();" },
+        { "assert": "S.r.querySelector('[data-panel=add]') && S.r.querySelectorAll('[data-panel=add] .day-chip').length === 7", "msg": "+ opens a new slot with a day picker" },
+        { "js": "S.r.querySelector('[data-panel=add] .day-chip[data-day=\"0\"]').click(); const [a, b] = S.r.querySelectorAll('[data-panel=add] input[type=time]'); a.value = '18:00'; a.dispatchEvent(new Event('change')); b.value = '19:30'; b.dispatchEvent(new Event('change')); S.r.querySelector('.palette .swatch[data-value=\"15\"]').click(); S.r.querySelector('.panel .btn.primary').click();" },
         { "js": "S.mon = () => S.c._dlg.drafts[S.c._dlg.programId].profiles.default.mon;" },
-        { "assert": "JSON.stringify(S.mon().filter((p) => p.at >= 1020)) === JSON.stringify([{ at: 1020, value: 21 }, { at: 1080, value: 15 }, { at: 1170, value: 21 }])", "msg": "15° from 18:00 to 19:30 (the palette sets the slot's temperature)", "show": "JSON.stringify(S.mon())" },
-        { "js": "await T.pointerDrag(S.col(), S.pt(1100), S.pt(1100), { pointerType: 'touch' });" },
-        { "assert": "S.c._dlg.panel === 'slot' && S.c._dlg.sel.start === 1080", "msg": "a tap opens the slot", "show": "[S.c._dlg.panel, S.c._dlg.sel]" },
+        { "assert": "JSON.stringify(S.mon().filter((p) => p.at >= 1020)) === JSON.stringify([{ at: 1020, value: 21 }, { at: 1080, value: 15 }, { at: 1170, value: 21 }])", "msg": "15° on Monday from 18:00 to 19:30 (the palette sets the slot's temperature)", "show": "JSON.stringify(S.mon())" },
+        { "js": "await T.pointerDrag(S.col(0), S.pt(0, 1120), S.pt(0, 1120), { pointerType: 'touch' });" },
+        { "assert": "S.c._dlg.panel === 'slot' && S.c._dlg.sel.day === 0 && S.c._dlg.sel.start === 1080", "msg": "a tap opens the slot", "show": "[S.c._dlg.panel, S.c._dlg.sel]" },
         { "js": "[...S.r.querySelectorAll('.panel .btn')].find((b) => b.textContent.includes('Delete')).click();" },
         { "assert": "JSON.stringify(S.mon().filter((p) => p.at >= 1020)) === JSON.stringify([{ at: 1020, value: 21 }])", "msg": "deleted", "show": "JSON.stringify(S.mon())" },
-        { "js": "await T.pointerDrag(S.col(), S.pt(600), S.pt(700), { pointerType: 'touch' });" },
-        { "assert": "S.c._dlg.panel !== 'add' && !S.mon().some((p) => p.at > 0 && p.at < 1020)", "msg": "a touch drag doesn't draw (it scrolls)" }
+        { "js": "await T.pointerDrag(S.col(2), S.pt(2, 600), S.pt(2, 700), { pointerType: 'touch' });" },
+        { "assert": "S.c._dlg.panel !== 'add' && !S.c._dlg.drafts[S.c._dlg.programId].profiles.default.wed.some((p) => p.at > 0 && p.at < 1020)", "msg": "a touch drag doesn't draw (it scrolls)" }
       ],
       "finally": [
         { "js": "if (S.c) S.c._closeDialog(true);" }

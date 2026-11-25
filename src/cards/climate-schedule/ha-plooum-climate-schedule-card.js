@@ -27,7 +27,7 @@ const STEP = 5; // minutes
 const DAY_MIN = 1440;
 const DEFAULT_TEMP = 19;
 const TEMP_STEP = 0.5;
-const NARROW = 700; // px: below, the dialog shows one day at a time
+const NARROW = 700; // px: below, the dialog fills the screen with a compact week
 const DRAG_THRESHOLD = 6; // px before a press on a day becomes a drawing
 
 /* ==========================================================================
@@ -93,6 +93,7 @@ const FR = {
   'Copy {day} to other days': "Copier {day} vers d'autres jours",
   'Copy the day': 'Copier le jour',
   'New slot · {day}': 'Nouveau créneau · {day}',
+  'Day': 'Jour',
   'From': 'De',
   'To': 'À',
   'Colder': 'Moins chaud',
@@ -787,7 +788,7 @@ class HaPlooumClimateScheduleCard extends LitElement {
   // --- Slot panel (edit or add) ---
 
   _openAdd() {
-    const day = this._narrow ? this._dlg.day : (this._dlg.sel ? this._dlg.sel.day : this._dlg.day);
+    const day = this._dlg.sel ? this._dlg.sel.day : this._dlg.day;
     this._dlgSet({
       sel: null,
       panel: 'add',
@@ -1052,7 +1053,7 @@ class HaPlooumClimateScheduleCard extends LitElement {
             </div>` : nothing}
 
           <div class="week-wrap ${dlg.profileId !== 'default' && !own ? 'inherited' : ''}">
-            ${week ? (narrow ? this._dayView(week) : this._weekView(week)) : html`<div class="empty">${t('No schedule.')}</div>`}
+            ${week ? this._weekView(week) : html`<div class="empty">${t('No schedule.')}</div>`}
           </div>
           ${this._panelTemplate()}
         ` : html`<div class="empty">${t('No program.')}</div>`}
@@ -1098,12 +1099,11 @@ class HaPlooumClimateScheduleCard extends LitElement {
         ${segs.map((s) => {
           const c = tempColors(s.value);
           const sel = dlg.sel && dlg.sel.day === dayIndex && dlg.sel.start === s.start;
-          const tall = (s.end - s.start) >= 50;
           return html`
             <div class="slot ${s.value === OFF ? 'off' : ''} ${sel ? 'sel' : ''}" data-start=${s.start}
               style="top:${(s.start / DAY_MIN) * 100}%;height:${((s.end - s.start) / DAY_MIN) * 100}%;background:${c.bg};color:${c.fg}">
               ${s.start > 0 ? html`<div class="handle" data-at=${s.start} title=${fmtTime(s.start)}></div>` : nothing}
-              ${(s.end - s.start) >= 25 ? html`<span class="label">${this._fmtValue(s.value)}${tall && this._narrow ? html`<small>${fmtTime(s.start)} – ${fmtTime(s.end % DAY_MIN)}</small>` : nothing}</span>` : nothing}
+              ${(s.end - s.start) >= 25 ? html`<span class="label">${this._fmtValue(s.value)}</span>` : nothing}
             </div>`;
         })}
         ${drag && drag.to !== undefined ? html`
@@ -1132,21 +1132,6 @@ class HaPlooumClimateScheduleCard extends LitElement {
     `;
   }
 
-  _dayView(week) {
-    const dlg = this._dlg;
-    const today = this._nowMinute().day;
-    return html`
-      <div class="days">
-        ${DAYS.map((d, i) => html`
-          <button class="chip day-chip ${i === dlg.day ? 'on' : ''} ${i === today ? 'today' : ''}" aria-label=${dayName(i)}
-            @click=${() => this._dlgSet({ day: i, sel: null, panel: dlg.panel === 'copy' ? null : dlg.panel })}>${dayLetter(i)}</button>`)}
-        <button class="icon-btn small" title=${t('Copy {day} to other days', { day: dayName(dlg.day) })} aria-label=${t('Copy the day')}
-          @click=${() => this._openCopy(dlg.day)}><ha-icon icon="mdi:content-copy"></ha-icon></button>
-      </div>
-      <div class="day-view">${this._hours()}${this._column(week, dlg.day)}</div>
-    `;
-  }
-
   _panelTemplate() {
     const dlg = this._dlg;
     const f = dlg.form;
@@ -1158,6 +1143,11 @@ class HaPlooumClimateScheduleCard extends LitElement {
         return html`
           <div class="panel" data-panel=${dlg.panel}>
             <div class="panel-title">${dlg.panel === 'add' ? t('New slot · {day}', { day: dayName(f.day) }) : capitalize(dayName(dlg.sel.day))}</div>
+            ${dlg.panel === 'add' ? html`
+              <div class="days" role="radiogroup" aria-label=${t('Day')}>
+                ${DAYS.map((d, i) => html`<button class="chip day-chip ${i === f.day ? 'on' : ''}" role="radio" aria-checked=${i === f.day ? 'true' : 'false'}
+                  aria-label=${dayName(i)} data-day=${i} @click=${() => { f.day = i; this._renderDialog(); }}>${dayLetter(i)}</button>`)}
+              </div>` : nothing}
             <div class="times">
               <label>${t('From')} <input type="time" step=${STEP * 60} .value=${f.from} @change=${(e) => { f.from = e.target.value; }}></label>
               <label>${t('To')} <input type="time" step=${STEP * 60} .value=${f.to} @change=${(e) => { f.to = e.target.value; }}></label>
@@ -1677,13 +1667,27 @@ const DIALOG_STYLES = css`
     height: min(480px, calc(100vh - 330px));
     min-height: 288px;
   }
-  .day-view {
-    position: relative;
-    display: grid;
-    grid-template-columns: 36px minmax(0, 1fr);
-    gap: 4px;
-    height: max(480px, calc(100vh - 270px));
-    flex: none;
+  .narrow .week .head,
+  .narrow .grid {
+    grid-template-columns: 24px repeat(7, minmax(0, 1fr));
+    gap: 2px;
+  }
+  .narrow .grid {
+    height: max(420px, calc(100vh - 250px));
+  }
+  .narrow .day {
+    font-size: 12px;
+  }
+  .narrow .day ha-icon {
+    display: none;
+  }
+  .narrow .hours span {
+    right: 2px;
+    font-size: 10px;
+  }
+  .narrow .slot {
+    left: 1px;
+    right: 1px;
   }
   .hours {
     position: relative;
@@ -1745,13 +1749,6 @@ const DIALOG_STYLES = css`
     font-weight: 500;
     pointer-events: none;
     overflow: hidden;
-  }
-  .label small {
-    font-weight: 400;
-    font-size: 11px;
-  }
-  .narrow .label {
-    font-size: 14px;
   }
   .handle {
     position: absolute;

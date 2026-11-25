@@ -30,7 +30,7 @@ A tab per program, a chip per profile (the house's active one wears a house icon
 
 Changes are kept until **Save**; **Cancel** drops them.
 
-On a phone the dialog shows one day at a time (day chips at the top): the round **+** button adds a slot, a tap on a slot changes or deletes it, and a color of the palette starts a new slot with that temperature.
+On a phone the dialog fills the screen with the whole week in narrow columns: the round **+** button adds a slot (pick its day, times and temperature), a tap on a slot changes or deletes it, a tap on a day's name copies it, and a color of the palette starts a new slot with that temperature. A drag scrolls instead of drawing.
 
 ## Language
 

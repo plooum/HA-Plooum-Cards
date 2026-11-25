@@ -52,7 +52,7 @@ Every room's temperature and humidity in one band: its color glides with the tem
 ![Climate Band preview](docs/previews/climate-band.png)
 
 ### Ha Plooum Climate Schedule Card
-Week schedules for your thermostats, with profiles shared by the whole house (Default, Holidays…). The card shows each program's current and next temperature and the manual overrides; its week view lets you draw slots, paint them with a palette, move their edges and copy a day onto others, one day at a time on a phone. In English or French, following Home Assistant's language. Needs the [Plooum Climate Scheduler](https://github.com/plooum/HA-Plooum-ClimateScheduler) integration, which stores and applies the schedules.
+Week schedules for your thermostats, with profiles shared by the whole house (Default, Holidays…). The card shows each program's current and next temperature and the manual overrides; its week view lets you draw slots, paint them with a palette, move their edges and copy a day onto others, on a phone too with a round + button to add a slot. In English or French, following Home Assistant's language. Needs the [Plooum Climate Scheduler](https://github.com/plooum/HA-Plooum-ClimateScheduler) integration, which stores and applies the schedules.
 
 ![Climate schedule preview](docs/previews/climate-schedule.png)
 
