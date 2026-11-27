@@ -29,6 +29,7 @@ const DEFAULT_TEMP = 19;
 const TEMP_STEP = 0.5;
 const NARROW = 700; // px: below, the dialog fills the screen with a compact week
 const DRAG_THRESHOLD = 6; // px before a press on a day becomes a drawing
+const MOVE_TIME_ROOM = 64; // px a moved edge's time bubble needs above it
 
 /* ==========================================================================
    LANGUAGES: English, French when Home Assistant's language is French
@@ -785,6 +786,7 @@ class HaPlooumClimateScheduleCard extends LitElement {
     if (handle) {
       e.preventDefault();
       this._dlg.drag = { mode: 'move', day: dayIndex, at: Number(handle.dataset.at), col };
+      this._placeMoveTime(this._dlg.drag);
       this._renderDialog(); // shows the time bubble right away
       return;
     }
@@ -807,6 +809,7 @@ class HaPlooumClimateScheduleCard extends LitElement {
       if (at === drag.at) return;
       const from = drag.at;
       drag.at = at; // before the edit renders, so the time bubble follows
+      this._placeMoveTime(drag);
       if (this._dlg.sel && this._dlg.sel.day === drag.day && this._dlg.sel.start === from) this._dlg.sel = { day: drag.day, start: at };
       this._editDay(drag.day, (pts) => pts.map((p) => (p.at === from ? { ...p, at } : p)));
       return;
@@ -816,6 +819,19 @@ class HaPlooumClimateScheduleCard extends LitElement {
       drag.to = minute;
       this._renderDialog();
     }
+  }
+
+  /**
+   * Where the time bubble of a moved edge goes: above the edge (a finger on it does not hide it),
+   * or, when the dialog has no room left above, beside the column towards the middle of the dialog.
+   */
+  _placeMoveTime(drag) {
+    const box = drag.col.closest('.dialog') || drag.col;
+    const d = box.getBoundingClientRect();
+    const c = drag.col.getBoundingClientRect();
+    const y = c.top + (c.height * drag.at) / DAY_MIN;
+    if (y - Math.max(d.top, 0) >= MOVE_TIME_ROOM) drag.side = '';
+    else drag.side = c.left + c.width / 2 > d.left + d.width / 2 ? 'left' : 'right';
   }
 
   _onUp(e) {
@@ -1263,7 +1279,7 @@ class HaPlooumClimateScheduleCard extends LitElement {
           <div class="ghost" style="top:${(Math.min(drag.from, drag.to) / DAY_MIN) * 100}%;height:${(Math.abs(drag.to - drag.from) / DAY_MIN) * 100}%">
             <span>${fmtTime(Math.min(drag.from, drag.to))} – ${fmtTime(Math.max(drag.from, drag.to) % DAY_MIN)}</span>
           </div>` : nothing}
-        ${move ? html`<div class="move-time" style="top:${(move.at / DAY_MIN) * 100}%">${fmtTime(move.at)}</div>` : nothing}
+        ${move ? html`<div class="move-time ${move.side || ''}" style="top:${(move.at / DAY_MIN) * 100}%">${fmtTime(move.at)}</div>` : nothing}
         ${now.day === dayIndex ? html`<i class="now" style="top:${(now.minute / DAY_MIN) * 100}%"></i>` : nothing}
       </div>
     `;
@@ -2073,6 +2089,14 @@ const DIALOG_STYLES = css`
     white-space: nowrap;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
     pointer-events: none;
+  }
+  .move-time.left {
+    left: 0;
+    transform: translate(calc(-100% - 12px), -50%);
+  }
+  .move-time.right {
+    left: 100%;
+    transform: translate(12px, -50%);
   }
   .ghost {
     position: absolute;
