@@ -785,7 +785,6 @@ class HaPlooumClimateScheduleCard extends LitElement {
     if (handle) {
       e.preventDefault();
       this._dlg.drag = { mode: 'move', day: dayIndex, at: Number(handle.dataset.at), col };
-      this._placeMoveTime(this._dlg.drag);
       this._renderDialog(); // shows the time bubble right away
       return;
     }
@@ -817,14 +816,6 @@ class HaPlooumClimateScheduleCard extends LitElement {
       drag.to = minute;
       this._renderDialog();
     }
-  }
-
-  /** The time bubble of a moved edge sits beside the column (a finger on the edge does not hide it), towards the middle of the dialog. */
-  _placeMoveTime(drag) {
-    const box = drag.col.closest('.dialog') || drag.col;
-    const d = box.getBoundingClientRect();
-    const c = drag.col.getBoundingClientRect();
-    drag.side = c.left + c.width / 2 > d.left + d.width / 2 ? 'left' : 'right';
   }
 
   _onUp(e) {
@@ -1251,6 +1242,8 @@ class HaPlooumClimateScheduleCard extends LitElement {
     const segs = (allSegs || weekSegments(week))[DAYS[dayIndex]];
     const now = this._nowMinute();
     const drag = dlg.drag && dlg.drag.mode === 'draw' && dlg.drag.day === dayIndex ? dlg.drag : null;
+    // A moved edge shows its time beside the column, where a finger on it does not hide it: on the left, as most
+    // people are right-handed, but on the right of the first column.
     const move = dlg.drag && dlg.drag.mode === 'move' && dlg.drag.day === dayIndex ? dlg.drag : null;
     return html`
       <div class="col" data-day=${dayIndex}
@@ -1272,7 +1265,7 @@ class HaPlooumClimateScheduleCard extends LitElement {
           <div class="ghost" style="top:${(Math.min(drag.from, drag.to) / DAY_MIN) * 100}%;height:${(Math.abs(drag.to - drag.from) / DAY_MIN) * 100}%">
             <span>${fmtTime(Math.min(drag.from, drag.to))} – ${fmtTime(Math.max(drag.from, drag.to) % DAY_MIN)}</span>
           </div>` : nothing}
-        ${move ? html`<div class="move-time ${move.side}" style="top:${(move.at / DAY_MIN) * 100}%">${fmtTime(move.at)}</div>` : nothing}
+        ${move ? html`<div class="move-time ${dayIndex === 0 ? 'right' : 'left'}" style="top:${(move.at / DAY_MIN) * 100}%">${fmtTime(move.at)}</div>` : nothing}
         ${now.day === dayIndex ? html`<i class="now" style="top:${(now.minute / DAY_MIN) * 100}%"></i>` : nothing}
       </div>
     `;
