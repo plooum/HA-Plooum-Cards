@@ -785,6 +785,7 @@ class HaPlooumClimateScheduleCard extends LitElement {
     if (handle) {
       e.preventDefault();
       this._dlg.drag = { mode: 'move', day: dayIndex, at: Number(handle.dataset.at), col };
+      this._renderDialog(); // shows the time bubble right away
       return;
     }
     // Drawing is a desktop gesture; on a touch screen a press only selects (the page must stay scrollable).
@@ -804,9 +805,10 @@ class HaPlooumClimateScheduleCard extends LitElement {
       const hi = (i + 1 < points.length ? points[i + 1].at : DAY_MIN) - STEP;
       const at = Math.max(lo, Math.min(hi, minute));
       if (at === drag.at) return;
-      this._editDay(drag.day, (pts) => pts.map((p) => (p.at === drag.at ? { ...p, at } : p)));
-      if (this._dlg.sel && this._dlg.sel.day === drag.day && this._dlg.sel.start === drag.at) this._dlg.sel = { day: drag.day, start: at };
-      drag.at = at;
+      const from = drag.at;
+      drag.at = at; // before the edit renders, so the time bubble follows
+      if (this._dlg.sel && this._dlg.sel.day === drag.day && this._dlg.sel.start === from) this._dlg.sel = { day: drag.day, start: at };
+      this._editDay(drag.day, (pts) => pts.map((p) => (p.at === from ? { ...p, at } : p)));
       return;
     }
     if (drag.mode === 'press' && drag.draw && Math.abs(e.clientY - drag.y0) >= DRAG_THRESHOLD) drag.mode = 'draw';
@@ -1240,6 +1242,9 @@ class HaPlooumClimateScheduleCard extends LitElement {
     const segs = (allSegs || weekSegments(week))[DAYS[dayIndex]];
     const now = this._nowMinute();
     const drag = dlg.drag && dlg.drag.mode === 'draw' && dlg.drag.day === dayIndex ? dlg.drag : null;
+    // A moved edge shows its time beside the column, where a finger on it does not hide it: on the left, as most
+    // people are right-handed, but on the right of the first column.
+    const move = dlg.drag && dlg.drag.mode === 'move' && dlg.drag.day === dayIndex ? dlg.drag : null;
     return html`
       <div class="col" data-day=${dayIndex}
         @pointerdown=${(e) => this._onDown(e, dayIndex)} @pointermove=${(e) => this._onMove(e)}
@@ -1260,6 +1265,7 @@ class HaPlooumClimateScheduleCard extends LitElement {
           <div class="ghost" style="top:${(Math.min(drag.from, drag.to) / DAY_MIN) * 100}%;height:${(Math.abs(drag.to - drag.from) / DAY_MIN) * 100}%">
             <span>${fmtTime(Math.min(drag.from, drag.to))} – ${fmtTime(Math.max(drag.from, drag.to) % DAY_MIN)}</span>
           </div>` : nothing}
+        ${move ? html`<div class="move-time ${dayIndex === 0 ? 'right' : 'left'}" style="top:${(move.at / DAY_MIN) * 100}%">${fmtTime(move.at)}</div>` : nothing}
         ${now.day === dayIndex ? html`<i class="now" style="top:${(now.minute / DAY_MIN) * 100}%"></i>` : nothing}
       </div>
     `;
@@ -2053,6 +2059,28 @@ const DIALOG_STYLES = css`
   .narrow .handle::after,
   .slot.sel .handle::after {
     opacity: 0.6;
+  }
+  .move-time {
+    position: absolute;
+    z-index: 5;
+    padding: 2px 6px;
+    border-radius: 10px;
+    background: var(--primary-color, #03a9f4);
+    color: var(--text-primary-color, #fff);
+    font-size: 12px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+    pointer-events: none;
+  }
+  .move-time.left {
+    left: 0;
+    transform: translate(calc(-100% - 12px), -50%);
+  }
+  .move-time.right {
+    left: 100%;
+    transform: translate(12px, -50%);
   }
   .ghost {
     position: absolute;

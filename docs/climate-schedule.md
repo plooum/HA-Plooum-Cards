@@ -21,7 +21,7 @@ A tab per program, a chip per profile (the house's active one wears a house icon
 
 - **Draw** on a day to add a slot (by 5 minutes), then set its temperature.
 - **Tap a slot** to change its times or temperature, turn it **Off** (the thermostats are turned off), or delete it (the slot before takes its time).
-- **Drag the top edge** of a slot to move the change.
+- **Drag the top edge** of a slot to move the change; the time shows on the edge while you drag.
 - **Paint**: pick a color of the palette, then draw or tap slots to give them that temperature; tap the color again to stop.
 - **Copy a day**: tap the day's name, pick the days (or Mon – Fri, Sat – Sun, every day), **Copy**.
 - **Palette** (🎨): add or remove temperatures. It is shared by the whole house, and only holds shortcuts: a slot takes any temperature.

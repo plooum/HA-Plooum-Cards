@@ -48,7 +48,11 @@
         { "assert": "S.r.querySelector('.col[data-day=\"1\"] .slot.off')", "msg": "drawn striped" },
         { "js": "await T.pointerDrag(S.col(1), S.pt(1, 1200), S.pt(1, 1200)); [...S.r.querySelectorAll('.panel .btn')].find((b) => b.textContent.includes('Delete')).click();" },
         { "assert": "JSON.stringify(S.day('tue')) === JSON.stringify([{ at: 0, value: 'off' }])", "msg": "deleting the 21° slot gives its time to the slot before", "show": "JSON.stringify(S.day('tue'))" },
-        { "js": "const h = S.col(2).querySelector('.handle[data-at=\"1020\"]'); await T.pointerDrag(S.col(2), S.pt(2, 1020), S.pt(2, 1080), { target: h });" },
+        { "js": "const h = S.col(2).querySelector('.handle[data-at=\"1020\"]'); const col = S.col(2); col.setPointerCapture = () => {}; const o = { bubbles: true, composed: true, pointerId: 7, button: 0, isPrimary: true, pointerType: 'mouse', buttons: 1 }; const a = S.pt(2, 1020), b = S.pt(2, 1080); h.dispatchEvent(new PointerEvent('pointerdown', { ...o, clientX: a.x, clientY: a.y })); await T.sleep(0); S.t0 = S.r.querySelector('.col[data-day=\"2\"] .move-time')?.textContent; col.dispatchEvent(new PointerEvent('pointermove', { ...o, clientX: b.x, clientY: b.y })); await T.sleep(0);" },
+        { "assert": "S.t0 === '17:00' && S.r.querySelector('.col[data-day=\"2\"] .move-time')?.textContent === '18:00' && S.r.querySelectorAll('.move-time').length === 1 && S.r.querySelector('.move-time').classList.contains('left')", "msg": "while dragging, the edge shows its time on the left of the column (17:00 on press, 18:00 after the move)", "show": "[S.t0, S.r.querySelector('.move-time')?.textContent]" },
+        { "shot": "climate-schedule-move-time.png" },
+        { "js": "const b = S.pt(2, 1080); S.col(2).dispatchEvent(new PointerEvent('pointerup', { bubbles: true, composed: true, pointerId: 7, button: 0, isPrimary: true, pointerType: 'mouse', buttons: 0, clientX: b.x, clientY: b.y })); await T.sleep(0);" },
+        { "assert": "!S.r.querySelector('.move-time')", "msg": "the time goes away on release" },
         { "assert": "S.day('wed').some((p) => p.at === 1080 && p.value === 21) && !S.day('wed').some((p) => p.at === 1020)", "msg": "dragging the 17:00 edge moves it to 18:00", "show": "JSON.stringify(S.day('wed'))" }
       ],
       "finally": [
