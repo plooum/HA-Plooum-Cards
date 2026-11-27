@@ -784,7 +784,7 @@ class HaPlooumClimateScheduleCard extends LitElement {
     try { col.setPointerCapture(e.pointerId); } catch (_) { /* synthetic events */ }
     if (handle) {
       e.preventDefault();
-      this._dlg.drag = { mode: 'move', day: dayIndex, at: Number(handle.dataset.at), col, touch: e.pointerType === 'touch' };
+      this._dlg.drag = { mode: 'move', day: dayIndex, at: Number(handle.dataset.at), col };
       this._renderDialog(); // shows the time bubble right away
       return;
     }
@@ -1263,7 +1263,7 @@ class HaPlooumClimateScheduleCard extends LitElement {
           <div class="ghost" style="top:${(Math.min(drag.from, drag.to) / DAY_MIN) * 100}%;height:${(Math.abs(drag.to - drag.from) / DAY_MIN) * 100}%">
             <span>${fmtTime(Math.min(drag.from, drag.to))} – ${fmtTime(Math.max(drag.from, drag.to) % DAY_MIN)}</span>
           </div>` : nothing}
-        ${move ? html`<div class="move-time ${move.touch ? 'touch' : ''}" style="top:${(move.at / DAY_MIN) * 100}%">${fmtTime(move.at)}</div>` : nothing}
+        ${move ? html`<div class="move-time" style="top:${(move.at / DAY_MIN) * 100}%">${fmtTime(move.at)}</div>` : nothing}
         ${now.day === dayIndex ? html`<i class="now" style="top:${(now.minute / DAY_MIN) * 100}%"></i>` : nothing}
       </div>
     `;
@@ -2062,7 +2062,7 @@ const DIALOG_STYLES = css`
     position: absolute;
     left: 50%;
     z-index: 5;
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, calc(-100% - 36px)); /* above the edge, so a finger on it does not hide it */
     padding: 2px 6px;
     border-radius: 10px;
     background: var(--primary-color, #03a9f4);
@@ -2073,9 +2073,6 @@ const DIALOG_STYLES = css`
     white-space: nowrap;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
     pointer-events: none;
-  }
-  .move-time.touch {
-    transform: translate(-50%, calc(-100% - 28px)); /* above the finger */
   }
   .ghost {
     position: absolute;
